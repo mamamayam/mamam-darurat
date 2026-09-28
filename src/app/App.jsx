@@ -1,0 +1,167 @@
+import React, { useState, useMemo, useCallback } from 'react';
+import { Modal, Button } from '../components/ui';
+import AppRoutes, { VIEWS } from './AppRoutes';
+import BottomSheetMenu from './layout/BottomSheetMenu';
+import Header from './layout/Header';
+import BottomNav from './layout/BottomNav';
+import { toLocalDateString } from '../utils/formatters';
+
+import {
+  Briefcase,
+  Clock,
+  Fingerprint,
+  List,
+  ShoppingCart,
+  TrendingDown,
+  BarChart3,
+  Users,
+} from 'lucide-react';
+
+/**
+ * App.jsx — Aplikasi C ("mamam-darurat").
+ *
+ * Ini BUKAN port 1:1 dari App.jsx test-app-baru (mamam-global) — itu file
+ * monolitik yang nyampur mesin navigasi dengan SEMUA state bisnis (POS
+ * store, sync engine, PIN admin, payroll auto-backfill, push notif, dll).
+ *
+ * Yang DIPERTAHANKAN persis (pola & logika, ditulis ulang bersih):
+ *   - Stack navigation per-root: navigate() / navigateToSub() / navigateBack()
+ *   - mountedViews (Set) — cabang yang tidak aktif TETAP mounted
+ *     (visibility:hidden di AppRoutes), state internal tidak reset
+ *   - navDirection — dibaca AppRoutes.jsx untuk varian animasi slide
+ *
+ * Yang DIBUANG (di luar scope Aplikasi C / gelombang 1):
+ *   - syncEngine, usePersistState, usePosStore (Dexie/offline) — C online-first
+ *   - PIN admin sungguhan, push notifications, Capacitor back-button/exit-toast
+ *     (web biasa dulu; App.jsx test-app-baru target APK Android)
+ *   - Auto-backfill payroll/libur, online/offline toast
+ *
+ * Guard shift: PosView tidak bisa diakses kalau belum ada shift yang
+ * `closed_at IS NULL` — logic ini akan diimplementasi di dalam PosView/
+ * ShiftView sendiri lewat query Supabase, BUKAN di sini (App.jsx tidak tahu
+ * apa pun soal data bisnis).
+ */
+export default function App() {
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Modal konfirmasi generik — dipakai BottomSheetMenu (logout admin) dan
+  // bisa dipakai fitur lain lewat context kalau nanti perlu.
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
+  const triggerConfirm = useCallback((message, onConfirm) => {
+    setConfirmModal({ isOpen: true, message, onConfirm });
+  }, []);
+  const closeConfirm = useCallback(() => {
+    setConfirmModal({ isOpen: false, message: '', onConfirm: null });
+  }, []);
+
+  // --- STACK NAVIGATION PER-ROOT (dipertahankan dari test-app-baru) ---
+  const [currentView, setCurrentView] = useState('beranda');
+  const [viewHistory, setViewHistory] = useState([]);
+  const [mountedViews, setMountedViews] = useState(() => new Set(['beranda']));
+  const [navDirection, setNavDirection] = useState('forward-root');
+
+  const navigate = useCallback((view) => {
+    if (view === currentView) return;
+    setViewHistory([]);
+    setMountedViews(new Set([view]));
+    setNavDirection('forward-root');
+    setCurrentView(view);
+  }, [currentView]);
+
+  const navigateToSub = useCallback((view) => {
+    if (view === currentView) return;
+    setViewHistory(prev => [...prev, currentView]);
+    setMountedViews(prev => new Set(prev).add(view));
+    setNavDirection('forward-sub');
+    setCurrentView(view);
+  }, [currentView]);
+
+  const navigateBack = useCallback(() => {
+    if (viewHistory.length > 0) {
+      const prev = viewHistory[viewHistory.length - 1];
+      setViewHistory(h => h.slice(0, -1));
+      setNavDirection('backward-sub');
+      setCurrentView(prev);
+    } else if (currentView !== 'beranda') {
+      setMountedViews(new Set(['beranda']));
+      setNavDirection('backward-root');
+      setCurrentView('beranda');
+    }
+    // Tidak ada double-tap exit (itu perilaku APK Android/Capacitor) —
+    // di beranda tanpa history, tombol back browser biasa yang berlaku.
+  }, [viewHistory, currentView]);
+
+  // --- Menu untuk BottomSheetMenu — 9 fitur gelombang 1 Aplikasi C ---
+  // NB: 'laporan' sudah termasuk Laba Rugi (bukan menu terpisah seperti
+  // 'labarugi' di test-app-baru) — lihat ReportsView.
+  const menuItems = useMemo(() => [
+    { id: 'kasir',       icon: ShoppingCart, label: 'Kasir' },
+    { id: 'dompet',      icon: Clock,        label: 'Dompet / Shift' },
+    { id: 'menu',        icon: List,         label: 'Manajemen Menu' },
+    { id: 'pelanggan',   icon: Users,        label: 'Pelanggan' },
+    { id: 'pengeluaran', icon: TrendingDown, label: 'Pengeluaran' },
+    { id: 'absensi',     icon: Fingerprint,  label: 'Absensi' },
+    { id: 'penggajian',  icon: Briefcase,    label: 'Penggajian' },
+    { id: 'laporan',     icon: BarChart3,    label: 'Laporan' },
+  ], []);
+
+  // Belum ada auth sungguhan (disepakati: nanti dulu) — semua menu selalu
+  // terlihat, tidak ada filtering by isAdminMode seperti test-app-baru.
+  const visibleMenus = menuItems;
+
+  const today = useMemo(() => {
+    const now = new Date();
+    return now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+  }, []);
+
+  // TODO(gelombang berikutnya): currentShift ini harus berasal dari query
+  // Supabase (`shifts` yang `closed_at IS NULL`), disuplai oleh ShiftView
+  // lewat context/hook bersama — sekarang masih placeholder false supaya
+  // App.jsx bisa dirender & ditest independen dari data layer.
+  const currentShift = false;
+
+  return (
+    <div className="h-full w-full flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      <Header
+        currentShift={currentShift}
+        currentView={currentView}
+        today={today}
+      />
+
+      <AppRoutes
+        currentView={currentView}
+        mountedViews={mountedViews}
+        navDirection={navDirection}
+      />
+
+      <BottomNav
+        currentView={currentView}
+        navigate={navigate}
+        onOpenMenu={() => setIsMenuOpen(true)}
+      />
+
+      <BottomSheetMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        visibleMenus={visibleMenus}
+        currentView={currentView}
+        navigate={navigate}
+        isAdminMode={isAdminMode}
+        setShowPinModal={() => {}}
+        triggerConfirm={triggerConfirm}
+        setIsAdminMode={setIsAdminMode}
+      />
+
+      <Modal isOpen={confirmModal.isOpen} onClose={closeConfirm} size="sm">
+        <div className="p-5">
+          <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">{confirmModal.message}</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={closeConfirm}>Batal</Button>
+            <Button onClick={() => { confirmModal.onConfirm?.(); closeConfirm(); }}>Ya, Lanjutkan</Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
