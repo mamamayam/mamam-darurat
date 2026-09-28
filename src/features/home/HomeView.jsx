@@ -26,8 +26,6 @@ import { supabase } from '../../lib/supabase';
  *     di-port ke PosView
  */
 
-const TREND_DAYS = 11;
-
 const HomeView = () => {
     const [sales, setSales] = useState([]);
     const [expenses, setExpenses] = useState([]);
@@ -42,8 +40,8 @@ const HomeView = () => {
         return () => clearInterval(timer);
     }, []);
 
-    // Ambil data 11 hari terakhir langsung dari Supabase — cukup buat hero
-    // card + grid + chart tren. Tidak ada polling/subscription realtime di
+    // Ambil data 2 hari terakhir (hari ini + kemarin, untuk badge delta %)
+    // langsung dari Supabase. Tidak ada polling/subscription realtime di
     // gelombang ini; refresh manual (reload halaman) sudah cukup untuk
     // kebutuhan "track harian". Bisa ditambah Supabase Realtime subscription
     // nanti kalau auto-refresh terasa perlu.
@@ -55,19 +53,20 @@ const HomeView = () => {
             setError(null);
 
             const since = new Date(now);
-            since.setDate(since.getDate() - (TREND_DAYS - 1));
+            since.setDate(since.getDate() - 1);
             since.setHours(0, 0, 0, 0);
 
             const [salesRes, expensesRes] = await Promise.all([
                 supabase
                     .from('transactions')
-                    .select('id, display_number, order_type, customer_name, items:transaction_items(*), subtotal, manual_discount_amount, tax_amount, service_amount, delivery_fee, total, payment_method, ojol_platform, order_number:display_number, created_at, status')
+                    .select('id, display_number, order_type, customer_name, items:transaction_items(*), subtotal, voucher_discount, manual_discount_amount, tax_amount, service_amount, delivery_fee, total, payment_method, ojol_platform, created_at, status')
                     .eq('status', 'paid')
                     .gte('created_at', since.toISOString())
                     .order('created_at', { ascending: false }),
                 supabase
                     .from('expenses')
                     .select('id, amount, transaction_date')
+                    .eq('direction', 'pengeluaran')
                     .gte('transaction_date', since.toISOString().slice(0, 10)),
             ]);
 
@@ -126,41 +125,6 @@ const HomeView = () => {
     const salesDeltaPct = salesYesterday > 0
         ? Math.round(((totalSalesToday - salesYesterday) / salesYesterday) * 100)
         : (totalSalesToday > 0 ? 100 : 0);
-
-    // Tren penjualan N hari terakhir
-    const trendData = useMemo(() => {
-        const days = [];
-        for (let i = TREND_DAYS - 1; i >= 0; i--) {
-            const d = new Date(now);
-            d.setDate(d.getDate() - i);
-            const dayTotal = sales
-                .filter(order => {
-                    const od = new Date(order.created_at);
-                    return od.getDate() === d.getDate() && od.getMonth() === d.getMonth() && od.getFullYear() === d.getFullYear();
-                })
-                .reduce((sum, order) => sum + order.total, 0);
-            const dow = d.getDay();
-            days.push({
-                label: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric' }),
-                total: dayTotal,
-                isWeekend: dow === 0 || dow === 6,
-            });
-        }
-
-        const maxVal = Math.max(...days.map(d => d.total), 10000);
-        const width = 500;
-        const height = 140;
-        const paddingX = 12;
-        const paddingTop = 12;
-        const paddingBottom = 24;
-        const points = days.map((d, i) => ({
-            x: paddingX + (i / Math.max(days.length - 1, 1)) * (width - paddingX * 2),
-            y: height - paddingBottom - (d.total / maxVal) * (height - paddingTop - paddingBottom),
-            ...d,
-        }));
-        const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        return { points, linePath, width, height };
-    }, [sales, now]);
 
     if (error) {
         return (
@@ -228,30 +192,6 @@ const HomeView = () => {
                         <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Rata-rata</p>
                     </div>
                     <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(avgTransaksi)}</p>
-                </div>
-            </div>
-
-            {/* Tren Penjualan */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 mb-6">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-heading text-sm font-bold text-slate-800 dark:text-slate-100">Tren Penjualan</h3>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-slate-500">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-700" />Hari Biasa</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-accent-500" />Weekend</span>
-                    </div>
-                </div>
-                <svg viewBox={`0 0 ${trendData.width} ${trendData.height}`} className="w-full h-32" preserveAspectRatio="none">
-                    <path d={trendData.linePath} fill="none" stroke="#d1d5db" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    {trendData.points.map((p, i) => (
-                        <circle key={i} cx={p.x} cy={p.y} r="4" fill={p.isWeekend ? '#f97316' : '#92400e'} stroke="white" strokeWidth="1.5" />
-                    ))}
-                </svg>
-                <div className="flex justify-between mt-1">
-                    {trendData.points.map((p, i) => (
-                        <span key={i} className="text-[9px] text-slate-400 dark:text-slate-500" style={{ display: trendData.points.length > 7 && i % 2 !== 0 ? 'none' : 'block' }}>
-                            {p.label}
-                        </span>
-                    ))}
                 </div>
             </div>
 

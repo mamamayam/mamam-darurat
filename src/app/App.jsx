@@ -4,7 +4,8 @@ import AppRoutes, { VIEWS } from './AppRoutes';
 import BottomSheetMenu from './layout/BottomSheetMenu';
 import Header from './layout/Header';
 import BottomNav from './layout/BottomNav';
-import { toLocalDateString } from '../utils/formatters';
+import { AppContext } from '../context/AppContext';
+import { formatRupiah } from '../utils/formatters';
 
 import {
   Briefcase,
@@ -54,6 +55,15 @@ export default function App() {
   const closeConfirm = useCallback(() => {
     setConfirmModal({ isOpen: false, message: '', onConfirm: null });
   }, []);
+
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '' });
+  const triggerAlert = useCallback((message) => setAlertModal({ isOpen: true, message }), []);
+
+  // Helper UI yang dibagikan ke semua View lewat useAppContext()
+  const appContextValue = useMemo(
+    () => ({ triggerAlert, triggerConfirm, formatRupiah }),
+    [triggerAlert, triggerConfirm]
+  );
 
   // --- STACK NAVIGATION PER-ROOT (dipertahankan dari test-app-baru) ---
   const [currentView, setCurrentView] = useState('beranda');
@@ -122,7 +132,8 @@ export default function App() {
   const currentShift = false;
 
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <AppContext.Provider value={appContextValue}>
+    <div className="h-screen h-dvh w-full flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <Header
         currentShift={currentShift}
         currentView={currentView}
@@ -162,6 +173,16 @@ export default function App() {
           </div>
         </div>
       </Modal>
+
+      <Modal isOpen={alertModal.isOpen} onClose={() => setAlertModal({ isOpen: false, message: '' })} size="sm">
+        <div className="p-5">
+          <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">{alertModal.message}</p>
+          <div className="flex justify-end">
+            <Button onClick={() => setAlertModal({ isOpen: false, message: '' })}>Oke</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
+    </AppContext.Provider>
   );
 }

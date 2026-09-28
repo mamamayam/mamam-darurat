@@ -1,0 +1,146 @@
+From 5f57d86d0e7552409bdd56e97f304ccd1c0e314b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 28 Sep 2026 05:04:54 +0000
+Subject: [PATCH] fix: Beranda blank (root h-screen), hapus Tren Penjualan,
+ favicon fallback
+
+---
+ index.html                     |  1 +
+ src/app/App.jsx                |  2 +-
+ src/features/home/HomeView.jsx | 67 ++--------------------------------
+ 3 files changed, 5 insertions(+), 65 deletions(-)
+
+diff --git a/index.html b/index.html
+index ed39022..ad611ec 100644
+--- a/index.html
++++ b/index.html
+@@ -3,6 +3,7 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
++    <link rel="icon" href="data:," />
+     <title>Mamam Darurat</title>
+   </head>
+   <body>
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index f0741e1..edcf5ff 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -122,7 +122,7 @@ export default function App() {
+   const currentShift = false;
+ 
+   return (
+-    <div className="h-full w-full flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
++    <div className="h-screen h-dvh w-full flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+       <Header
+         currentShift={currentShift}
+         currentView={currentView}
+diff --git a/src/features/home/HomeView.jsx b/src/features/home/HomeView.jsx
+index a3e1e30..bf1ceaa 100644
+--- a/src/features/home/HomeView.jsx
++++ b/src/features/home/HomeView.jsx
+@@ -26,8 +26,6 @@ import { supabase } from '../../lib/supabase';
+  *     di-port ke PosView
+  */
+ 
+-const TREND_DAYS = 11;
+-
+ const HomeView = () => {
+     const [sales, setSales] = useState([]);
+     const [expenses, setExpenses] = useState([]);
+@@ -42,8 +40,8 @@ const HomeView = () => {
+         return () => clearInterval(timer);
+     }, []);
+ 
+-    // Ambil data 11 hari terakhir langsung dari Supabase — cukup buat hero
+-    // card + grid + chart tren. Tidak ada polling/subscription realtime di
++    // Ambil data 2 hari terakhir (hari ini + kemarin, untuk badge delta %)
++    // langsung dari Supabase. Tidak ada polling/subscription realtime di
+     // gelombang ini; refresh manual (reload halaman) sudah cukup untuk
+     // kebutuhan "track harian". Bisa ditambah Supabase Realtime subscription
+     // nanti kalau auto-refresh terasa perlu.
+@@ -55,7 +53,7 @@ const HomeView = () => {
+             setError(null);
+ 
+             const since = new Date(now);
+-            since.setDate(since.getDate() - (TREND_DAYS - 1));
++            since.setDate(since.getDate() - 1);
+             since.setHours(0, 0, 0, 0);
+ 
+             const [salesRes, expensesRes] = await Promise.all([
+@@ -127,41 +125,6 @@ const HomeView = () => {
+         ? Math.round(((totalSalesToday - salesYesterday) / salesYesterday) * 100)
+         : (totalSalesToday > 0 ? 100 : 0);
+ 
+-    // Tren penjualan N hari terakhir
+-    const trendData = useMemo(() => {
+-        const days = [];
+-        for (let i = TREND_DAYS - 1; i >= 0; i--) {
+-            const d = new Date(now);
+-            d.setDate(d.getDate() - i);
+-            const dayTotal = sales
+-                .filter(order => {
+-                    const od = new Date(order.created_at);
+-                    return od.getDate() === d.getDate() && od.getMonth() === d.getMonth() && od.getFullYear() === d.getFullYear();
+-                })
+-                .reduce((sum, order) => sum + order.total, 0);
+-            const dow = d.getDay();
+-            days.push({
+-                label: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric' }),
+-                total: dayTotal,
+-                isWeekend: dow === 0 || dow === 6,
+-            });
+-        }
+-
+-        const maxVal = Math.max(...days.map(d => d.total), 10000);
+-        const width = 500;
+-        const height = 140;
+-        const paddingX = 12;
+-        const paddingTop = 12;
+-        const paddingBottom = 24;
+-        const points = days.map((d, i) => ({
+-            x: paddingX + (i / Math.max(days.length - 1, 1)) * (width - paddingX * 2),
+-            y: height - paddingBottom - (d.total / maxVal) * (height - paddingTop - paddingBottom),
+-            ...d,
+-        }));
+-        const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+-        return { points, linePath, width, height };
+-    }, [sales, now]);
+-
+     if (error) {
+         return (
+             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-2">
+@@ -231,30 +194,6 @@ const HomeView = () => {
+                 </div>
+             </div>
+ 
+-            {/* Tren Penjualan */}
+-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 mb-6">
+-                <div className="flex items-center justify-between mb-3">
+-                    <h3 className="font-heading text-sm font-bold text-slate-800 dark:text-slate-100">Tren Penjualan</h3>
+-                    <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-slate-500">
+-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-700" />Hari Biasa</span>
+-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-accent-500" />Weekend</span>
+-                    </div>
+-                </div>
+-                <svg viewBox={`0 0 ${trendData.width} ${trendData.height}`} className="w-full h-32" preserveAspectRatio="none">
+-                    <path d={trendData.linePath} fill="none" stroke="#d1d5db" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+-                    {trendData.points.map((p, i) => (
+-                        <circle key={i} cx={p.x} cy={p.y} r="4" fill={p.isWeekend ? '#f97316' : '#92400e'} stroke="white" strokeWidth="1.5" />
+-                    ))}
+-                </svg>
+-                <div className="flex justify-between mt-1">
+-                    {trendData.points.map((p, i) => (
+-                        <span key={i} className="text-[9px] text-slate-400 dark:text-slate-500" style={{ display: trendData.points.length > 7 && i % 2 !== 0 ? 'none' : 'block' }}>
+-                            {p.label}
+-                        </span>
+-                    ))}
+-                </div>
+-            </div>
+-
+             {/* Riwayat Pesanan Hari Ini */}
+             <div className="flex justify-between items-center mb-4">
+                 <h3 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Riwayat Pesanan Hari Ini</h3>
+-- 
+2.43.0
+
