@@ -1,0 +1,141 @@
+import { X, CheckCircle2 } from 'lucide-react';
+import { usePosStore } from '../../store/usePosStore';
+
+/**
+ * VariantSelectionModal — di-port hampir 100% dari mamam-global. Murni
+ * UI + interaksi lokal (toggle pilihan, validasi wajib/max), tidak
+ * menyentuh Supabase sama sekali. Satu-satunya perubahan: `variantGroups`
+ * dan `formatRupiah` diterima lewat props (dari useMenuData & AppContext
+ * di PosView) alih-alih dari useAppContext() gabungan A.
+ */
+export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
+  const selectedMenuForVariant = usePosStore((state) => state.selectedMenuForVariant);
+  const setSelectedMenuForVariant = usePosStore((state) => state.setSelectedMenuForVariant);
+  const variantSelectedOptions = usePosStore((state) => state.variantSelectedOptions);
+  const setVariantSelectedOptions = usePosStore((state) => state.setVariantSelectedOptions);
+  const editingCartItemId = usePosStore((state) => state.editingCartItemId);
+  const setEditingCartItemId = usePosStore((state) => state.setEditingCartItemId);
+  const addToCart = usePosStore((state) => state.addToCart);
+  const updateCartItemVariants = usePosStore((state) => state.updateCartItemVariants);
+
+  if (!selectedMenuForVariant) return null;
+
+  const menuVariants = variantGroups.filter(vg =>
+    selectedMenuForVariant.variantGroupIds.includes(vg.id)
+  );
+
+  const handleToggleOption = (groupId, optionId, maxSelection) => {
+    setVariantSelectedOptions(prev => {
+      const currentGroupSelections = prev[groupId] || [];
+      if (currentGroupSelections.includes(optionId)) {
+        return { ...prev, [groupId]: currentGroupSelections.filter(id => id !== optionId) };
+      } else {
+        if (maxSelection === 1) return { ...prev, [groupId]: [optionId] };
+        else if (currentGroupSelections.length < maxSelection) return { ...prev, [groupId]: [...currentGroupSelections, optionId] };
+        else return prev;
+      }
+    });
+  };
+
+  const isSelectionValid = menuVariants.every(vg => {
+    if (vg.isRequired) return (variantSelectedOptions[vg.id] || []).length > 0;
+    return true;
+  });
+
+  const handleCloseModal = () => {
+    setSelectedMenuForVariant(null);
+    setVariantSelectedOptions({});
+    setEditingCartItemId(null);
+  };
+
+  const handleSave = () => {
+    if (!isSelectionValid) return;
+    if (editingCartItemId) {
+      updateCartItemVariants(editingCartItemId, variantSelectedOptions, variantGroups);
+      setEditingCartItemId(null);
+      setSelectedMenuForVariant(null);
+    } else {
+      addToCart(selectedMenuForVariant, variantSelectedOptions, variantGroups);
+      setSelectedMenuForVariant(null);
+      setVariantSelectedOptions({});
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40 backdrop-blur-sm transition-opacity duration-300">
+      <div className="bg-white dark:bg-slate-900 w-full md:w-[450px] rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full md:zoom-in-95 duration-300 ease-out max-h-[90vh] flex flex-col">
+
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 sticky top-0 z-10">
+          <div>
+            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-lg leading-tight">
+              {editingCartItemId ? `Edit Varian: ${selectedMenuForVariant.name}` : selectedMenuForVariant.name}
+            </h3>
+            <p className="text-sm font-bold text-accent-600 dark:text-accent-400">
+              {formatRupiah(selectedMenuForVariant.price)}
+            </p>
+          </div>
+          <button onClick={handleCloseModal} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto flex-1 space-y-6 bg-slate-50 dark:bg-slate-950/50">
+          {menuVariants.length === 0 && (
+            <p className="text-sm text-slate-500 dark:text-slate-400 italic text-center py-4">Tidak ada variasi untuk menu ini.</p>
+          )}
+
+          {menuVariants.map(vg => {
+            const currentSelections = variantSelectedOptions[vg.id] || [];
+            const isMaxReached = currentSelections.length >= vg.maxSelection;
+            return (
+              <div key={vg.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm animate-in fade-in duration-300">
+                <div className="bg-slate-50 dark:bg-slate-950 p-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                  <div>
+                    <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm">{vg.name}</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Pilih maksimal {vg.maxSelection}</p>
+                  </div>
+                  {vg.isRequired
+                    ? <span className="text-[10px] font-bold bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-1 rounded-md uppercase tracking-wider">Wajib</span>
+                    : <span className="text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md uppercase tracking-wider">Opsional</span>
+                  }
+                </div>
+                <div className="p-2">
+                  {vg.options.map(opt => {
+                    const isSelected = currentSelections.includes(opt.id);
+                    const isDisabled = !isSelected && isMaxReached;
+                    return (
+                      <label key={opt.id}
+                        className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors duration-200
+                          ${isSelected ? 'bg-accent-50 dark:bg-accent-500/10 border border-orange-200 dark:border-orange-500/30 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-950 border border-transparent'}
+                          ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-accent-600 dark:bg-accent-500 border-orange-600 dark:border-orange-500' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600'}`}>
+                            {isSelected && <CheckCircle2 className="w-4 h-4 text-white animate-in zoom-in" />}
+                          </div>
+                          <span className={`font-semibold text-sm ${isSelected ? 'text-accent-600 dark:text-accent-400' : 'text-slate-700 dark:text-slate-200'}`}>{opt.name}</span>
+                        </div>
+                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                          {opt.extraPrice > 0 ? `+${formatRupiah(opt.extraPrice)}` : 'Gratis'}
+                        </span>
+                        <input type="checkbox" className="hidden" checked={isSelected} disabled={isDisabled}
+                          onChange={() => handleToggleOption(vg.id, opt.id, vg.maxSelection)} />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+          <button onClick={handleSave} disabled={!isSelectionValid}
+            className="w-full py-3.5 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-lg transition-all duration-300">
+            {editingCartItemId ? 'Simpan Perubahan Varian' : (isSelectionValid ? 'Tambah ke Keranjang' : 'Lengkapi Pilihan Wajib')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

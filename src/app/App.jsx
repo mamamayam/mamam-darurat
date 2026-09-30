@@ -59,12 +59,6 @@ export default function App() {
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '' });
   const triggerAlert = useCallback((message) => setAlertModal({ isOpen: true, message }), []);
 
-  // Helper UI yang dibagikan ke semua View lewat useAppContext()
-  const appContextValue = useMemo(
-    () => ({ triggerAlert, triggerConfirm, formatRupiah }),
-    [triggerAlert, triggerConfirm]
-  );
-
   // --- STACK NAVIGATION PER-ROOT (dipertahankan dari test-app-baru) ---
   const [currentView, setCurrentView] = useState('beranda');
   const [viewHistory, setViewHistory] = useState([]);
@@ -101,6 +95,15 @@ export default function App() {
     // Tidak ada double-tap exit (itu perilaku APK Android/Capacitor) —
     // di beranda tanpa history, tombol back browser biasa yang berlaku.
   }, [viewHistory, currentView]);
+
+  // Helper UI + navigasi yang dibagikan ke semua View lewat useAppContext().
+  // Diletakkan SETELAH navigate/navigateToSub/navigateBack didefinisikan
+  // (bug yang pernah terjadi: dideklarasikan sebelum navigate ada, sehingga
+  // View yang memanggil navigate() dari context diam-diam gagal).
+  const appContextValue = useMemo(
+    () => ({ triggerAlert, triggerConfirm, formatRupiah, navigate, navigateToSub, navigateBack }),
+    [triggerAlert, triggerConfirm, navigate, navigateToSub, navigateBack]
+  );
 
   // --- Menu untuk BottomSheetMenu — 9 fitur gelombang 1 Aplikasi C ---
   // NB: 'laporan' sudah termasuk Laba Rugi (bukan menu terpisah seperti

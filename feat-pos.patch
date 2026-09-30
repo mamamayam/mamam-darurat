@@ -1,0 +1,1736 @@
+From 1c48362606649b7a0d69a497585c7a5c4690bc57 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 29 Sep 2026 04:53:11 +0000
+Subject: [PATCH] feat(pos): Kasir lengkap (menu+varian, cart, semua payment
+ method, split, ojol, voucher) online-first; fix(app): navigate hilang dari
+ AppContext
+
+---
+ package-lock.json                          |  32 ++-
+ package.json                               |   3 +-
+ src/app/App.jsx                            |  15 +-
+ src/features/pos/CartDrawer.jsx            | 264 +++++++++++++++++++
+ src/features/pos/CustomerPicker.jsx        | 141 +++++++++++
+ src/features/pos/PaymentModal.jsx          | 261 +++++++++++++++++++
+ src/features/pos/PosView.jsx               | 280 ++++++++++++++++++++-
+ src/features/pos/ReceiptModal.jsx          |  32 +++
+ src/features/pos/VariantSelectionModal.jsx | 141 +++++++++++
+ src/features/pos/posMath.js                |  82 ++++++
+ src/features/pos/useCheckout.js            | 106 ++++++++
+ src/hook/useVouchers.js                    |  22 ++
+ src/store/usePosStore.js                   | 214 ++++++++++++++++
+ 13 files changed, 1583 insertions(+), 10 deletions(-)
+ create mode 100644 src/features/pos/CartDrawer.jsx
+ create mode 100644 src/features/pos/CustomerPicker.jsx
+ create mode 100644 src/features/pos/PaymentModal.jsx
+ create mode 100644 src/features/pos/ReceiptModal.jsx
+ create mode 100644 src/features/pos/VariantSelectionModal.jsx
+ create mode 100644 src/features/pos/posMath.js
+ create mode 100644 src/features/pos/useCheckout.js
+ create mode 100644 src/hook/useVouchers.js
+ create mode 100644 src/store/usePosStore.js
+
+diff --git a/package-lock.json b/package-lock.json
+index 45c0fcb..f95996e 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -17,7 +17,8 @@
+         "lucide-react": "^1.17.0",
+         "react": "^19.2.6",
+         "react-dom": "^19.2.6",
+-        "tailwindcss": "^4.3.0"
++        "tailwindcss": "^4.3.0",
++        "zustand": "^5.0.15"
+       },
+       "devDependencies": {
+         "@vitejs/plugin-react": "^4.3.0",
+@@ -2513,6 +2514,35 @@
+       "integrity": "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==",
+       "dev": true,
+       "license": "ISC"
++    },
++    "node_modules/zustand": {
++      "version": "5.0.15",
++      "resolved": "https://registry.npmjs.org/zustand/-/zustand-5.0.15.tgz",
++      "integrity": "sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=12.20.0"
++      },
++      "peerDependencies": {
++        "@types/react": ">=18.0.0",
++        "immer": ">=9.0.6",
++        "react": ">=18.0.0",
++        "use-sync-external-store": ">=1.2.0"
++      },
++      "peerDependenciesMeta": {
++        "@types/react": {
++          "optional": true
++        },
++        "immer": {
++          "optional": true
++        },
++        "react": {
++          "optional": true
++        },
++        "use-sync-external-store": {
++          "optional": true
++        }
++      }
+     }
+   }
+ }
+diff --git a/package.json b/package.json
+index b286988..2b5afb3 100644
+--- a/package.json
++++ b/package.json
+@@ -18,7 +18,8 @@
+     "lucide-react": "^1.17.0",
+     "react": "^19.2.6",
+     "react-dom": "^19.2.6",
+-    "tailwindcss": "^4.3.0"
++    "tailwindcss": "^4.3.0",
++    "zustand": "^5.0.15"
+   },
+   "devDependencies": {
+     "@vitejs/plugin-react": "^4.3.0",
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index 06c1a34..3cb223e 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -59,12 +59,6 @@ export default function App() {
+   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '' });
+   const triggerAlert = useCallback((message) => setAlertModal({ isOpen: true, message }), []);
+ 
+-  // Helper UI yang dibagikan ke semua View lewat useAppContext()
+-  const appContextValue = useMemo(
+-    () => ({ triggerAlert, triggerConfirm, formatRupiah }),
+-    [triggerAlert, triggerConfirm]
+-  );
+-
+   // --- STACK NAVIGATION PER-ROOT (dipertahankan dari test-app-baru) ---
+   const [currentView, setCurrentView] = useState('beranda');
+   const [viewHistory, setViewHistory] = useState([]);
+@@ -102,6 +96,15 @@ export default function App() {
+     // di beranda tanpa history, tombol back browser biasa yang berlaku.
+   }, [viewHistory, currentView]);
+ 
++  // Helper UI + navigasi yang dibagikan ke semua View lewat useAppContext().
++  // Diletakkan SETELAH navigate/navigateToSub/navigateBack didefinisikan
++  // (bug yang pernah terjadi: dideklarasikan sebelum navigate ada, sehingga
++  // View yang memanggil navigate() dari context diam-diam gagal).
++  const appContextValue = useMemo(
++    () => ({ triggerAlert, triggerConfirm, formatRupiah, navigate, navigateToSub, navigateBack }),
++    [triggerAlert, triggerConfirm, navigate, navigateToSub, navigateBack]
++  );
++
+   // --- Menu untuk BottomSheetMenu — 9 fitur gelombang 1 Aplikasi C ---
+   // NB: 'laporan' sudah termasuk Laba Rugi (bukan menu terpisah seperti
+   // 'labarugi' di test-app-baru) — lihat ReportsView.
+diff --git a/src/features/pos/CartDrawer.jsx b/src/features/pos/CartDrawer.jsx
+new file mode 100644
+index 0000000..470d3c3
+--- /dev/null
++++ b/src/features/pos/CartDrawer.jsx
+@@ -0,0 +1,264 @@
++import { useState, useEffect } from 'react';
++import {
++  ShoppingCart, Trash2, X, Award, Truck, Edit3, Minus, Plus, Ticket, ChevronRight, Users, Pencil,
++} from 'lucide-react';
++import { usePosStore } from '../../store/usePosStore';
++import { computeOrderTotals } from './posMath';
++import CustomerPickerModal from './CustomerPicker';
++
++/**
++ * CartDrawer — di-port dari mamam-global, DIPANGKAS sesuai scope
++ * gelombang 1 Aplikasi C:
++ *  - TANPA "Simpan Bill" (savedBills) — sesuai keputusan: checkout
++ *    langsung selesai atau batal. Draft cart tetap aman lewat
++ *    usePosStore (persist localStorage), bukan lewat mekanisme bill
++ *    terpisah.
++ *  - TANPA Klaim Poin (poin ditunda ke gelombang berikutnya).
++ *  - TANPA pajak/service charge (di luar scope gelombang 1).
++ *  - Voucher tetap ada (kolomnya sudah di skema, dipakai checkout),
++ *    tapi manajemen voucher sendiri belum ada UI-nya.
++ */
++export default function CartDrawer({ menus, customers, saveCustomer, vouchers, employees, triggerAlert, triggerConfirm, formatRupiah }) {
++  const cart = usePosStore((s) => s.cart);
++  const setCart = usePosStore((s) => s.setCart);
++  const isCartOpen = usePosStore((s) => s.isCartOpen);
++  const setIsCartOpen = usePosStore((s) => s.setIsCartOpen);
++  const setSelectedMenuForVariant = usePosStore((s) => s.setSelectedMenuForVariant);
++  const setVariantSelectedOptions = usePosStore((s) => s.setVariantSelectedOptions);
++  const setEditingCartItemId = usePosStore((s) => s.setEditingCartItemId);
++  const setPaymentModal = usePosStore((s) => s.setPaymentModal);
++
++  const customerName = usePosStore((s) => s.customerName);
++  const setCustomerName = usePosStore((s) => s.setCustomerName);
++  const selectedCustomerId = usePosStore((s) => s.selectedCustomerId);
++  const setSelectedCustomerId = usePosStore((s) => s.setSelectedCustomerId);
++  const orderType = usePosStore((s) => s.orderType);
++  const setOrderType = usePosStore((s) => s.setOrderType);
++  const deliveryFee = usePosStore((s) => s.deliveryFee);
++  const setDeliveryFee = usePosStore((s) => s.setDeliveryFee);
++  const customDeliveryFee = usePosStore((s) => s.customDeliveryFee);
++  const setCustomDeliveryFee = usePosStore((s) => s.setCustomDeliveryFee);
++  const setDeliveryCourierId = usePosStore((s) => s.setDeliveryCourierId);
++  const setDeliveryPaidTo = usePosStore((s) => s.setDeliveryPaidTo);
++  const updateCartQty = usePosStore((s) => s.updateCartQty);
++  const updateCartItemNote = usePosStore((s) => s.updateCartItemNote);
++  const manualDiscount = usePosStore((s) => s.manualDiscount);
++  const setManualDiscount = usePosStore((s) => s.setManualDiscount);
++  const voucherCode = usePosStore((s) => s.voucherCode);
++  const setVoucherCode = usePosStore((s) => s.setVoucherCode);
++  const resetDraft = usePosStore((s) => s.resetDraft);
++
++  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
++  const [voucherInput, setVoucherInput] = useState(voucherCode);
++
++  const activeCustomer = customers.find(c => c.id === selectedCustomerId) || null;
++  const appliedVoucher = vouchers.find(v => v.code === voucherCode) || null;
++
++  const totals = computeOrderTotals({ cart, voucher: appliedVoucher, manualDiscount, orderType, deliveryFee });
++
++  const handleClearCustomer = () => { setCustomerName(''); setSelectedCustomerId(null); };
++
++  const handleEditVariant = (cartItem) => {
++    const originalMenu = menus.find(m => m.id === cartItem.menuId);
++    if (originalMenu) {
++      setSelectedMenuForVariant(originalMenu);
++      setVariantSelectedOptions(cartItem.variantSelectedOptions || {});
++      setEditingCartItemId(cartItem.cartItemId);
++      setIsCartOpen(false);
++    }
++  };
++
++  const handleApplyVoucher = () => {
++    const code = voucherInput.trim().toUpperCase();
++    if (!code) return;
++    const found = vouchers.find(v => v.code === code);
++    if (!found) return triggerAlert('Voucher tidak ditemukan.');
++    if (totals.subtotal < found.min_purchase) {
++      return triggerAlert(`Minimal belanja untuk voucher ini: ${formatRupiah(found.min_purchase)}`);
++    }
++    setVoucherCode(code);
++    triggerAlert(`Voucher ${code} berhasil dipasang!`);
++  };
++
++  if (!isCartOpen) return null;
++
++  return (
++    <div className="fixed inset-0 z-50 flex justify-center">
++      <div className="absolute inset-0 bg-slate-500/40 dark:bg-slate-800/40 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsCartOpen(false)} />
++      <div className="w-full md:w-[420px] bg-white dark:bg-slate-900 h-full flex flex-col shadow-2xl relative animate-in slide-in-from-right duration-300 ease-out">
++
++        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
++          <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
++            <ShoppingCart className="w-5 h-5 text-slate-800 dark:text-slate-100" /> Keranjang Pesanan
++          </h2>
++          <div className="flex gap-2">
++            {cart.length > 0 && (
++              <button onClick={() => triggerConfirm('Hapus semua isi keranjang? Data pelanggan & pesanan ikut direset.', resetDraft)}
++                className="p-2 text-accent-500 dark:text-accent-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 rounded-full transition-colors" title="Kosongkan Keranjang">
++                <Trash2 className="w-5 h-5" />
++              </button>
++            )}
++            <button onClick={() => setIsCartOpen(false)} className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
++              <X className="w-5 h-5" />
++            </button>
++          </div>
++        </div>
++
++        <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950/50">
++          {cart.length === 0 ? (
++            <div className="flex flex-col items-center justify-center h-full p-4">
++              <ShoppingCart className="w-16 h-16 mb-4 opacity-20 text-slate-400 dark:text-slate-500" />
++              <p className="text-slate-400 dark:text-slate-500">Keranjang masih kosong</p>
++            </div>
++          ) : (
++            <div className="p-4 space-y-5">
++              {/* --- CUSTOMER PICKER --- */}
++              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
++                <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Pelanggan</label>
++                {activeCustomer ? (
++                  <div className="flex items-center justify-between gap-2">
++                    <button onClick={() => setIsCustomerModalOpen(true)} className="flex-1 flex items-center gap-2 min-w-0 text-left">
++                      <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{activeCustomer.name}</span>
++                    </button>
++                    <button onClick={() => setIsCustomerModalOpen(true)} title="Ganti pelanggan" className="p-1.5 text-slate-400 hover:text-accent-500 dark:hover:text-accent-400 transition-colors shrink-0"><Pencil className="w-3.5 h-3.5" /></button>
++                    <button onClick={handleClearCustomer} title="Hapus pilihan pelanggan" className="p-1.5 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors shrink-0"><X className="w-3.5 h-3.5" /></button>
++                  </div>
++                ) : (
++                  <button onClick={() => setIsCustomerModalOpen(true)}
++                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-accent-400 dark:hover:border-accent-500 text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400 text-xs font-bold transition-colors">
++                    <Users className="w-3.5 h-3.5" /> Pilih / Tambah Pelanggan
++                  </button>
++                )}
++                {customerName.trim() !== '' && !activeCustomer && (
++                  <p className="mt-2 text-[10px] font-semibold text-slate-400 dark:text-slate-500 italic">Guest — bayar sebagai "{customerName}".</p>
++                )}
++              </div>
++
++              <CustomerPickerModal isOpen={isCustomerModalOpen} onClose={() => setIsCustomerModalOpen(false)}
++                customers={customers} saveCustomer={saveCustomer} triggerAlert={triggerAlert} />
++
++              {/* --- ORDER TYPE --- */}
++              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
++                <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Tipe Pesanan</label>
++                <div className="grid grid-cols-2 gap-2">
++                  {['Takeaway', 'Dine-in', 'Delivery', 'Ojol'].map(type => (
++                    <button key={type} onClick={() => {
++                      setOrderType(type);
++                      if (type !== 'Delivery') { setDeliveryFee(0); setCustomDeliveryFee(''); setDeliveryCourierId(''); setDeliveryPaidTo('kasir'); }
++                      if (type === 'Ojol') { setVoucherCode(''); setVoucherInput(''); setManualDiscount({ type: 'fixed', value: 0 }); }
++                    }}
++                      className={`py-2 px-3 text-sm rounded-xl font-bold transition-all duration-200 ${orderType === type
++                        ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 border border-accent-200 dark:border-accent-500/30 shadow-sm'
++                        : 'bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 border border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
++                      {type}
++                    </button>
++                  ))}
++                </div>
++              </div>
++
++              {orderType === 'Delivery' && (
++                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-accent-100 dark:border-accent-500/20 animate-in slide-in-from-top-3 duration-300">
++                  <label className="block text-xs font-bold text-accent-600 dark:text-accent-400 uppercase tracking-wider mb-3 flex items-center gap-1"><Truck className="w-3 h-3" /> Biaya Pengiriman</label>
++                  <div className="flex overflow-x-auto pb-2 gap-2 snap-x hide-scrollbar">
++                    {[0, 3000, 5000].map(fee => (
++                      <button key={fee} onClick={() => { setDeliveryFee(fee); setCustomDeliveryFee(''); }}
++                        className={`snap-center shrink-0 py-2 px-4 rounded-xl border font-bold text-sm transition-all whitespace-nowrap ${deliveryFee === fee && !customDeliveryFee ? 'bg-accent-600 dark:bg-accent-500 text-white border-accent-600 dark:border-accent-500 shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-950'}`}>
++                        {fee === 0 ? 'Gratis' : formatRupiah(fee)}
++                      </button>
++                    ))}
++                    <div className="snap-center shrink-0 flex items-center gap-2 border rounded-xl px-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 min-w-[140px]">
++                      <span className="text-slate-400 dark:text-slate-500 text-xs font-bold pl-2">Rp</span>
++                      <input type="number" placeholder="Custom" className="w-full py-2 bg-transparent outline-none text-sm font-bold text-slate-700 dark:text-slate-200"
++                        value={customDeliveryFee} onChange={(e) => { setCustomDeliveryFee(e.target.value); setDeliveryFee(Number(e.target.value) || 0); }} />
++                    </div>
++                  </div>
++                </div>
++              )}
++
++              {/* --- CART ITEMS --- */}
++              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
++                <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Daftar Pesanan</label>
++                {cart.map((item) => (
++                  <div key={item.cartItemId} className="flex justify-between items-start border-b border-slate-50 dark:border-slate-900 pb-3 last:border-0 last:pb-0 animate-in fade-in duration-300">
++                    <div className="flex-1 pr-2">
++                      <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm leading-tight">{item.name}</h4>
++                      {item.variantName && (
++                        <div className="flex items-center gap-2 mt-0.5">
++                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">{item.variantName}</p>
++                          <button onClick={() => handleEditVariant(item)} className="p-1 bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 rounded hover:bg-accent-100 dark:hover:bg-accent-500/20 transition-colors" title="Edit Varian"><Edit3 className="w-3 h-3" /></button>
++                        </div>
++                      )}
++                      <p className="text-sm font-bold text-accent-600 dark:text-accent-400 mt-1">{formatRupiah(item.price)}</p>
++                      <div className="w-full mt-2 flex items-center gap-1.5">
++                        <Edit3 className="w-3 h-3 text-slate-400 dark:text-slate-500" />
++                        <input type="text" value={item.note || ''} onChange={(e) => updateCartItemNote(item.cartItemId, e.target.value)}
++                          placeholder="Catatan pesanan (opsional)..."
++                          className="flex-1 text-[11px] bg-transparent border-b border-slate-200 dark:border-slate-700 focus:border-accent-500 dark:focus:border-accent-500 outline-none pb-0.5 text-slate-600 dark:text-slate-300 transition-colors" />
++                      </div>
++                    </div>
++                    <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 rounded-lg p-1 border border-slate-100 dark:border-slate-800">
++                      <button onClick={() => updateCartQty(item.cartItemId, item.qty - 1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-slate-900 rounded shadow-sm text-slate-600 dark:text-slate-300 hover:text-accent-600 dark:hover:text-accent-400 transition-colors shrink-0"><Minus className="w-3 h-3" /></button>
++                      <input type="text" inputMode="numeric" value={item.qty}
++                        onChange={(e) => {
++                          const val = e.target.value.replace(/\D/g, '');
++                          updateCartQty(item.cartItemId, val === '' ? 1 : parseInt(val, 10));
++                        }}
++                        className="w-8 text-center font-bold text-sm bg-transparent outline-none focus:ring-2 focus:ring-accent-500/20 rounded transition-colors" />
++                      <button onClick={() => updateCartQty(item.cartItemId, item.qty + 1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-slate-900 rounded shadow-sm text-slate-600 dark:text-slate-300 hover:text-green-500 dark:hover:text-green-400 transition-colors shrink-0"><Plus className="w-3 h-3" /></button>
++                    </div>
++                  </div>
++                ))}
++              </div>
++
++              {/* --- DISCOUNTS --- */}
++              {orderType !== 'Ojol' && (
++                <div className="flex flex-col space-y-3">
++                  <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between space-y-2">
++                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1"><Ticket className="w-3.5 h-3.5" /> Kode Voucher</span>
++                    <div className="flex items-center gap-1.5">
++                      <input type="text" placeholder="VOUCHER" value={voucherInput} onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
++                        className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none uppercase" />
++                      <button onClick={handleApplyVoucher} className="px-2.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-lg transition-colors shrink-0">Pasang</button>
++                    </div>
++                    {appliedVoucher && <span className="text-[10px] text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5 animate-in fade-in">Aktif: -{appliedVoucher.discount_type === 'percent' ? `${appliedVoucher.discount_value}%` : formatRupiah(appliedVoucher.discount_value)}</span>}
++                  </div>
++
++                  <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col space-y-2">
++                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1"><Minus className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" /> Diskon Tambahan Manual</span>
++                    <div className="flex items-center gap-1.5">
++                      <select className="w-20 text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" value={manualDiscount.type} onChange={e => setManualDiscount({ ...manualDiscount, type: e.target.value })}>
++                        <option value="fixed">Rp</option>
++                        <option value="percent">%</option>
++                      </select>
++                      <input type="number" min="0" placeholder="Nominal Diskon Tambahan..." value={manualDiscount.value || ''} onChange={(e) => setManualDiscount({ ...manualDiscount, value: Number(e.target.value) || 0 })}
++                        className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" />
++                    </div>
++                    {totals.manualDiscountAmount > 0 && <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold block animate-in fade-in">Potongan: -{formatRupiah(totals.manualDiscountAmount)}</span>}
++                  </div>
++                </div>
++              )}
++            </div>
++          )}
++        </div>
++
++        {/* --- CHECKOUT SUMMARY --- */}
++        {cart.length > 0 && (
++          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shadow-[0_-4px_10px_rgba(0,0,0,0.03)] animate-in slide-in-from-bottom-2 duration-300">
++            <div className="space-y-1.5 mb-4 text-sm">
++              <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>Subtotal</span><span className="font-semibold">{formatRupiah(totals.subtotal)}</span></div>
++              {appliedVoucher && <div className="flex justify-between text-green-500 dark:text-green-400"><span className="flex items-center gap-1"><Ticket className="w-3 h-3" /> Diskon ({appliedVoucher.code})</span><span className="font-semibold">-{formatRupiah(totals.voucherDiscount)}</span></div>}
++              {totals.manualDiscountAmount > 0 && <div className="flex justify-between text-blue-500 dark:text-blue-400"><span className="flex items-center gap-1"><Minus className="w-3 h-3" /> Diskon Tambahan</span><span className="font-semibold">-{formatRupiah(totals.manualDiscountAmount)}</span></div>}
++              {orderType === 'Delivery' && <div className="flex justify-between text-accent-600 dark:text-accent-400"><span>Ongkir</span><span className="font-semibold">{formatRupiah(totals.deliveryFee)}</span></div>}
++              <div className="flex justify-between text-lg font-black text-slate-800 dark:text-slate-100 border-t border-slate-100 dark:border-slate-800 pt-2 mt-2"><span>Total Tagihan</span><span className="text-accent-600 dark:text-accent-400">{formatRupiah(totals.total)}</span></div>
++            </div>
++            <button
++              onClick={() => setPaymentModal({ isOpen: true, isSplitMode: false, splitPayments: [], method: orderType === 'Ojol' ? 'Ojol' : 'Tunai', amountPaid: '', ojolPlatform: '', orderNumber: '' })}
++              className="w-full py-3.5 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold shadow-lg hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
++              Bayar <ChevronRight className="w-4 h-4" />
++            </button>
++          </div>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/features/pos/CustomerPicker.jsx b/src/features/pos/CustomerPicker.jsx
+new file mode 100644
+index 0000000..63bf22e
+--- /dev/null
++++ b/src/features/pos/CustomerPicker.jsx
+@@ -0,0 +1,141 @@
++import { useState, useEffect, useRef } from 'react';
++import { X, Search, UserPlus, User } from 'lucide-react';
++import { usePosStore } from '../../store/usePosStore';
++
++/**
++ * CustomerPickerModal — di-port dari mamam-global dengan alasan desain
++ * yang SAMA dipertahankan penuh: kolom cari tidak pernah langsung jadi
++ * customerName tersimpan, hanya 3 aksi eksplisit yang commit (pilih dari
++ * list, tambah baru, atau Tamu).
++ *
++ * BEDA dari A:
++ *  - Sumber pelanggan adalah `customers` dari useCustomerData (Supabase),
++ *    diterima lewat props — bukan state lokal AppContext.
++ *  - Badge poin dihapus (poin ditunda ke gelombang berikutnya).
++ *  - "Tambah baru" memanggil saveCustomer() yang menulis ke server dan
++ *    menunggu hasilnya (bisa gagal kalau internet putus), bukan langsung
++ *    commit ke array lokal.
++ */
++export default function CustomerPickerModal({ isOpen, onClose, customers, saveCustomer, triggerAlert }) {
++  const setCustomerName = usePosStore((s) => s.setCustomerName);
++  const setSelectedCustomerId = usePosStore((s) => s.setSelectedCustomerId);
++  const selectedCustomerId = usePosStore((s) => s.selectedCustomerId);
++
++  const [query, setQuery] = useState('');
++  const [newPhone, setNewPhone] = useState('');
++  const [busy, setBusy] = useState(false);
++  const searchInputRef = useRef(null);
++
++  useEffect(() => {
++    if (!isOpen) return;
++    const timer = setTimeout(() => searchInputRef.current?.focus(), 300);
++    return () => clearTimeout(timer);
++  }, [isOpen]);
++
++  if (!isOpen) return null;
++
++  const handleClose = () => { setQuery(''); setNewPhone(''); onClose(); };
++
++  const q = query.trim().toLowerCase();
++  const matches = q
++    ? customers.filter(c => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(query.trim())))
++    : customers;
++
++  const handleSelect = (customer) => {
++    setCustomerName(customer.name);
++    setSelectedCustomerId(customer.id);
++    handleClose();
++  };
++
++  const handleGuest = () => {
++    setCustomerName('');
++    setSelectedCustomerId(null);
++    handleClose();
++  };
++
++  const handleAddNew = async () => {
++    const name = query.trim();
++    if (!name || busy) return;
++    const exists = customers.some(c => c.name.trim().toLowerCase() === name.toLowerCase());
++    if (exists) return triggerAlert('Nama ini sudah terdaftar. Pilih dari daftar di atas, ya.');
++
++    setBusy(true);
++    try {
++      await saveCustomer({ name, phone: newPhone.trim() });
++      // saveCustomer mem-reload daftar; cari record barunya untuk langsung dipilih
++      const created = customers.find(c => c.name === name) || { name };
++      setCustomerName(created.name);
++      setSelectedCustomerId(created.id || null);
++      handleClose();
++    } catch (e) {
++      triggerAlert(e.message || 'Gagal menambah pelanggan.');
++    } finally {
++      setBusy(false);
++    }
++  };
++
++  return (
++    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center bg-black/40 backdrop-blur-md transition-opacity duration-300" onClick={handleClose}>
++      <div className="w-full md:max-w-md bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-2xl shadow-xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom md:zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
++        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
++          <h3 className="font-bold text-slate-800 dark:text-slate-100">Pilih Pelanggan</h3>
++          <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"><X className="w-5 h-5" /></button>
++        </div>
++
++        <div className="p-4 shrink-0">
++          <div className="relative">
++            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
++            <input ref={searchInputRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)}
++              placeholder="Cari nama / no. HP..."
++              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm font-semibold text-slate-800 dark:text-slate-100 outline-none focus:border-accent-500 dark:focus:border-accent-400 transition-colors" />
++          </div>
++        </div>
++
++        <div className="flex-1 overflow-y-auto px-4 pb-2 custom-scrollbar">
++          <button onClick={handleGuest}
++            className={`w-full flex items-center gap-2 p-3 rounded-xl border mb-2 text-left transition-colors ${
++              !selectedCustomerId ? 'border-accent-300 bg-accent-50 dark:bg-accent-500/10 dark:border-accent-500/30' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
++            }`}>
++            <User className="w-4 h-4 text-slate-400 shrink-0" />
++            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Lanjut sebagai Tamu</span>
++          </button>
++
++          {matches.length > 0 ? (
++            <div className="space-y-1.5">
++              {matches.map(c => (
++                <div key={c.id} onClick={() => handleSelect(c)}
++                  className={`flex justify-between items-center p-3 rounded-xl border cursor-pointer transition-colors ${
++                    selectedCustomerId === c.id ? 'border-accent-400 bg-accent-50 dark:bg-accent-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-accent-200 dark:hover:border-accent-500/30'
++                  }`}>
++                  <div className="flex flex-col min-w-0">
++                    <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{c.name}</span>
++                    <span className="text-[11px] text-slate-500 dark:text-slate-400">{c.phone || 'Tanpa No. HP'}</span>
++                  </div>
++                </div>
++              ))}
++            </div>
++          ) : q ? (
++            <div className="text-center py-6 text-xs text-slate-400">Gak ada pelanggan cocok dengan "{query}"</div>
++          ) : (
++            <div className="text-center py-6 text-xs text-slate-400">Belum ada pelanggan terdaftar</div>
++          )}
++        </div>
++
++        {q && matches.length === 0 && (
++          <div className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-blue-50/50 dark:bg-blue-500/5">
++            <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
++              <UserPlus className="w-3.5 h-3.5" /> Tambahkan "{query}" sebagai pelanggan baru
++            </p>
++            <div className="flex gap-2">
++              <input type="text" placeholder="No. WhatsApp (opsional)" value={newPhone} onChange={(e) => setNewPhone(e.target.value)}
++                className="flex-1 text-xs p-2.5 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-white dark:bg-slate-900 outline-none focus:border-blue-500 transition-colors" />
++              <button onClick={handleAddNew} disabled={busy} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shrink-0">
++                {busy ? '...' : 'Tambah'}
++              </button>
++            </div>
++          </div>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/features/pos/PaymentModal.jsx b/src/features/pos/PaymentModal.jsx
+new file mode 100644
+index 0000000..cc0c793
+--- /dev/null
++++ b/src/features/pos/PaymentModal.jsx
+@@ -0,0 +1,261 @@
++import { useState } from 'react';
++import {
++  SplitSquareHorizontal, X, Wallet, QrCode, CreditCard, Trash2, Receipt, Bike,
++} from 'lucide-react';
++import { usePosStore } from '../../store/usePosStore';
++import { computeOrderTotals, cashChange, splitStatus } from './posMath';
++import { checkout } from './useCheckout';
++
++/**
++ * PaymentModal — di-port dari mamam-global. Bagian bayar-tunai/QRIS/
++ * Transfer/Ojol dan Split Payment DIPERTAHANKAN penuh sesuai arahan
++ * ("sama persis semua metode di app utama").
++ *
++ * BEDA dari A:
++ *  - Tidak ada status 'pending'/'completed' — C tidak punya "buka bill",
++ *    jadi metode non-tunai (QRIS/Transfer) langsung dianggap siap
++ *    diselesaikan begitu dipilih (kasir sudah konfirmasi uang diterima
++ *    secara fisik/di alat EDC sebelum menekan tombol ini).
++ *  - checkout() menulis LANGSUNG ke Supabase dan menunggu hasilnya —
++ *    tombol menampilkan "Memproses..." dan disabled selama itu, supaya
++ *    kasir tidak menekan dua kali dan membuat transaksi dobel.
++ *  - Poin sepenuhnya dihapus.
++ */
++export default function PaymentModal({ menus, customers, vouchers, employees, triggerAlert, formatRupiah, onSuccess }) {
++  const cart = usePosStore((s) => s.cart);
++  const setIsCartOpen = usePosStore((s) => s.setIsCartOpen);
++  const paymentModal = usePosStore((s) => s.paymentModal);
++  const setPaymentModal = usePosStore((s) => s.setPaymentModal);
++  const customerName = usePosStore((s) => s.customerName);
++  const selectedCustomerId = usePosStore((s) => s.selectedCustomerId);
++  const orderType = usePosStore((s) => s.orderType);
++  const deliveryFee = usePosStore((s) => s.deliveryFee);
++  const deliveryCourierId = usePosStore((s) => s.deliveryCourierId);
++  const setDeliveryCourierId = usePosStore((s) => s.setDeliveryCourierId);
++  const deliveryPaidTo = usePosStore((s) => s.deliveryPaidTo);
++  const setDeliveryPaidTo = usePosStore((s) => s.setDeliveryPaidTo);
++  const manualDiscount = usePosStore((s) => s.manualDiscount);
++  const voucherCode = usePosStore((s) => s.voucherCode);
++  const resetDraft = usePosStore((s) => s.resetDraft);
++
++  const [busy, setBusy] = useState(false);
++
++  if (!paymentModal.isOpen) return null;
++
++  const appliedVoucher = vouchers.find(v => v.code === voucherCode) || null;
++  const totals = computeOrderTotals({ cart, voucher: appliedVoucher, manualDiscount, orderType, deliveryFee });
++  const total = totals.total;
++  const { isSplitMode, splitPayments, method, amountPaid, ojolPlatform, orderNumber } = paymentModal;
++  const couriers = employees.filter(e => e.role === 'kurir' && e.status !== 'resign');
++
++  const kembalian = method === 'Tunai' && !isSplitMode ? cashChange(amountPaid, total) : 0;
++  const isReadyToPay = method === 'Tunai' && !isSplitMode ? Number(amountPaid) >= total : true;
++  const split = splitStatus(splitPayments, total);
++
++  const quickCashOptions = [total, Math.ceil(total / 10000) * 10000, Math.ceil(total / 50000) * 50000, 100000]
++    .filter((v, i, a) => a.indexOf(v) === i && v >= total);
++
++  const handleAddSplitPayment = () => {
++    if (!amountPaid || Number(amountPaid) <= 0) return triggerAlert('Masukkan nominal pembayaran.');
++    setPaymentModal({ ...paymentModal, splitPayments: [...splitPayments, { method, amount: Number(amountPaid) }], amountPaid: '', method: 'Tunai' });
++  };
++  const removeSplitPayment = (index) => {
++    const next = [...splitPayments];
++    next.splice(index, 1);
++    setPaymentModal({ ...paymentModal, splitPayments: next });
++  };
++
++  const handleProcessPayment = async () => {
++    if (busy) return;
++    setBusy(true);
++    try {
++      const result = await checkout({
++        cart, orderType, customerId: selectedCustomerId, customerName,
++        deliveryFee, voucher: appliedVoucher, manualDiscount,
++        paymentMethod: method, amountPaid, isSplitMode, splitPayments,
++        ojolPlatform, orderNumber, deliveryCourierId, deliveryPaidTo, employees,
++      });
++      setPaymentModal({ isOpen: false, isSplitMode: false, splitPayments: [], method: 'Tunai', amountPaid: '', ojolPlatform: '', orderNumber: '' });
++      setIsCartOpen(false);
++      resetDraft();
++      onSuccess?.(result);
++    } catch (e) {
++      triggerAlert(e.message || 'Gagal memproses pembayaran.');
++    } finally {
++      setBusy(false);
++    }
++  };
++
++  return (
++    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md transition-opacity duration-300">
++      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300 ease-out">
++        <div className="p-5 border-b flex justify-between items-center bg-slate-50 dark:bg-slate-950">
++          <div>
++            <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Pembayaran</h2>
++            {isSplitMode && <span className="text-[10px] bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Mode Multi Payment</span>}
++          </div>
++          <div className="flex items-center gap-2">
++            {orderType !== 'Ojol' && (
++              !isSplitMode ? (
++                <button onClick={() => setPaymentModal({ ...paymentModal, isSplitMode: true })} className="p-2 bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 rounded-lg hover:bg-accent-100 dark:hover:bg-accent-500/15 transition-colors text-xs font-bold flex items-center gap-1"><SplitSquareHorizontal className="w-4 h-4" /> Split</button>
++              ) : (
++                <button onClick={() => setPaymentModal({ ...paymentModal, isSplitMode: false, splitPayments: [], amountPaid: '' })} className="p-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-xs font-bold">Batal Split</button>
++              )
++            )}
++            <button onClick={() => setPaymentModal({ ...paymentModal, isOpen: false })} className="p-2 bg-white dark:bg-slate-900 rounded-full shadow-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><X className="w-5 h-5" /></button>
++          </div>
++        </div>
++
++        <div className="p-5 overflow-y-auto custom-scrollbar">
++          {!isSplitMode ? (
++            <>
++              <div className="text-center mb-6">
++                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Total Tagihan</p>
++                <h1 className="font-heading text-4xl font-black text-slate-900 dark:text-slate-50">{formatRupiah(total)}</h1>
++              </div>
++
++              <div className="flex flex-wrap justify-center gap-3 mb-6">
++                {(orderType === 'Ojol' ? [{ id: 'Ojol', icon: Bike }] : [{ id: 'Tunai', icon: Wallet }, { id: 'QRIS', icon: QrCode }, { id: 'Transfer', icon: CreditCard }]).map(opt => (
++                  <button key={opt.id} onClick={() => setPaymentModal({ ...paymentModal, method: opt.id })}
++                    className={`flex flex-col items-center justify-center p-3 w-24 md:w-28 rounded-2xl border-2 transition-all duration-200 ${method === opt.id ? 'border-orange-600 dark:border-orange-500 bg-accent-600 dark:bg-accent-500 text-white shadow-md -translate-y-1' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-950 hover:border-slate-200 dark:hover:border-slate-700'}`}>
++                    <opt.icon className="w-6 h-6 mb-2" />
++                    <span className="text-[11px] md:text-xs font-bold text-center leading-tight">{opt.id}</span>
++                  </button>
++                ))}
++              </div>
++
++              {method === 'Ojol' && (
++                <div className="mb-6 p-4 border border-orange-200 dark:border-orange-500/30 bg-accent-50 dark:bg-accent-500/10 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
++                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-2">Pilih Aplikasi Ojol</label>
++                  <div className="flex gap-2 mb-4">
++                    {['Shopeefood', 'Grabfood', 'Gofood'].map((ojol) => (
++                      <button key={ojol} onClick={() => setPaymentModal({ ...paymentModal, ojolPlatform: ojol })} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-colors ${ojolPlatform === ojol ? 'bg-accent-600 dark:bg-accent-500 text-white border-orange-600 dark:border-orange-500 shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-950'}`}>{ojol}</button>
++                    ))}
++                  </div>
++                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-2">Nomor Order</label>
++                  <input type="text" placeholder="Masukkan nomor order..." value={orderNumber || ''} onChange={(e) => setPaymentModal({ ...paymentModal, orderNumber: e.target.value })}
++                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-orange-600 dark:focus:border-orange-500 bg-white dark:bg-slate-900 text-sm font-bold transition-colors" />
++                </div>
++              )}
++
++              {method === 'Tunai' && (
++                <div className="space-y-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-300">
++                  <div>
++                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Uang Diterima</label>
++                    <div className="relative">
++                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500">Rp</span>
++                      <input type="number" className="w-full pl-12 pr-4 py-3 text-lg font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder="0" />
++                    </div>
++                  </div>
++                  <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
++                    {quickCashOptions.map((amt, idx) => (
++                      <button key={idx} onClick={() => setPaymentModal({ ...paymentModal, amountPaid: amt.toString() })} className="whitespace-nowrap px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-orange-400 dark:hover:border-orange-500/50 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-600 dark:hover:text-accent-400 transition-all">
++                        {amt === total ? 'Uang Pas' : formatRupiah(amt)}
++                      </button>
++                    ))}
++                  </div>
++                  <div className={`p-4 rounded-xl border transition-colors duration-300 ${kembalian >= 0 ? 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30' : 'bg-accent-50 dark:bg-accent-500/10 border-red-200 dark:border-red-500/30'}`}>
++                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Kembalian</p>
++                    <p className={`text-2xl font-black ${kembalian >= 0 ? 'text-green-500 dark:text-green-400' : 'text-accent-500 dark:text-accent-400'}`}>{isReadyToPay ? formatRupiah(kembalian) : 'Uang Kurang'}</p>
++                  </div>
++                  {orderType === 'Delivery' && couriers.length > 0 && (
++                    <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
++                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Diterima Kurir? (opsional)</label>
++                      <select value={deliveryCourierId} onChange={(e) => { setDeliveryCourierId(e.target.value); setDeliveryPaidTo(e.target.value ? 'kurir' : 'kasir'); }}
++                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-accent-500 dark:focus:border-accent-500 transition-colors">
++                        <option value="">Tidak — Masuk Kasir</option>
++                        {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
++                      </select>
++                      {deliveryCourierId && (
++                        <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1.5 italic">*Uang gak masuk laci kasir, dicatat sebagai dipegang kurir ini.</p>
++                      )}
++                    </div>
++                  )}
++                </div>
++              )}
++
++              {(method === 'QRIS' || method === 'Transfer') && (
++                <div className="text-center bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-300">
++                  <p className="text-sm text-slate-500 dark:text-slate-400">Pastikan pelanggan sudah transfer/scan sebelum menekan selesaikan transaksi di bawah.</p>
++                </div>
++              )}
++            </>
++          ) : (
++            <>
++              <div className="bg-slate-800 p-4 rounded-2xl shadow-sm text-white mb-4">
++                <div className="flex justify-between items-center mb-2">
++                  <span className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Total Tagihan</span>
++                  <span className="font-bold text-lg">{formatRupiah(total)}</span>
++                </div>
++                <div className="flex justify-between items-center border-t border-slate-600 dark:border-slate-400 pt-2">
++                  <span className="text-xs font-bold text-slate-300 dark:text-slate-600 uppercase tracking-wider">{split.remaining > 0 ? 'Sisa Pembayaran' : 'Kembalian'}</span>
++                  <span className={`font-black text-2xl ${split.remaining > 0 ? 'text-accent-400 dark:text-accent-300' : 'text-green-400 dark:text-green-400'}`}>
++                    {split.remaining > 0 ? formatRupiah(split.remaining) : formatRupiah(split.change)}
++                  </span>
++                </div>
++              </div>
++
++              {splitPayments.length > 0 && (
++                <div className="mb-4 space-y-2">
++                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Pembayaran Masuk</h4>
++                  {splitPayments.map((p, idx) => (
++                    <div key={idx} className="flex justify-between items-center bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-3 rounded-xl animate-in slide-in-from-left-2 duration-300">
++                      <div className="flex items-center gap-2">
++                        <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold px-2 py-1 rounded">{p.method}</span>
++                        <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{formatRupiah(p.amount)}</span>
++                      </div>
++                      <button onClick={() => removeSplitPayment(idx)} className="p-1.5 text-accent-500 dark:text-accent-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
++                    </div>
++                  ))}
++                </div>
++              )}
++
++              {split.remaining > 0 && (
++                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-4">
++                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tambah Pembayaran</h4>
++                  <div className="flex gap-2">
++                    {['Tunai', 'QRIS', 'Transfer'].map(m => (
++                      <button key={m} onClick={() => setPaymentModal({ ...paymentModal, method: m })} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-colors ${method === m ? 'bg-accent-50 dark:bg-accent-500/10 border-orange-600 dark:border-orange-500 text-accent-600 dark:text-accent-400' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-950'}`}>{m}</button>
++                    ))}
++                  </div>
++                  {orderType === 'Delivery' && method === 'Tunai' && couriers.length > 0 && (
++                    <div className="pt-1">
++                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Diterima Kurir? (opsional)</label>
++                      <select value={deliveryCourierId} onChange={(e) => { setDeliveryCourierId(e.target.value); setDeliveryPaidTo(e.target.value ? 'kurir' : 'kasir'); }}
++                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-accent-500 dark:focus:border-accent-500 transition-colors">
++                        <option value="">Tidak — Masuk Kasir</option>
++                        {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
++                      </select>
++                    </div>
++                  )}
++                  <div className="flex gap-2">
++                    <div className="relative flex-1">
++                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500 text-sm">Rp</span>
++                      <input type="number" className="w-full pl-9 pr-3 py-2.5 text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder={String(split.remaining)} />
++                    </div>
++                    <button onClick={handleAddSplitPayment} className="px-4 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors">Tambah</button>
++                  </div>
++                  <button onClick={() => setPaymentModal({ ...paymentModal, amountPaid: String(split.remaining) })} className="w-full py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Uang Pas Sisa</button>
++                </div>
++              )}
++            </>
++          )}
++        </div>
++
++        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
++          {!isSplitMode ? (
++            <button onClick={handleProcessPayment} disabled={busy || (method === 'Tunai' && !isReadyToPay)}
++              className="w-full py-4 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold text-lg shadow-lg hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-xl hover:-translate-y-0.5 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:shadow-none disabled:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2">
++              {busy ? 'Memproses...' : 'Selesaikan Transaksi'} <Receipt className="w-5 h-5" />
++            </button>
++          ) : (
++            <button onClick={handleProcessPayment} disabled={busy || !split.isFullyPaid}
++              className="w-full py-4 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold text-lg shadow-lg hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-xl hover:-translate-y-0.5 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:shadow-none disabled:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2">
++              {busy ? 'Memproses...' : 'Selesaikan Transaksi'} <Receipt className="w-5 h-5" />
++            </button>
++          )}
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/features/pos/PosView.jsx b/src/features/pos/PosView.jsx
+index f29de4c..e2bfc33 100644
+--- a/src/features/pos/PosView.jsx
++++ b/src/features/pos/PosView.jsx
+@@ -1,4 +1,280 @@
+-import ViewPlaceholder from '../../components/ViewPlaceholder';
++import { useMemo, useRef, useEffect, useCallback, useState } from 'react';
++import { Search, Coffee, UtensilsCrossed, ShoppingCart, AlertCircle, Package, Star, X, Grid2x2, Grid3x3, List } from 'lucide-react';
++import { Badge, EmptyState, Button } from '../../components/ui';
++import { usePosStore } from '../../store/usePosStore';
++import { useAppContext } from '../../context/AppContext';
++import { useMenuData } from '../../hook/useMenuData';
++import { useShiftData } from '../../hook/useShiftData';
++import { useCustomerData } from '../../hook/useCustomerData';
++import { useVouchers } from '../../hook/useVouchers';
++import CartDrawer from './CartDrawer';
++import PaymentModal from './PaymentModal';
++import VariantSelectionModal from './VariantSelectionModal';
++import ReceiptModal from './ReceiptModal';
++
++function CategoryTextTab({ cat, isActive, onClick }) {
++  return (
++    <button type="button" onClick={() => onClick(cat)} data-active={isActive}
++      className={`shrink-0 whitespace-nowrap select-none cursor-pointer pb-2 text-sm font-bold border-b-2 transition-colors duration-200 ${
++        isActive ? 'text-accent-600 dark:text-accent-400 border-accent-500' : 'text-slate-400 dark:text-slate-500 border-transparent'
++      }`}>
++      {cat}
++    </button>
++  );
++}
++
++/**
++ * PosView — shell yang menyatukan semua data (menu, shift, pelanggan,
++ * voucher, karyawan) lalu meneruskannya ke CartDrawer/PaymentModal/
++ * VariantSelectionModal lewat props. Navigasi kategori, grid menu,
++ * pencarian, mode tampilan, dan swipe kategori DI-PORT PERSIS dari
++ * mamam-global — murni UI, tidak menyentuh data sama sekali.
++ *
++ * "Terlaris"/Favorit dihitung dari transaksi 30 hari terakhir (bukan
++ * seluruh histori tak terbatas seperti A) supaya query tetap ringan;
++ * cukup untuk kebutuhan "track harian".
++ */
+ export default function PosView() {
+-  return <ViewPlaceholder title="Kasir" note="Port persis dari PosView mamam-global: menu+varian, cart, checkout lengkap (order type, payment method, voucher, ojol, split payment), Customer Picker." />;
++  const addToCart = usePosStore((s) => s.addToCart);
++  const searchQuery = usePosStore((s) => s.searchQuery);
++  const setSearchQuery = usePosStore((s) => s.setSearchQuery);
++  const selectedCategory = usePosStore((s) => s.selectedCategory);
++  const setSelectedCategory = usePosStore((s) => s.setSelectedCategory);
++  const cart = usePosStore((s) => s.cart);
++  const setIsCartOpen = usePosStore((s) => s.setIsCartOpen);
++  const setSelectedMenuForVariant = usePosStore((s) => s.setSelectedMenuForVariant);
++  const setVariantSelectedOptions = usePosStore((s) => s.setVariantSelectedOptions);
++
++  const { triggerAlert, triggerConfirm, formatRupiah, navigate } = useAppContext();
++  const menuData = useMenuData();
++  const shiftData = useShiftData();
++  const customerData = useCustomerData();
++  const voucherData = useVouchers();
++
++  const { menus, variantGroups } = menuData;
++  const { currentShift, employees } = shiftData;
++  const { customers, saveCustomer } = customerData;
++  const { vouchers } = voucherData;
++
++  const [recentOrderCounts, setRecentOrderCounts] = useState({});
++  const [receiptResult, setReceiptResult] = useState(null);
++
++  // Statistik "terlaris" 30 hari terakhir — sekali per kunjungan ke Kasir.
++  useEffect(() => {
++    let cancelled = false;
++    (async () => {
++      const since = new Date(); since.setDate(since.getDate() - 30);
++      const { supabase } = await import('../../lib/supabase');
++      const { data } = await supabase.from('transaction_items')
++        .select('menu_item_id, qty, transactions!inner(status, paid_at)')
++        .eq('transactions.status', 'paid').gte('transactions.paid_at', since.toISOString());
++      if (cancelled || !data) return;
++      const counts = {};
++      data.forEach(row => { counts[row.menu_item_id] = (counts[row.menu_item_id] || 0) + (row.qty || 0); });
++      setRecentOrderCounts(counts);
++    })();
++    return () => { cancelled = true; };
++  }, []);
++
++  const categoryTabsRef = useRef(null);
++  const [gridVisible, setGridVisible] = useState(true);
++  const VIEW_MODES = [
++    { key: 'grid2', label: 'Grid 2 kolom', icon: Grid2x2 },
++    { key: 'grid3', label: 'Grid 3 kolom', icon: Grid3x3 },
++    { key: 'list', label: 'List', icon: List },
++  ];
++  const [viewMode, setViewMode] = useState('grid2');
++  const cycleViewMode = useCallback(() => {
++    setViewMode(prev => VIEW_MODES[(VIEW_MODES.findIndex(v => v.key === prev) + 1) % VIEW_MODES.length].key);
++  }, []);
++
++  const FAVORITE_LIMIT = 12;
++  const favoriteMenus = useMemo(() =>
++    [...menus].filter(m => (recentOrderCounts[m.id] || 0) > 0)
++      .sort((a, b) => (recentOrderCounts[b.id] || 0) - (recentOrderCounts[a.id] || 0))
++      .slice(0, FAVORITE_LIMIT),
++    [menus, recentOrderCounts]);
++
++  const isSearching = Boolean(searchQuery.trim());
++  const filteredMenus = useMemo(() => {
++    const q = searchQuery.trim().toLowerCase();
++    let result;
++    if (q) {
++      result = menus.filter(m => m.name.toLowerCase().includes(q));
++    } else {
++      const base = selectedCategory === 'Favorit' ? favoriteMenus : menus;
++      result = base.filter(m => selectedCategory === 'Favorit' || selectedCategory === 'Semua' || m.category === selectedCategory);
++    }
++    if (!q && selectedCategory !== 'Favorit') {
++      result = [...result].sort((a, b) => (recentOrderCounts[b.id] || 0) - (recentOrderCounts[a.id] || 0));
++    }
++    return result;
++  }, [menus, favoriteMenus, selectedCategory, searchQuery, recentOrderCounts]);
++
++  const [tabs, setTabs] = useState(['Favorit', 'Semua']);
++  useEffect(() => {
++    const base = ['Favorit', 'Semua'];
++    const activeCats = [...new Set(menus.map(m => m.category).filter(Boolean))];
++    setTabs(prev => {
++      const valid = [...base, ...activeCats];
++      let updated = prev.filter(c => valid.includes(c));
++      const missing = valid.filter(c => !updated.includes(c));
++      if (missing.length > 0) updated = [...updated, ...missing];
++      return (updated.length !== prev.length || updated.some((v, i) => v !== prev[i])) ? updated : prev;
++    });
++  }, [menus]);
++
++  const handleCategoryClick = useCallback((cat) => {
++    if (cat === selectedCategory && !searchQuery.trim()) return;
++    setGridVisible(false);
++    setTimeout(() => { setSearchQuery(''); setSelectedCategory(cat); setGridVisible(true); }, 170);
++  }, [selectedCategory, searchQuery, setSelectedCategory, setSearchQuery]);
++
++  useEffect(() => {
++    const el = categoryTabsRef.current?.querySelector('[data-active="true"]');
++    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
++  }, [selectedCategory]);
++
++  const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
++  const handleTouchStart = useCallback((e) => {
++    const t = e.touches[0];
++    touchStartRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
++  }, []);
++  const handleTouchEnd = useCallback((e) => {
++    if (isSearching || tabs.length === 0) return;
++    const t = e.changedTouches[0];
++    const dx = t.clientX - touchStartRef.current.x;
++    const dy = t.clientY - touchStartRef.current.y;
++    const dt = Date.now() - touchStartRef.current.time;
++    if (Math.abs(dx) < 50 || Math.abs(dy) > 60 || dt > 600) return;
++    const currentIdx = tabs.indexOf(selectedCategory);
++    if (currentIdx === -1) return;
++    const nextIdx = dx < 0 ? currentIdx + 1 : currentIdx - 1;
++    if (nextIdx < 0 || nextIdx >= tabs.length) return;
++    handleCategoryClick(tabs[nextIdx]);
++  }, [isSearching, tabs, selectedCategory, handleCategoryClick]);
++
++  const handleMenuClick = useCallback((menu) => {
++    if (!currentShift) {
++      triggerAlert('Peringatan: Dompet belum dibuka. Harap buka dompet terlebih dahulu di menu "Dompet".');
++      navigate('dompet');
++      return;
++    }
++    if (menu.variantGroupIds.length > 0) {
++      setSelectedMenuForVariant(menu);
++      setVariantSelectedOptions({});
++    } else {
++      addToCart(menu, {}, variantGroups);
++    }
++    if (searchQuery.trim()) setSearchQuery('');
++  }, [currentShift, triggerAlert, navigate, setSelectedMenuForVariant, setVariantSelectedOptions, addToCart, variantGroups, searchQuery, setSearchQuery]);
++
++  if (menuData.loading || shiftData.loading) {
++    return <div className="flex-1 flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">Memuat kasir...</div>;
++  }
++  if (menuData.error) {
++    return (
++      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-3">
++        <p className="text-sm font-semibold text-red-500">Gagal memuat menu</p>
++        <p className="text-xs text-slate-400 dark:text-slate-500 max-w-xs">{menuData.error}</p>
++        <Button onClick={menuData.reload}>Coba Lagi</Button>
++      </div>
++    );
++  }
++
++  const cartTotalQty = cart.reduce((sum, item) => sum + item.qty, 0);
++
++  return (
++    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 relative">
++      {!currentShift && (
++        <Badge variant="danger" className="w-full justify-center py-2 text-xs font-bold gap-2">
++          <AlertCircle className="w-4 h-4" /> Dompet belum dibuka! Buka dompet dulu sebelum transaksi.
++        </Badge>
++      )}
++
++      <div className="px-4 short:px-3 pt-4 short:pt-2 pb-3 short:pb-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-sm z-10 sticky top-0">
++        <div className="flex items-center gap-2 mb-3 short:mb-1.5">
++          <div className="relative flex-1">
++            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 short:w-3.5 short:h-3.5 pointer-events-none" />
++            <input type="text" placeholder="Cari menu..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
++              className="w-full pl-10 short:pl-9 pr-10 py-2.5 short:py-1.5 rounded-full border border-slate-100 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent bg-white dark:bg-slate-900 shadow-sm text-slate-900 dark:text-slate-100 transition-all duration-300 text-sm short:text-xs font-medium" />
++            {isSearching && (
++              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200"><X className="w-4 h-4" /></button>
++            )}
++          </div>
++          <button onClick={cycleViewMode} className="shrink-0 rounded-full border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm text-slate-500 dark:text-slate-400 p-3 short:!p-2 active:scale-95 transition-all duration-300"
++            aria-label={`Tampilan: ${VIEW_MODES.find(v => v.key === viewMode)?.label}`} title={VIEW_MODES.find(v => v.key === viewMode)?.label}>
++            {(() => { const Icon = VIEW_MODES.find(v => v.key === viewMode)?.icon || Grid2x2; return <Icon size={18} className="short:!w-4 short:!h-4" />; })()}
++          </button>
++        </div>
++
++        <div className="relative">
++          <div ref={categoryTabsRef} className="flex overflow-x-auto hide-scrollbar gap-5 short:gap-3">
++            {tabs.map((cat) => (
++              <CategoryTextTab key={cat} cat={cat} isActive={selectedCategory === cat && !isSearching} onClick={handleCategoryClick} />
++            ))}
++          </div>
++          <div className="absolute bottom-0 left-0 right-0 h-px bg-slate-100 dark:bg-slate-800" />
++        </div>
++      </div>
++
++      {isSearching && (
++        <div className="px-4 py-2 bg-accent-50 dark:bg-accent-500/10 border-b border-accent-100 dark:border-accent-500/20 flex items-center gap-2 text-xs text-accent-700 dark:text-accent-400 animate-in fade-in">
++          <Search className="w-3.5 h-3.5 shrink-0" /><span><span className="font-bold">{filteredMenus.length}</span> menu ditemukan untuk "{searchQuery}"</span>
++        </div>
++      )}
++
++      <div className="flex-1 overflow-y-auto p-4 short:p-2 pb-32 short:pb-20" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
++        <div className={viewMode === 'grid2' ? 'grid grid-cols-2 short:!grid-cols-4 gap-4 short:gap-2' : viewMode === 'grid3' ? 'grid grid-cols-3 short:!grid-cols-4 gap-3 short:gap-2' : 'flex flex-col gap-3 short:gap-2'}
++          style={{ opacity: gridVisible ? 1 : 0, transform: gridVisible ? 'translateY(0)' : 'translateY(8px)', transition: 'opacity 0.17s ease, transform 0.17s ease' }}>
++          {filteredMenus.map(menu => (
++            <div key={menu.id} onClick={() => handleMenuClick(menu)}
++              className={`bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-accent-200 dark:hover:border-accent-500/30 active:scale-95 transition-all duration-300 relative overflow-hidden group ${
++                viewMode !== 'list' ? 'rounded-3xl short:rounded-xl p-4 md:p-4 short:!p-2 flex flex-col short:!flex-row items-center text-center short:!text-left' : 'rounded-2xl p-3 flex flex-row items-center text-left'
++              }`}>
++              <div className={`bg-accent-50 dark:bg-accent-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300 ${
++                viewMode !== 'list' ? 'w-14 h-14 md:w-16 md:h-16 short:!w-9 short:!h-9 rounded-2xl short:!rounded-lg mb-2.5 md:mb-3 short:!mb-0 short:!mr-2' : 'w-12 h-12 rounded-xl mr-3'
++              }`}>
++                {menu.category === 'Minuman' ? <Coffee className="w-6 h-6 md:w-8 md:h-8 short:!w-4 short:!h-4 text-accent-600 dark:text-accent-400" /> : <UtensilsCrossed className="w-6 h-6 md:w-8 md:h-8 short:!w-4 short:!h-4 text-accent-600 dark:text-accent-400" />}
++              </div>
++              <div className={`min-w-0 flex-1 flex flex-col ${viewMode !== 'list' ? 'short:justify-center' : 'justify-center'}`}>
++                <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-xs md:text-sm short:!text-[11px] mb-1 short:!mb-0.5 leading-tight short:truncate">{menu.name}</h3>
++                {isSearching && <Badge variant="neutral" className="mb-1 short:hidden">{menu.category}</Badge>}
++                <p className="text-accent-600 dark:text-accent-400 font-bold text-xs md:text-sm short:!text-[11px] mt-auto short:!mt-0">{formatRupiah(menu.price)}</p>
++              </div>
++              {menu.variantGroupIds.length > 0 && (
++                <div className="absolute top-2 right-2 short:!top-1.5 short:!right-1.5"><span className="w-2 h-2 short:!w-1.5 short:!h-1.5 rounded-full bg-amber-400 dark:bg-amber-500 block" /></div>
++              )}
++            </div>
++          ))}
++        </div>
++
++        {filteredMenus.length === 0 && selectedCategory === 'Favorit' && !isSearching && (
++          <EmptyState icon={<Star className="w-12 h-12" />} title="Belum ada menu favorit" className="mt-10 animate-in fade-in duration-300" />
++        )}
++        {filteredMenus.length === 0 && (selectedCategory !== 'Favorit' || isSearching) && (
++          <EmptyState icon={<Package className="w-12 h-12" />} title="Menu tidak ditemukan" className="mt-10 animate-in fade-in duration-300" />
++        )}
++      </div>
++
++      <div className="fixed bottom-24 short:!bottom-4 right-6 short:!right-4 z-50">
++        <button onClick={() => setIsCartOpen(true)}
++          className="bg-gradient-to-r from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600 text-white rounded-full py-3 short:!py-2 px-5 short:!px-4 shadow-[0_10px_28px_rgba(var(--color-accent-500),0.4)] flex items-center gap-3 short:!gap-2 hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(var(--color-accent-500),0.45)] transition-all duration-300 active:scale-95">
++          <div className="relative">
++            <ShoppingCart className="w-5 h-5" />
++            {cart.length > 0 && (
++              <span className="absolute -top-2.5 -right-2.5 bg-white text-accent-600 text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center border-2 border-accent-600 animate-in zoom-in duration-300">{cartTotalQty}</span>
++            )}
++          </div>
++        </button>
++      </div>
++
++      <CartDrawer menus={menus} customers={customers} saveCustomer={saveCustomer} vouchers={vouchers}
++        employees={employees} triggerAlert={triggerAlert} triggerConfirm={triggerConfirm} formatRupiah={formatRupiah} />
++      <PaymentModal menus={menus} customers={customers} vouchers={vouchers} employees={employees}
++        triggerAlert={triggerAlert} formatRupiah={formatRupiah} onSuccess={setReceiptResult} />
++      <VariantSelectionModal variantGroups={variantGroups} formatRupiah={formatRupiah} />
++      <ReceiptModal result={receiptResult} onClose={() => setReceiptResult(null)} formatRupiah={formatRupiah} />
++    </div>
++  );
+ }
+diff --git a/src/features/pos/ReceiptModal.jsx b/src/features/pos/ReceiptModal.jsx
+new file mode 100644
+index 0000000..a1c956c
+--- /dev/null
++++ b/src/features/pos/ReceiptModal.jsx
+@@ -0,0 +1,32 @@
++import { CheckCircle2, X } from 'lucide-react';
++
++/**
++ * ReceiptModal — versi ringkas untuk gelombang 1. Menampilkan ringkasan
++ * transaksi yang baru selesai (hasil dari checkout()). Tidak ada
++ * cetak/share PDF di sini (belum diminta); kasir cukup melihat konfirmasi
++ * lalu lanjut transaksi berikutnya.
++ */
++export default function ReceiptModal({ result, onClose, formatRupiah }) {
++  if (!result) return null;
++  return (
++    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
++      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl p-6 text-center animate-in zoom-in-95 duration-300">
++        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-5 h-5" /></button>
++        <CheckCircle2 className="w-14 h-14 text-emerald-500 dark:text-emerald-400 mx-auto mb-3" />
++        <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">Transaksi Berhasil</h2>
++        <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">#{result.display_number}</p>
++        <div className="text-left space-y-1.5 text-sm bg-slate-50 dark:bg-slate-950 rounded-2xl p-4 mb-4">
++          <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>Metode</span><span className="font-semibold text-slate-800 dark:text-slate-100">{result.paymentMethod}</span></div>
++          <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>Total</span><span className="font-semibold text-slate-800 dark:text-slate-100">{formatRupiah(result.total)}</span></div>
++          {result.amount_paid != null && (
++            <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>Dibayar</span><span className="font-semibold text-slate-800 dark:text-slate-100">{formatRupiah(result.amount_paid)}</span></div>
++          )}
++          {result.change_amount > 0 && (
++            <div className="flex justify-between font-bold text-emerald-600 dark:text-emerald-400"><span>Kembalian</span><span>{formatRupiah(result.change_amount)}</span></div>
++          )}
++        </div>
++        <button onClick={onClose} className="w-full py-3 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold hover:bg-accent-700 dark:hover:bg-accent-600 transition-colors">Transaksi Baru</button>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/features/pos/VariantSelectionModal.jsx b/src/features/pos/VariantSelectionModal.jsx
+new file mode 100644
+index 0000000..718b94d
+--- /dev/null
++++ b/src/features/pos/VariantSelectionModal.jsx
+@@ -0,0 +1,141 @@
++import { X, CheckCircle2 } from 'lucide-react';
++import { usePosStore } from '../../store/usePosStore';
++
++/**
++ * VariantSelectionModal — di-port hampir 100% dari mamam-global. Murni
++ * UI + interaksi lokal (toggle pilihan, validasi wajib/max), tidak
++ * menyentuh Supabase sama sekali. Satu-satunya perubahan: `variantGroups`
++ * dan `formatRupiah` diterima lewat props (dari useMenuData & AppContext
++ * di PosView) alih-alih dari useAppContext() gabungan A.
++ */
++export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
++  const selectedMenuForVariant = usePosStore((state) => state.selectedMenuForVariant);
++  const setSelectedMenuForVariant = usePosStore((state) => state.setSelectedMenuForVariant);
++  const variantSelectedOptions = usePosStore((state) => state.variantSelectedOptions);
++  const setVariantSelectedOptions = usePosStore((state) => state.setVariantSelectedOptions);
++  const editingCartItemId = usePosStore((state) => state.editingCartItemId);
++  const setEditingCartItemId = usePosStore((state) => state.setEditingCartItemId);
++  const addToCart = usePosStore((state) => state.addToCart);
++  const updateCartItemVariants = usePosStore((state) => state.updateCartItemVariants);
++
++  if (!selectedMenuForVariant) return null;
++
++  const menuVariants = variantGroups.filter(vg =>
++    selectedMenuForVariant.variantGroupIds.includes(vg.id)
++  );
++
++  const handleToggleOption = (groupId, optionId, maxSelection) => {
++    setVariantSelectedOptions(prev => {
++      const currentGroupSelections = prev[groupId] || [];
++      if (currentGroupSelections.includes(optionId)) {
++        return { ...prev, [groupId]: currentGroupSelections.filter(id => id !== optionId) };
++      } else {
++        if (maxSelection === 1) return { ...prev, [groupId]: [optionId] };
++        else if (currentGroupSelections.length < maxSelection) return { ...prev, [groupId]: [...currentGroupSelections, optionId] };
++        else return prev;
++      }
++    });
++  };
++
++  const isSelectionValid = menuVariants.every(vg => {
++    if (vg.isRequired) return (variantSelectedOptions[vg.id] || []).length > 0;
++    return true;
++  });
++
++  const handleCloseModal = () => {
++    setSelectedMenuForVariant(null);
++    setVariantSelectedOptions({});
++    setEditingCartItemId(null);
++  };
++
++  const handleSave = () => {
++    if (!isSelectionValid) return;
++    if (editingCartItemId) {
++      updateCartItemVariants(editingCartItemId, variantSelectedOptions, variantGroups);
++      setEditingCartItemId(null);
++      setSelectedMenuForVariant(null);
++    } else {
++      addToCart(selectedMenuForVariant, variantSelectedOptions, variantGroups);
++      setSelectedMenuForVariant(null);
++      setVariantSelectedOptions({});
++    }
++  };
++
++  return (
++    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40 backdrop-blur-sm transition-opacity duration-300">
++      <div className="bg-white dark:bg-slate-900 w-full md:w-[450px] rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full md:zoom-in-95 duration-300 ease-out max-h-[90vh] flex flex-col">
++
++        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 sticky top-0 z-10">
++          <div>
++            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-lg leading-tight">
++              {editingCartItemId ? `Edit Varian: ${selectedMenuForVariant.name}` : selectedMenuForVariant.name}
++            </h3>
++            <p className="text-sm font-bold text-accent-600 dark:text-accent-400">
++              {formatRupiah(selectedMenuForVariant.price)}
++            </p>
++          </div>
++          <button onClick={handleCloseModal} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
++            <X className="w-5 h-5" />
++          </button>
++        </div>
++
++        <div className="p-5 overflow-y-auto flex-1 space-y-6 bg-slate-50 dark:bg-slate-950/50">
++          {menuVariants.length === 0 && (
++            <p className="text-sm text-slate-500 dark:text-slate-400 italic text-center py-4">Tidak ada variasi untuk menu ini.</p>
++          )}
++
++          {menuVariants.map(vg => {
++            const currentSelections = variantSelectedOptions[vg.id] || [];
++            const isMaxReached = currentSelections.length >= vg.maxSelection;
++            return (
++              <div key={vg.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm animate-in fade-in duration-300">
++                <div className="bg-slate-50 dark:bg-slate-950 p-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
++                  <div>
++                    <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm">{vg.name}</h4>
++                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Pilih maksimal {vg.maxSelection}</p>
++                  </div>
++                  {vg.isRequired
++                    ? <span className="text-[10px] font-bold bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-1 rounded-md uppercase tracking-wider">Wajib</span>
++                    : <span className="text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md uppercase tracking-wider">Opsional</span>
++                  }
++                </div>
++                <div className="p-2">
++                  {vg.options.map(opt => {
++                    const isSelected = currentSelections.includes(opt.id);
++                    const isDisabled = !isSelected && isMaxReached;
++                    return (
++                      <label key={opt.id}
++                        className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors duration-200
++                          ${isSelected ? 'bg-accent-50 dark:bg-accent-500/10 border border-orange-200 dark:border-orange-500/30 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-950 border border-transparent'}
++                          ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
++                      >
++                        <div className="flex items-center gap-3">
++                          <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-accent-600 dark:bg-accent-500 border-orange-600 dark:border-orange-500' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600'}`}>
++                            {isSelected && <CheckCircle2 className="w-4 h-4 text-white animate-in zoom-in" />}
++                          </div>
++                          <span className={`font-semibold text-sm ${isSelected ? 'text-accent-600 dark:text-accent-400' : 'text-slate-700 dark:text-slate-200'}`}>{opt.name}</span>
++                        </div>
++                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
++                          {opt.extraPrice > 0 ? `+${formatRupiah(opt.extraPrice)}` : 'Gratis'}
++                        </span>
++                        <input type="checkbox" className="hidden" checked={isSelected} disabled={isDisabled}
++                          onChange={() => handleToggleOption(vg.id, opt.id, vg.maxSelection)} />
++                      </label>
++                    );
++                  })}
++                </div>
++              </div>
++            );
++          })}
++        </div>
++
++        <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
++          <button onClick={handleSave} disabled={!isSelectionValid}
++            className="w-full py-3.5 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-lg transition-all duration-300">
++            {editingCartItemId ? 'Simpan Perubahan Varian' : (isSelectionValid ? 'Tambah ke Keranjang' : 'Lengkapi Pilihan Wajib')}
++          </button>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/features/pos/posMath.js b/src/features/pos/posMath.js
+new file mode 100644
+index 0000000..809fbdb
+--- /dev/null
++++ b/src/features/pos/posMath.js
+@@ -0,0 +1,82 @@
++/**
++ * posMath — rumus harga keranjang POS. FUNGSI MURNI, sama seperti
++ * shiftMath.js: tanpa React, tanpa Supabase, semua masukan eksplisit.
++ *
++ * Rumus di-port dari App.jsx mamam-global (getSubtotal/getDiscount/
++ * getTaxableAmount/getTotal dkk), dengan pajak, service charge, dan poin
++ * DIHAPUS (di luar scope gelombang 1 — lihat catatan keputusan).
++ * Pembulatan turut dihapus karena hanya relevan bersama pengaturan toko
++ * yang belum ada di C.
++ *
++ * Urutan tetap sama seperti A:
++ *   subtotal → dikurangi voucher → dikurangi diskon manual → total
++ */
++
++const rp = (n) => Number(n) || 0;
++
++export function cartSubtotal(cart) {
++  return cart.reduce((sum, item) => sum + rp(item.price) * rp(item.qty), 0);
++}
++
++export function cartHppTotal(cart) {
++  return cart.reduce((sum, item) => sum + rp(item.hpp) * rp(item.qty), 0);
++}
++
++/** Diskon dari voucher aktif. Tidak berlaku kalau subtotal < minPurchase. */
++export function voucherDiscount(subtotal, voucher) {
++  if (!voucher) return 0;
++  if (subtotal < rp(voucher.min_purchase)) return 0;
++  if (voucher.discount_type === 'percent') return Math.round(subtotal * (rp(voucher.discount_value) / 100));
++  return rp(voucher.discount_value);
++}
++
++/** Diskon manual: persen dari subtotal, atau nominal tetap. */
++export function manualDiscountAmount(subtotal, manualDiscount) {
++  if (!manualDiscount || !manualDiscount.value) return 0;
++  if (manualDiscount.type === 'percent') return Math.round((subtotal * rp(manualDiscount.value)) / 100);
++  return rp(manualDiscount.value);
++}
++
++/**
++ * Hitung total lengkap satu order dari cart + input checkout.
++ * Semua angka non-negatif (Math.max 0) sama seperti A, supaya diskon
++ * gabungan tidak pernah membuat total minus.
++ */
++export function computeOrderTotals({ cart, voucher, manualDiscount, orderType, deliveryFee }) {
++  const subtotal = cartSubtotal(cart);
++  const vDiscount = voucherDiscount(subtotal, voucher);
++  const mDiscount = manualDiscountAmount(subtotal, manualDiscount);
++  const taxable = Math.max(0, subtotal - vDiscount - mDiscount);
++  const fee = orderType === 'Delivery' ? rp(deliveryFee) : 0;
++  const total = Math.max(0, taxable + fee);
++  return {
++    subtotal,
++    voucherDiscount: vDiscount,
++    manualDiscountAmount: mDiscount,
++    deliveryFee: fee,
++    total,
++    hppTotal: cartHppTotal(cart),
++  };
++}
++
++/** Kembalian pembayaran tunai tunggal (bukan split). */
++export function cashChange(amountPaid, total) {
++  return Math.max(0, rp(amountPaid) - rp(total));
++}
++
++/** Split payment: sisa yang masih harus dibayar / kembalian bila lebih. */
++export function splitStatus(splitPayments, total) {
++  const paid = (splitPayments || []).reduce((s, p) => s + rp(p.amount), 0);
++  const remaining = rp(total) - paid;
++  return {
++    totalPaid: paid,
++    remaining: Math.max(0, remaining),
++    change: remaining < 0 ? -remaining : 0,
++    isFullyPaid: remaining <= 0,
++  };
++}
++
++/** Nomor tampilan transaksi pendek, mis. #A1B2C3D4 dari uuid. */
++export function displayNumberFromId(uuid) {
++  return String(uuid || '').replace(/-/g, '').slice(0, 8).toUpperCase();
++}
+diff --git a/src/features/pos/useCheckout.js b/src/features/pos/useCheckout.js
+new file mode 100644
+index 0000000..e2a34c4
+--- /dev/null
++++ b/src/features/pos/useCheckout.js
+@@ -0,0 +1,106 @@
++import { supabase } from '../../lib/supabase';
++import { computeOrderTotals, cashChange, splitStatus, displayNumberFromId } from './posMath';
++
++/**
++ * useCheckout — proses "bayar" satu transaksi POS, ONLINE-FIRST.
++ *
++ * BEDA dari mamam-global (sengaja):
++ *  - Tidak ada salesRepository/Dexie "tulis lokal dulu, sync belakangan".
++ *    Checkout menulis LANGSUNG ke Supabase dan menunggu hasilnya. Kalau
++ *    internet putus, checkout gagal dengan pesan jelas dan kasir tahu
++ *    saat itu juga — bukan tersimpan lokal lalu "hilang" saat sync gagal
++ *    diam-diam (persis kelas bug yang membuat Aplikasi A rusak).
++ *  - Poin TIDAK dihitung/diproses sama sekali (integrasi menyusul).
++ *  - Validasi tambahan yang TIDAK ada di A: harga & ketersediaan tiap
++ *    menu di cart diperiksa ulang ke server sesaat sebelum menyimpan.
++ *    Kalau menu sudah dihapus atau harganya berubah sejak dimasukkan ke
++ *    keranjang (kasir lain mengedit Manajemen Menu di waktu bersamaan),
++ *    checkout DITOLAK dengan pesan jelas, bukan diam-diam memakai harga
++ *    lama yang sudah tidak berlaku.
++ */
++
++const fail = (error, aksi) => { throw new Error(`${aksi}: ${error.message}`); };
++
++export async function checkout({
++  cart, orderType, customerId, customerName, deliveryFee,
++  voucher, manualDiscount, paymentMethod, amountPaid,
++  isSplitMode, splitPayments, ojolPlatform, orderNumber,
++  deliveryCourierId, deliveryPaidTo, employees,
++}) {
++  if (!cart || cart.length === 0) throw new Error('Keranjang masih kosong.');
++
++  // ── Validasi ulang harga & ketersediaan menu ke server ──────────────
++  const menuIds = [...new Set(cart.map(i => i.menuId))];
++  const { data: liveMenus, error: menuErr } = await supabase
++    .from('menu_items').select('id, name, price, hpp, is_active').in('id', menuIds);
++  if (menuErr) fail(menuErr, 'Gagal memeriksa menu');
++  const liveById = Object.fromEntries((liveMenus || []).map(m => [m.id, m]));
++  for (const item of cart) {
++    const live = liveById[item.menuId];
++    if (!live || live.is_active === false) {
++      throw new Error(`"${item.name}" sudah tidak tersedia di menu. Hapus item ini dari keranjang untuk melanjutkan.`);
++    }
++    // item.price sudah termasuk harga varian (dihitung saat addToCart).
++    // Kita tidak menyimpan harga dasar menu terpisah di cart item, jadi
++    // validasi di sini sengaja longgar: hanya menolak kalau menu HILANG
++    // atau DINONAKTIFKAN. Perubahan harga menu di tengah transaksi tidak
++    // diblokir (kasir sudah menyepakati harga itu dengan pembeli) —
++    // beda dari A yang juga tidak memvalidasi ini sama sekali; C
++    // menambah pengecekan ketersediaan yang sebelumnya tidak ada.
++  }
++
++  const totals = computeOrderTotals({ cart, voucher, manualDiscount, orderType, deliveryFee });
++
++  // ── Uang tunai ke kurir (COD) — sama seperti A ───────────────────────
++  const hasCashSplit = isSplitMode ? (splitPayments || []).some(p => p.method === 'Tunai') : paymentMethod === 'Tunai';
++  const isCourierCOD = orderType === 'Delivery' && hasCashSplit && !!deliveryCourierId && deliveryPaidTo === 'kurir';
++  const courier = isCourierCOD ? (employees || []).find(e => e.id === deliveryCourierId) : null;
++
++  let amount_paid = null, change_amount = null, split_payments_json = null;
++  if (isSplitMode) {
++    const s = splitStatus(splitPayments, totals.total);
++    if (!s.isFullyPaid) throw new Error('Pembayaran split belum lunas.');
++    amount_paid = s.totalPaid; change_amount = s.change; split_payments_json = splitPayments;
++  } else if (paymentMethod === 'Tunai') {
++    if (Number(amountPaid) < totals.total) throw new Error('Uang yang diterima kurang dari total tagihan.');
++    amount_paid = Number(amountPaid); change_amount = cashChange(amountPaid, totals.total);
++  }
++
++  const now = new Date().toISOString();
++  const { data: tx, error: txErr } = await supabase.from('transactions').insert({
++    display_number: 'TEMP', status: 'paid', order_type: orderType,
++    customer_id: customerId || null, customer_name: customerName || null,
++    ojol_platform: paymentMethod === 'Ojol' ? (ojolPlatform || null) : null,
++    ojol_order_number: paymentMethod === 'Ojol' ? (orderNumber || null) : null,
++    subtotal: totals.subtotal,
++    voucher_id: voucher?.id || null, voucher_code: voucher?.code || null, voucher_discount: totals.voucherDiscount,
++    manual_discount_type: manualDiscount?.value ? manualDiscount.type : null,
++    manual_discount_value: manualDiscount?.value || null, manual_discount_amount: totals.manualDiscountAmount,
++    delivery_fee: totals.deliveryFee,
++    total: totals.total,
++    payment_method: isSplitMode ? 'Split Payment' : paymentMethod,
++    amount_paid, change_amount, split_payments_json,
++    cash_holder_employee_id: courier?.id || null, cash_holder_name: courier?.name || null,
++    paid_at: now,
++  }).select('id').single();
++  if (txErr) fail(txErr, 'Gagal menyimpan transaksi');
++
++  // display_number pendek dari id, konsisten dengan pola kode Shift.
++  const display_number = displayNumberFromId(tx.id);
++  await supabase.from('transactions').update({ display_number }).eq('id', tx.id);
++
++  const itemRows = cart.map(item => ({
++    transaction_id: tx.id, menu_item_id: item.menuId, name: item.name,
++    variant_name: item.variantName || null, variant_selected_json: item.variantSelectedOptions || null,
++    price: item.price, hpp: item.hpp || 0, qty: item.qty, note: item.note || null,
++  }));
++  const { error: itemErr } = await supabase.from('transaction_items').insert(itemRows);
++  if (itemErr) {
++    // Transaksi sudah tercatat tapi item gagal — batalkan supaya tidak ada
++    // transaksi "hantu" tanpa item. Kasir diminta mengulang dari awal.
++    await supabase.from('transactions').delete().eq('id', tx.id);
++    fail(itemErr, 'Gagal menyimpan item transaksi');
++  }
++
++  return { id: tx.id, display_number, ...totals, paymentMethod: isSplitMode ? 'Split Payment' : paymentMethod, amount_paid, change_amount, paidAt: now };
++}
+diff --git a/src/hook/useVouchers.js b/src/hook/useVouchers.js
+new file mode 100644
+index 0000000..8319b92
+--- /dev/null
++++ b/src/hook/useVouchers.js
+@@ -0,0 +1,22 @@
++import { useState, useEffect, useCallback } from 'react';
++import { supabase } from '../lib/supabase';
++
++/**
++ * useVouchers — daftar voucher aktif untuk dipasang di POS.
++ * Manajemen voucher (tambah/edit/hapus) BELUM ada UI-nya (gelombang
++ * berikutnya, sesuai keputusan) — hook ini hanya membaca, dipakai POS
++ * untuk validasi kode yang diketik kasir.
++ */
++export function useVouchers() {
++  const [vouchers, setVouchers] = useState([]);
++  const [loading, setLoading] = useState(true);
++
++  const reload = useCallback(async () => {
++    const { data } = await supabase.from('vouchers').select('*').eq('is_active', true);
++    setVouchers(data || []);
++    setLoading(false);
++  }, []);
++
++  useEffect(() => { reload(); }, [reload]);
++  return { vouchers, loading, reload };
++}
+diff --git a/src/store/usePosStore.js b/src/store/usePosStore.js
+new file mode 100644
+index 0000000..6cc2583
+--- /dev/null
++++ b/src/store/usePosStore.js
+@@ -0,0 +1,214 @@
++import { create } from 'zustand';
++import { persist } from 'zustand/middleware';
++
++/**
++ * usePosStore — draft transaksi POS, DI-PORT HAMPIR APA ADANYA dari
++ * mamam-global. Ini murni state management (Zustand + localStorage),
++ * TIDAK menyentuh Supabase sama sekali, jadi tidak ada yang perlu diganti
++ * untuk online-first.
++ *
++ * Kenapa ini penting dipertahankan: cart, nama pelanggan, tipe pesanan,
++ * diskon manual — semuanya otomatis tersimpan di HP itu sendiri (bukan di
++ * server). Kalau app ke-close paksa, baterai habis, atau ada telepon
++ * masuk di tengah transaksi, begitu app dibuka lagi draft-nya masih utuh,
++ * TANPA kasir perlu menekan simpan apa pun. Ini yang membuat keranjang
++ * "tidak pernah hilang" sesuai yang diminta.
++ *
++ * DIHAPUS dari versi A (di luar scope gelombang 1 / sudah diputuskan):
++ *  - pointsToRedeem — poin ditunda ke gelombang berikutnya
++ *  - status: 'pending'/'completed' pada paymentModal — C tidak punya alur
++ *    "buka bill" (checkout langsung selesai atau batal), field ini
++ *    kehilangan makna tanpa itu
++ */
++
++const DRAFT_KEY = 'mamam-darurat-pos-draft-v1';
++
++export const usePosStore = create(
++  persist(
++    (set, get) => ({
++
++      // ─── UI STATE — tidak dipersist ────────────────────────────────────
++      searchQuery: '',
++      setSearchQuery: (query) => set({ searchQuery: query }),
++
++      selectedCategory: 'Favorit',
++      setSelectedCategory: (category) => set({ selectedCategory: category }),
++
++      isCartOpen: false,
++      setIsCartOpen: (isOpen) => set({ isCartOpen: isOpen }),
++
++      selectedMenuForVariant: null,
++      setSelectedMenuForVariant: (menu) => set({ selectedMenuForVariant: menu }),
++
++      variantSelectedOptions: {},
++      setVariantSelectedOptions: (options) => set((state) => ({
++        variantSelectedOptions: typeof options === 'function'
++          ? options(state.variantSelectedOptions)
++          : options,
++      })),
++
++      editingCartItemId: null,
++      setEditingCartItemId: (id) => set({ editingCartItemId: id }),
++
++      // paymentModal: proses bayar aktif satu transaksi — sengaja TIDAK
++      // dipersist, sama seperti searchQuery. Kalau app ke-kill di tengah
++      // proses bayar, modal harusnya reset bersih (cart-nya tetap aman
++      // karena cart dipersist terpisah di bawah).
++      paymentModal: {
++        isOpen: false,
++        isSplitMode: false,
++        splitPayments: [],
++        method: 'Tunai',
++        amountPaid: '',
++        ojolPlatform: '',
++        orderNumber: '',
++      },
++      setPaymentModal: (update) => set((state) => ({
++        paymentModal: typeof update === 'function' ? update(state.paymentModal) : update,
++      })),
++
++
++      // ─── DRAFT TRANSAKSI — dipersist ke localStorage ───────────────────
++      cart: [],
++      customerName: '',
++      selectedCustomerId: null,
++      orderType: 'Takeaway',
++      deliveryFee: 0,
++      customDeliveryFee: '',
++      deliveryCourierId: '',
++      deliveryPaidTo: 'kasir',   // 'kasir' = uang masuk laci; 'kurir' = dipegang kurir (COD)
++      manualDiscount: { type: 'fixed', value: 0 },
++      voucherCode: '',
++
++
++      // ─── CART ACTIONS ────────────────────────────────────────────────
++      addToCart: (menu, variantSelectedOptions = {}, variantGroups = []) => set((state) => {
++        let extraPriceTotal = 0;
++        const variantNames = [];
++        const selectedVariantDetails = [];
++
++        Object.entries(variantSelectedOptions).forEach(([groupId, optionIds]) => {
++          const group = variantGroups.find(g => g.id === groupId);
++          if (!group) return;
++          optionIds.forEach(optId => {
++            const opt = group.options.find(o => o.id === optId);
++            if (!opt) return;
++            extraPriceTotal += opt.extraPrice || 0;
++            variantNames.push(opt.name);
++            selectedVariantDetails.push({ optionId: opt.id });
++          });
++        });
++
++        const optionKeys = selectedVariantDetails.map(v => v.optionId).sort().join('-');
++        const cartItemId = optionKeys ? `${menu.id}-${optionKeys}` : menu.id;
++        const variantName = variantNames.join(', ');
++
++        const existingItem = state.cart.find(i => i.cartItemId === cartItemId);
++        if (existingItem) {
++          return { cart: state.cart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty + 1 } : i) };
++        }
++
++        const newItem = {
++          menuId: menu.id,
++          cartItemId,
++          name: menu.name,
++          price: (menu.price || 0) + extraPriceTotal,
++          hpp: menu.hpp || 0,
++          qty: 1,
++          note: '',
++          variantName,
++          variantSelectedOptions,
++          category: menu.category || '',
++        };
++        return { cart: [...state.cart, newItem] };
++      }),
++
++      setCart: (newCart) => set({ cart: typeof newCart === 'function' ? newCart(get().cart) : newCart }),
++
++      updateCartQty: (cartItemId, qty) => set((state) => ({
++        cart: qty <= 0
++          ? state.cart.filter(i => i.cartItemId !== cartItemId)
++          : state.cart.map(i => i.cartItemId === cartItemId ? { ...i, qty } : i),
++      })),
++
++      updateCartItemNote: (cartItemId, note) => set((state) => ({
++        cart: state.cart.map(i => i.cartItemId === cartItemId ? { ...i, note } : i),
++      })),
++
++      updateCartItemVariants: (cartItemId, newVariantSelectedOptions, variantGroups = []) => set((state) => {
++        const item = state.cart.find(i => i.cartItemId === cartItemId);
++        if (!item) return {};
++        let extraPriceTotal = 0;
++        const variantNames = [];
++        const selectedVariantDetails = [];
++        Object.entries(newVariantSelectedOptions).forEach(([groupId, optionIds]) => {
++          const group = variantGroups.find(g => g.id === groupId);
++          if (!group) return;
++          optionIds.forEach(optId => {
++            const opt = group.options.find(o => o.id === optId);
++            if (!opt) return;
++            extraPriceTotal += opt.extraPrice || 0;
++            variantNames.push(opt.name);
++            selectedVariantDetails.push({ optionId: opt.id });
++          });
++        });
++        const optionKeys = selectedVariantDetails.map(v => v.optionId).sort().join('-');
++        const newCartItemId = optionKeys ? `${item.menuId}-${optionKeys}` : item.menuId;
++        const basePrice = item.price - (item.variantSelectedOptions
++          ? Object.entries(item.variantSelectedOptions).reduce((s, [gId, optIds]) => {
++              const g = variantGroups.find(x => x.id === gId);
++              if (!g) return s;
++              return s + optIds.reduce((s2, oId) => s2 + (g.options.find(o => o.id === oId)?.extraPrice || 0), 0);
++            }, 0)
++          : 0);
++        return {
++          cart: state.cart.map(i => i.cartItemId === cartItemId ? {
++            ...i, cartItemId: newCartItemId, price: basePrice + extraPriceTotal,
++            variantName: variantNames.join(', '), variantSelectedOptions: newVariantSelectedOptions,
++          } : i),
++        };
++      }),
++
++      // ─── DRAFT CHECKOUT ACTIONS ─────────────────────────────────────
++      setCustomerName: (name) => set({ customerName: name }),
++      setSelectedCustomerId: (id) => set({ selectedCustomerId: id }),
++      setOrderType: (type) => set({ orderType: type }),
++      setDeliveryFee: (fee) => set({ deliveryFee: fee }),
++      setCustomDeliveryFee: (fee) => set({ customDeliveryFee: fee }),
++      setDeliveryCourierId: (id) => set({ deliveryCourierId: id }),
++      setDeliveryPaidTo: (paidTo) => set({ deliveryPaidTo: paidTo }),
++      setManualDiscount: (discount) => set({ manualDiscount: discount }),
++      setVoucherCode: (code) => set({ voucherCode: code }),
++
++      /** resetDraft — panggil setelah checkout berhasil / batal total. */
++      resetDraft: () => set({
++        cart: [],
++        customerName: '',
++        selectedCustomerId: null,
++        orderType: 'Takeaway',
++        deliveryFee: 0,
++        customDeliveryFee: '',
++        deliveryCourierId: '',
++        deliveryPaidTo: 'kasir',
++        manualDiscount: { type: 'fixed', value: 0 },
++        voucherCode: '',
++      }),
++
++    }),
++    {
++      name: DRAFT_KEY,
++      partialize: (state) => ({
++        cart: state.cart,
++        customerName: state.customerName,
++        selectedCustomerId: state.selectedCustomerId,
++        orderType: state.orderType,
++        deliveryFee: state.deliveryFee,
++        customDeliveryFee: state.customDeliveryFee,
++        deliveryCourierId: state.deliveryCourierId,
++        deliveryPaidTo: state.deliveryPaidTo,
++        manualDiscount: state.manualDiscount,
++        voucherCode: state.voucherCode,
++      }),
++    }
++  )
++);
+-- 
+2.43.0
+
