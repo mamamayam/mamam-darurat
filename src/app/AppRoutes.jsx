@@ -1,6 +1,8 @@
 import { lazy, Suspense, Component, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Lock } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
+import { VIEW_PERMISSION } from '../auth/permissions';
 import { Button } from '../components/ui';
 
 // C — mamam-darurat: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
@@ -17,6 +19,7 @@ const PosView        = lazy(() => import('../features/pos/PosView'));
 const MenuMgmt       = lazy(() => import('../features/menu/MenuMgmt'));
 const CustomerView   = lazy(() => import('../features/customer/CustomerView'));
 const ExpenseView    = lazy(() => import('../features/expense/ExpenseView'));
+const EmployeeView   = lazy(() => import('../features/employee/EmployeeView'));
 const AttendanceView = lazy(() => import('../features/attendance/AttendanceView'));
 const PayrollView    = lazy(() => import('../features/payroll/PayrollView'));
 const ReportsView    = lazy(() => import('../features/reports/ReportsView'));
@@ -28,6 +31,7 @@ export const VIEWS = {
     menu:        MenuMgmt,
     pelanggan:   CustomerView,
     pengeluaran: ExpenseView,
+    karyawan:    EmployeeView,
     absensi:     AttendanceView,
     penggajian:  PayrollView,
     laporan:     ReportsView,
@@ -89,6 +93,17 @@ class ViewErrorBoundary extends Component {
     }
 }
 
+// --- Layar terbatas: pagar kedua kalau ada jalur yang membuka layar tanpa izin ---
+function RestrictedView() {
+    return (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center"><Lock className="w-6 h-6 text-slate-400" /></div>
+            <h2 className="font-heading font-bold text-slate-800 dark:text-slate-100">Khusus Owner</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">Halaman ini hanya bisa dibuka dengan PIN owner.</p>
+        </div>
+    );
+}
+
 // --- Loading Skeleton (sama seperti A) ---
 function ViewSkeleton() {
     return (
@@ -131,6 +146,8 @@ const TRANSITION = { type: 'tween', ease: [0.32, 0.72, 0, 1], duration: 0.32 };
 
 // --- Main AppRoutes (mesin render sama persis dengan A) ---
 export default function AppRoutes({ currentView, mountedViews, navDirection = 'forward-root' }) {
+    const { can } = useAuth();
+    const isAllowed = (key) => !VIEW_PERMISSION[key] || can(VIEW_PERMISSION[key]);
     const viewsToRender = mountedViews ? Array.from(mountedViews) : [currentView];
     const variant = VARIANTS[navDirection] || VARIANTS['forward-root'];
 
@@ -143,7 +160,7 @@ export default function AppRoutes({ currentView, mountedViews, navDirection = 'f
     return (
         <div className="relative flex-1 overflow-hidden">
             {viewsToRender.map((viewKey) => {
-                const ViewComponent = VIEWS[viewKey];
+                const ViewComponent = VIEWS[viewKey] && !isAllowed(viewKey) ? RestrictedView : VIEWS[viewKey];
                 if (!ViewComponent) return null;
 
                 const isActive = viewKey === currentView;

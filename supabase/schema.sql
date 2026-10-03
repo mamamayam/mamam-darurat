@@ -13,7 +13,8 @@
 --  * Uang = integer rupiah (bukan desimal), sama dengan B.
 --  * Snapshot: transactions/transaction_items menyimpan angka final
 --    saat checkout, tidak dihitung ulang dari harga menu sekarang.
---  * Tabel BARU (belum ada di B): shifts, employees, attendance_records.
+--  * Tabel BARU (belum ada di B): shifts. employees mengikuti model HRD A/B
+--    (upah per jam). Absensi dibaca dari sistem absensi eksternal.
 --  * expenses meniru cash_expenses B TANPA ledger cash_movements.
 -- =====================================================================
 
@@ -160,6 +161,17 @@ create index if not exists idx_transaction_items_tx    on transaction_items (tra
 -- PENGELUARAN / PEMASUKAN LAIN
 -- Meniru cash_expenses B, tanpa ledger cash_movements / cash_locations.
 -- ---------------------------------------------------------------------
+create table if not exists expense_categories (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null unique,
+  sort_order  integer not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+insert into expense_categories (name, sort_order)
+values ('Belanja', 0), ('Operasional', 1), ('Gaji', 2), ('Lainnya', 3)
+on conflict (name) do nothing;
+
 create table if not exists expenses (
   id                      uuid primary key default gen_random_uuid(),
   direction               text not null default 'pengeluaran'
@@ -203,33 +215,192 @@ create table if not exists shifts (
 create unique index if not exists uq_one_open_shift
   on shifts ((closed_at is null)) where closed_at is null;
 
+create index if not exists idx_shifts_opened_at on shifts (opened_at desc);
+
 -- ---------------------------------------------------------------------
 -- HR: KARYAWAN & ABSENSI — TABEL BARU, belum ada di B
 -- ---------------------------------------------------------------------
 create table if not exists employees (
-  id          uuid primary key default gen_random_uuid(),
-  name        text not null,
-  daily_rate  integer not null default 0,
-  role        text not null default 'kasir',     -- 'kasir' | 'kurir' | ...
-  status      text not null default 'aktif' check (status in ('aktif','resign')),
-  is_active   boolean not null default true,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  id                       uuid primary key default gen_random_uuid(),
+  external_id              text,                    -- id lama (EMP-xxxx) dari mamam-global / sistem absensi
+  name                     text not null,
+  phone                    text,
+  address                  text,
+  role                     text not null default 'kasir',   -- 'kasir' | 'kurir'
+  status                   text not null default 'aktif'
+                             check (status in ('aktif','freelance','cuti','resign')),
+  wage_per_hour            integer not null default 0,
+  bonus_full_time          integer not null default 0,
+  overtime_rate_per_30_min integer not null default 5000,
+  start_date               date,
+  resign_date              date,
+  is_active                boolean not null default true,
+  created_at               timestamptz not null default now(),
+  updated_at               timestamptz not null default now()
 );
 
-create table if not exists attendance_records (
+-- Satu id lama hanya boleh dipakai satu karyawan (mencegah impor ganda).
+create unique index if not exists uq_employees_external_id on employees (external_id);
+
+-- Referensi ke karyawan dipasang di sini (bukan di tabelnya masing-masing)
+-- karena tabel employees baru dibuat SETELAH transactions/expenses/shifts.
+-- ON DELETE SET NULL: menghapus karyawan tidak merusak histori; namanya
+-- tetap ada lewat kolom salinan nama. Nama constraint sama dengan yang
+-- dibuat migrasi 002, supaya instalasi baru == hasil upgrade.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'transactions_cash_holder_employee_id_fkey') then
+    alter table transactions add constraint transactions_cash_holder_employee_id_fkey
+      foreign key (cash_holder_employee_id) references employees(id) on delete set null;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'expenses_cash_holder_employee_id_fkey') then
+    alter table expenses add constraint expenses_cash_holder_employee_id_fkey
+      foreign key (cash_holder_employee_id) references employees(id) on delete set null;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'shifts_opened_by_employee_id_fkey') then
+    alter table shifts add constraint shifts_opened_by_employee_id_fkey
+      foreign key (opened_by_employee_id) references employees(id) on delete set null;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------
+-- DATA GAJI (tambahan, potongan, saldo awal) — model HRD mamam-kasir.
+-- employee_id ON DELETE RESTRICT: karyawan dengan data gaji tidak bisa dihapus.
+-- Absensi TIDAK disimpan di sini (dibaca dari sistem absensi).
+-- ---------------------------------------------------------------------
+create table if not exists payroll_additions (
   id           uuid primary key default gen_random_uuid(),
-  employee_id  uuid not null references employees(id) on delete cascade,
+  employee_id  uuid not null references employees(id) on delete restrict,
+  label        text not null,
+  amount       integer not null check (amount > 0),
   date         date not null,
-  clock_in     timestamptz,
-  clock_out    timestamptz,
-  note         text,
-  created_at   timestamptz not null default now(),
-  -- satu karyawan satu baris per hari: cegah data ganda
-  unique (employee_id, date)
+  category     text not null default 'Tambahan',
+  source       text not null default 'owner' check (source in ('owner','staff')),
+  approved_by  text,
+  approved_at  timestamptz,
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_payroll_additions_emp_date on payroll_additions (employee_id, date);
+
+create table if not exists payroll_deductions (
+  id           uuid primary key default gen_random_uuid(),
+  employee_id  uuid not null references employees(id) on delete restrict,
+  label        text not null,
+  amount       integer not null check (amount > 0),
+  date         date not null,
+  category     text not null default 'Potongan',
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_payroll_deductions_emp_date on payroll_deductions (employee_id, date);
+
+-- Saldo awal bulan: positif = karyawan berutang ke toko; negatif = toko berutang.
+create table if not exists payroll_opening_balances (
+  employee_id  uuid not null references employees(id) on delete restrict,
+  month        text not null check (month ~ '^[0-9]{4}-[0-9]{2}$'),
+  amount       integer not null default 0,
+  primary key (employee_id, month)
 );
 
-create index if not exists idx_attendance_date on attendance_records (date desc);
+
+-- ---------------------------------------------------------------------
+-- TUTUP PERIODE GAJI (angka gaji dibekukan) — lihat supabase/migrations/006.
+-- ---------------------------------------------------------------------
+create table if not exists payroll_closings (
+  id            uuid primary key default gen_random_uuid(),
+  period_type   text not null check (period_type in ('minggu','bulan')),
+  period_start  date not null,
+  period_end    date not null,
+  note          text,
+  closed_at     timestamptz not null default now(),
+  check (period_end >= period_start),
+  unique (period_start, period_end)
+);
+
+create table if not exists payroll_closing_lines (
+  id                    uuid primary key default gen_random_uuid(),
+  closing_id            uuid not null references payroll_closings(id) on delete cascade,
+  employee_id           uuid references employees(id) on delete set null,   -- nama tetap ada di employee_name
+  employee_name         text not null,
+  employee_external_id  text,
+  role                  text,
+  net_pay               integer not null,
+  gross_cost            integer not null,       -- upah kotor untuk Laba Rugi (tanpa kasbon)
+  kasbon_total          integer not null default 0,
+  rates_json            jsonb not null,         -- tarif saat ditutup: upah/jam, bonus FT, lembur/30 mnt
+  payroll_json          jsonb not null          -- hasil hitung lengkap (rincian harian, tambahan, potongan)
+);
+create index if not exists idx_closing_lines_closing on payroll_closing_lines (closing_id);
+
+create or replace function close_payroll_period(
+  p_type text, p_start date, p_end date, p_today date, p_note text, p_lines jsonb
+) returns uuid language plpgsql as $$
+declare v_id uuid;
+begin
+  if p_type not in ('minggu','bulan') then raise exception 'Jenis periode tidak valid'; end if;
+  if p_end < p_start then raise exception 'Periode tidak valid'; end if;
+  if p_end >= p_today then raise exception 'Periode belum selesai, belum bisa ditutup'; end if;
+  if p_lines is null or jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then
+    raise exception 'Tidak ada data gaji untuk ditutup';
+  end if;
+
+  insert into payroll_closings (period_type, period_start, period_end, note)
+  values (p_type, p_start, p_end, nullif(trim(p_note), ''))
+  returning id into v_id;
+
+  insert into payroll_closing_lines
+    (closing_id, employee_id, employee_name, employee_external_id, role, net_pay, gross_cost, kasbon_total, rates_json, payroll_json)
+  select v_id, nullif(l->>'employee_id','')::uuid, l->>'employee_name', nullif(l->>'employee_external_id',''), l->>'role',
+         (l->>'net_pay')::integer, (l->>'gross_cost')::integer, coalesce((l->>'kasbon_total')::integer, 0),
+         l->'rates_json', l->'payroll_json'
+  from jsonb_array_elements(p_lines) l;
+
+  return v_id;
+end $$;
+
+-- Tambahan/potongan di periode tertutup tidak boleh berubah.
+create or replace function block_closed_payroll_change() returns trigger language plpgsql as $$
+declare d date;
+begin
+  foreach d in array array[
+    case when tg_op in ('UPDATE','DELETE') then old.date end,
+    case when tg_op in ('INSERT','UPDATE') then new.date end
+  ] loop
+    if d is not null and exists (select 1 from payroll_closings c where d between c.period_start and c.period_end) then
+      raise exception 'Periode gaji ini sudah ditutup, jadi tambahan/potongan tidak bisa diubah. Buka kembali periodenya dulu kalau perlu koreksi.';
+    end if;
+  end loop;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end $$;
+
+-- Saldo awal bulan yang sudah ditutup (penutupan jenis 'bulan') tidak boleh berubah.
+create or replace function block_closed_opening_balance_change() returns trigger language plpgsql as $$
+declare m text;
+begin
+  foreach m in array array[
+    case when tg_op in ('UPDATE','DELETE') then old.month end,
+    case when tg_op in ('INSERT','UPDATE') then new.month end
+  ] loop
+    if m is not null and exists (select 1 from payroll_closings c where c.period_type = 'bulan' and to_char(c.period_start, 'YYYY-MM') = m) then
+      raise exception 'Bulan gaji ini sudah ditutup, jadi saldo awal tidak bisa diubah. Buka kembali periodenya dulu kalau perlu koreksi.';
+    end if;
+  end loop;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_block_closed_additions on payroll_additions;
+create trigger trg_block_closed_additions before insert or update or delete on payroll_additions
+  for each row execute function block_closed_payroll_change();
+drop trigger if exists trg_block_closed_deductions on payroll_deductions;
+create trigger trg_block_closed_deductions before insert or update or delete on payroll_deductions
+  for each row execute function block_closed_payroll_change();
+drop trigger if exists trg_block_closed_opening on payroll_opening_balances;
+create trigger trg_block_closed_opening before insert or update or delete on payroll_opening_balances
+  for each row execute function block_closed_opening_balance_change();
+
+grant execute on function close_payroll_period(text, date, date, date, text, jsonb) to anon;
+
 
 -- ---------------------------------------------------------------------
 -- RLS
@@ -243,8 +414,8 @@ declare t text;
 begin
   foreach t in array array[
     'categories','menu_items','variant_categories','variant_groups','variant_options',
-    'menu_item_variant_groups','customers','vouchers','transactions',
-    'transaction_items','expenses','shifts','employees','attendance_records'
+    'menu_item_variant_groups','customers','vouchers','expense_categories','transactions',
+    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines'
   ] loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists "anon_all_%s" on %I', t, t);

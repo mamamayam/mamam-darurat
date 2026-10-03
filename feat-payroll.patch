@@ -1,0 +1,1956 @@
+From 637852e9e2f4cd32ea3d064137a1f53008fead13 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 30 Sep 2026 18:51:55 +0000
+Subject: [PATCH] feat(payroll): Penggajian (mesin = port payroll_engine B,
+ absensi baca-saja dari sistem absensi, tambahan/potongan/saldo awal) +
+ migrasi 005; fix: alert/konfirmasi tertutup modal; ID Absensi karyawan;
+ vitest
+
+---
+ .env.example                                  |   5 +
+ package-lock.json                             | 263 ++++++++++++++++-
+ package.json                                  |   6 +-
+ src/app/App.jsx                               |   4 +-
+ src/features/employee/EmployeeView.jsx        |   9 +-
+ src/features/payroll/PayrollView.jsx          | 271 +++++++++++++++++-
+ src/features/payroll/__fixtures__/hrdSeed.js  |  88 ++++++
+ src/features/payroll/attendanceProvider.js    | 124 ++++++++
+ .../payroll/attendanceProvider.test.js        | 168 +++++++++++
+ src/features/payroll/payrollEngine.js         | 250 ++++++++++++++++
+ src/features/payroll/payrollEngine.test.js    | 209 ++++++++++++++
+ src/hook/useEmployeeData.js                   |   9 +-
+ src/hook/usePayrollData.js                    | 157 ++++++++++
+ src/lib/absensiClient.js                      |  26 ++
+ supabase/migrations/005_payroll.sql           |  56 ++++
+ supabase/schema.sql                           |  41 ++-
+ 16 files changed, 1675 insertions(+), 11 deletions(-)
+ create mode 100644 src/features/payroll/__fixtures__/hrdSeed.js
+ create mode 100644 src/features/payroll/attendanceProvider.js
+ create mode 100644 src/features/payroll/attendanceProvider.test.js
+ create mode 100644 src/features/payroll/payrollEngine.js
+ create mode 100644 src/features/payroll/payrollEngine.test.js
+ create mode 100644 src/hook/usePayrollData.js
+ create mode 100644 src/lib/absensiClient.js
+ create mode 100644 supabase/migrations/005_payroll.sql
+
+diff --git a/.env.example b/.env.example
+index abfdc28..1094dc0 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,2 +1,7 @@
+ VITE_SUPABASE_URL=
+ VITE_SUPABASE_ANON_KEY=
++
++# Sumber absensi (project Supabase yang dipakai web absensi) — BACA-SAJA, untuk halaman Penggajian.
++# URL tanpa /rest/v1/. Isi di .env.local, jangan ditempel di chat.
++VITE_ABSENSI_SUPABASE_URL=
++VITE_ABSENSI_SUPABASE_ANON_KEY=
+diff --git a/package-lock.json b/package-lock.json
+index f95996e..7091095 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -22,7 +22,8 @@
+       },
+       "devDependencies": {
+         "@vitejs/plugin-react": "^4.3.0",
+-        "vite": "^6.0.0"
++        "vite": "^6.0.0",
++        "vitest": "^5.0.2"
+       }
+     },
+     "node_modules/@babel/code-frame": {
+@@ -1563,6 +1564,24 @@
+         "@babel/types": "^7.28.2"
+       }
+     },
++    "node_modules/@types/chai": {
++      "version": "5.2.3",
++      "resolved": "https://registry.npmjs.org/@types/chai/-/chai-5.2.3.tgz",
++      "integrity": "sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/deep-eql": "*",
++        "assertion-error": "^2.0.1"
++      }
++    },
++    "node_modules/@types/deep-eql": {
++      "version": "4.0.2",
++      "resolved": "https://registry.npmjs.org/@types/deep-eql/-/deep-eql-4.0.2.tgz",
++      "integrity": "sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/@types/estree": {
+       "version": "1.0.9",
+       "resolved": "https://registry.npmjs.org/@types/estree/-/estree-1.0.9.tgz",
+@@ -1590,6 +1609,64 @@
+         "vite": "^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0"
+       }
+     },
++    "node_modules/@vitest/mocker": {
++      "version": "5.0.2",
++      "resolved": "https://registry.npmjs.org/@vitest/mocker/-/mocker-5.0.2.tgz",
++      "integrity": "sha512-Z5FS00Q1SJHkB35xATsmWGdQ5WA1/0MV3CDjqyv7GavHv1OfOj145MNfHOlHk7QLes21dKFDHr8EO2zvL+9WGA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@jridgewell/trace-mapping": "0.3.31",
++        "@vitest/spy": "5.0.2",
++        "estree-walker": "^3.0.3",
++        "magic-string": "^1.2.3"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      },
++      "peerDependencies": {
++        "msw": "^2.4.9",
++        "vite": "^6.0.0 || ^7.0.0 || ^8.0.0"
++      },
++      "peerDependenciesMeta": {
++        "msw": {
++          "optional": true
++        },
++        "vite": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@vitest/mocker/node_modules/magic-string": {
++      "version": "1.4.2",
++      "resolved": "https://registry.npmjs.org/magic-string/-/magic-string-1.4.2.tgz",
++      "integrity": "sha512-vG+rjFRj1PqdIBozIxAGMjPlOhaVe+GXpbttY/iSK7rGcJRMlwNJO7dcUwmUqkymsFLJiNGI06t4D7Fr7yRC9g==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@jridgewell/sourcemap-codec": "^1.6.0"
++      }
++    },
++    "node_modules/@vitest/spy": {
++      "version": "5.0.2",
++      "resolved": "https://registry.npmjs.org/@vitest/spy/-/spy-5.0.2.tgz",
++      "integrity": "sha512-Ijc7T1nT9efNb5LxvjaBrEqw3f/QwUv5EE0nKqZxgqsaV/FxAAZ8baGylA8X/Z2oS4Lp+K74Jr6dTJsDKxJDeg==",
++      "dev": true,
++      "license": "MIT",
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      }
++    },
++    "node_modules/assertion-error": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/assertion-error/-/assertion-error-2.0.1.tgz",
++      "integrity": "sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=12"
++      }
++    },
+     "node_modules/baseline-browser-mapping": {
+       "version": "2.11.26",
+       "resolved": "https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.11.26.tgz",
+@@ -1658,6 +1735,16 @@
+       ],
+       "license": "CC-BY-4.0"
+     },
++    "node_modules/chai": {
++      "version": "6.2.2",
++      "resolved": "https://registry.npmjs.org/chai/-/chai-6.2.2.tgz",
++      "integrity": "sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/convert-source-map": {
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/convert-source-map/-/convert-source-map-2.0.0.tgz",
+@@ -1712,6 +1799,13 @@
+         "node": ">=10.13.0"
+       }
+     },
++    "node_modules/es-module-lexer": {
++      "version": "2.3.2",
++      "resolved": "https://registry.npmjs.org/es-module-lexer/-/es-module-lexer-2.3.2.tgz",
++      "integrity": "sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/esbuild": {
+       "version": "0.25.12",
+       "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.25.12.tgz",
+@@ -1763,6 +1857,26 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/estree-walker": {
++      "version": "3.0.3",
++      "resolved": "https://registry.npmjs.org/estree-walker/-/estree-walker-3.0.3.tgz",
++      "integrity": "sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/estree": "^1.0.0"
++      }
++    },
++    "node_modules/expect-type": {
++      "version": "1.4.0",
++      "resolved": "https://registry.npmjs.org/expect-type/-/expect-type-1.4.0.tgz",
++      "integrity": "sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=12.0.0"
++      }
++    },
+     "node_modules/fdir": {
+       "version": "6.5.0",
+       "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+@@ -2215,6 +2329,20 @@
+         "node": ">=18"
+       }
+     },
++    "node_modules/obug": {
++      "version": "2.2.1",
++      "resolved": "https://registry.npmjs.org/obug/-/obug-2.2.1.tgz",
++      "integrity": "sha512-XrsrhT5sybtKI6wakr2SPOlGZWWYbUXZ7a0jT8/QOeAPau+1X/bSegNe5YR75oJmEZQbKningirmGOEJCIk61Q==",
++      "dev": true,
++      "funding": [
++        "https://github.com/sponsors/sxzz",
++        "https://opencollective.com/debug"
++      ],
++      "license": "MIT",
++      "engines": {
++        "node": ">=12.20.0"
++      }
++    },
+     "node_modules/picocolors": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+@@ -2362,6 +2490,13 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/std-env": {
++      "version": "4.3.0",
++      "resolved": "https://registry.npmjs.org/std-env/-/std-env-4.3.0.tgz",
++      "integrity": "sha512-OtU/EgQ1kIm5KwqQpBC6ZEMXrZRui11w8zgfTWp8cdO9B8OaPsbA8bTHO2P+HNo1VlUTGMVBwPhydu6poeXiag==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/tailwindcss": {
+       "version": "4.3.3",
+       "resolved": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.3.3.tgz",
+@@ -2381,6 +2516,26 @@
+         "url": "https://opencollective.com/webpack"
+       }
+     },
++    "node_modules/tinybench": {
++      "version": "6.2.0",
++      "resolved": "https://registry.npmjs.org/tinybench/-/tinybench-6.2.0.tgz",
++      "integrity": "sha512-78U2TlB2CnVenajOFzf3BKSm0J6oz5L0NV7g32LCPccvYc0lbWvys4d3uUUCS2B1N8PAf2+aekR8i1KbC3HO7Q==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
++    "node_modules/tinyexec": {
++      "version": "1.3.1",
++      "resolved": "https://registry.npmjs.org/tinyexec/-/tinyexec-1.3.1.tgz",
++      "integrity": "sha512-GCvB3aoys96IuDFBMcTB46JOR6mdMtAToqwiW8JlWhsoh1mhHi/xn9ss/Dg7N555GiJyEt2qzoG/NHCwM6h1EA==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/tinyglobby": {
+       "version": "0.2.17",
+       "resolved": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
+@@ -2508,6 +2663,112 @@
+         }
+       }
+     },
++    "node_modules/vitest": {
++      "version": "5.0.2",
++      "resolved": "https://registry.npmjs.org/vitest/-/vitest-5.0.2.tgz",
++      "integrity": "sha512-7MQrx9pDv5aHiUcovIb/70Ys3tgtkUVgCtledvKdCmEO+/1Dicq5ZqoSxOW034m03oqC+oHOKui2dM6qtMLoJg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/chai": "^5.2.2",
++        "@vitest/mocker": "5.0.2",
++        "chai": "^6.2.2",
++        "es-module-lexer": "^2.3.2",
++        "expect-type": "^1.4.0",
++        "magic-string": "^1.2.3",
++        "obug": "^2.1.4",
++        "picomatch": "^4.0.7",
++        "std-env": "^4.2.0",
++        "tinybench": "^6.1.4",
++        "tinyexec": "^1.3.0",
++        "tinyglobby": "^0.2.17",
++        "why-is-node-running": "^3.2.1"
++      },
++      "bin": {
++        "vitest": "vitest.mjs"
++      },
++      "engines": {
++        "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      },
++      "peerDependencies": {
++        "@edge-runtime/vm": "*",
++        "@opentelemetry/api": "^1.9.0",
++        "@types/node": "^22.0.0 || >=24.0.0",
++        "@vitest/browser-playwright": "5.0.2",
++        "@vitest/browser-preview": "5.0.2",
++        "@vitest/browser-webdriverio": "^5.0.0-beta.5 || >=5.0.0",
++        "@vitest/coverage-istanbul": "5.0.2",
++        "@vitest/coverage-v8": "5.0.2",
++        "@vitest/ui": "5.0.2",
++        "happy-dom": "*",
++        "jsdom": "*",
++        "vite": "^6.4.0 || ^7.0.0 || ^8.0.0"
++      },
++      "peerDependenciesMeta": {
++        "@edge-runtime/vm": {
++          "optional": true
++        },
++        "@opentelemetry/api": {
++          "optional": true
++        },
++        "@types/node": {
++          "optional": true
++        },
++        "@vitest/browser-playwright": {
++          "optional": true
++        },
++        "@vitest/browser-preview": {
++          "optional": true
++        },
++        "@vitest/browser-webdriverio": {
++          "optional": true
++        },
++        "@vitest/coverage-istanbul": {
++          "optional": true
++        },
++        "@vitest/coverage-v8": {
++          "optional": true
++        },
++        "@vitest/ui": {
++          "optional": true
++        },
++        "happy-dom": {
++          "optional": true
++        },
++        "jsdom": {
++          "optional": true
++        },
++        "vite": {
++          "optional": false
++        }
++      }
++    },
++    "node_modules/vitest/node_modules/magic-string": {
++      "version": "1.4.2",
++      "resolved": "https://registry.npmjs.org/magic-string/-/magic-string-1.4.2.tgz",
++      "integrity": "sha512-vG+rjFRj1PqdIBozIxAGMjPlOhaVe+GXpbttY/iSK7rGcJRMlwNJO7dcUwmUqkymsFLJiNGI06t4D7Fr7yRC9g==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@jridgewell/sourcemap-codec": "^1.6.0"
++      }
++    },
++    "node_modules/why-is-node-running": {
++      "version": "3.2.2",
++      "resolved": "https://registry.npmjs.org/why-is-node-running/-/why-is-node-running-3.2.2.tgz",
++      "integrity": "sha512-NKUzAelcoCXhXL4dJzKIwXeR8iEVqsA0Lq6Vnd0UXvgaKbzVo4ZTHROF2Jidrv+SgxOQ03fMinnNhzZATxOD3A==",
++      "dev": true,
++      "license": "MIT",
++      "bin": {
++        "why-is-node-running": "cli.js"
++      },
++      "engines": {
++        "node": ">=20.11"
++      }
++    },
+     "node_modules/yallist": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/yallist/-/yallist-3.1.1.tgz",
+diff --git a/package.json b/package.json
+index 2b5afb3..c7ae0de 100644
+--- a/package.json
++++ b/package.json
+@@ -6,7 +6,8 @@
+   "scripts": {
+     "dev": "vite",
+     "build": "vite build",
+-    "preview": "vite preview"
++    "preview": "vite preview",
++    "test": "vitest run"
+   },
+   "dependencies": {
+     "@dnd-kit/core": "^6.3.1",
+@@ -23,6 +24,7 @@
+   },
+   "devDependencies": {
+     "@vitejs/plugin-react": "^4.3.0",
+-    "vite": "^6.0.0"
++    "vite": "^6.0.0",
++    "vitest": "^5.0.2"
+   }
+ }
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index ce2192b..d89e7c7 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -169,7 +169,7 @@ export default function App() {
+         setIsAdminMode={setIsAdminMode}
+       />
+ 
+-      <Modal isOpen={confirmModal.isOpen} onClose={closeConfirm} size="sm">
++      <Modal isOpen={confirmModal.isOpen} onClose={closeConfirm} size="sm" zLevel="top">
+         <div className="p-5">
+           <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">{confirmModal.message}</p>
+           <div className="flex gap-2 justify-end">
+@@ -179,7 +179,7 @@ export default function App() {
+         </div>
+       </Modal>
+ 
+-      <Modal isOpen={alertModal.isOpen} onClose={() => setAlertModal({ isOpen: false, message: '' })} size="sm">
++      <Modal isOpen={alertModal.isOpen} onClose={() => setAlertModal({ isOpen: false, message: '' })} size="sm" zLevel="top">
+         <div className="p-5">
+           <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">{alertModal.message}</p>
+           <div className="flex justify-end">
+diff --git a/src/features/employee/EmployeeView.jsx b/src/features/employee/EmployeeView.jsx
+index 09f4136..1b963b5 100644
+--- a/src/features/employee/EmployeeView.jsx
++++ b/src/features/employee/EmployeeView.jsx
+@@ -22,7 +22,7 @@ import {
+  *    database lama yang dibutuhkan.
+  */
+ const emptyForm = () => ({
+-  id: '', name: '', phone: '', address: '',
++  id: '', externalId: '', name: '', phone: '', address: '',
+   hourlyRate: 0, fullTimeBonus: 0, overtimeRate30: OVERTIME_RATE_PER_30MIN,
+   startDate: toLocalDateString(), status: 'aktif', resignDate: '', role: 'kasir',
+ });
+@@ -57,7 +57,7 @@ export default function EmployeeView() {
+   });
+ 
+   const handleDelete = (emp) => {
+-    triggerConfirm(`Yakin ingin menghapus "${emp.name}"? Data hilang permanen, tapi riwayat transaksi, pengeluaran, dan dompet tetap tersimpan dengan nama ini.`, () =>
++    triggerConfirm(`Yakin ingin menghapus "${emp.name}"? Data hilang permanen, tapi riwayat transaksi, pengeluaran, dan dompet tetap tersimpan dengan nama ini. Karyawan yang masih punya data gaji tidak bisa dihapus (ubah jadi Resign).`, () =>
+       run(async () => { await deleteEmployee(emp.id); }));
+   };
+ 
+@@ -127,6 +127,11 @@ export default function EmployeeView() {
+             <div className="md:col-span-2">
+               <Input label="Alamat" variant="muted" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+             </div>
++            <div className="md:col-span-2">
++              <Input label="ID Absensi (opsional)" variant="muted" placeholder="Contoh: EMP-1699999999999" value={form.externalId || ''}
++                onChange={e => setForm({ ...form, externalId: e.target.value })} />
++              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
++            </div>
+             <Input type="number" label="Upah per Jam (Rp)" variant="muted" icon={<span className="font-bold">Rp</span>}
+               value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />
+             <Input type="number" label="Bonus Full Time (Rp)" variant="muted" icon={<span className="font-bold">Rp</span>}
+diff --git a/src/features/payroll/PayrollView.jsx b/src/features/payroll/PayrollView.jsx
+index b1f3938..c075ab1 100644
+--- a/src/features/payroll/PayrollView.jsx
++++ b/src/features/payroll/PayrollView.jsx
+@@ -1,4 +1,271 @@
+-import ViewPlaceholder from '../../components/ViewPlaceholder';
++import { useState, useMemo } from 'react';
++import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info } from 'lucide-react';
++import { Card, Button, Input, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
++import { useAppContext } from '../../context/AppContext';
++import { usePayrollData } from '../../hook/usePayrollData';
++import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
++import { toLocalDateString } from '../../utils/formatters';
++
++/**
++ * PayrollView — Penggajian. Semua angka dihitung payrollEngine (aturan sama
++ * dengan mamam-kasir) dari absensi yang DIBACA dari sistem absensi. Layar ini
++ * hanya menampilkan dan mencatat tambahan/potongan/saldo awal.
++ */
++
++const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
++const MON_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
++const fmtDay = (iso) => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
++const fmtDayYear = (iso) => `${fmtDay(iso)} ${iso.slice(0, 4)}`;
++const fmtHM = (min) => `${Math.floor(min / 60)}j ${String(min % 60).padStart(2, '0')}m`;
++const clamp = (iso, a, b) => (iso < a ? a : iso > b ? b : iso);
++
++const STATUS_LABEL = { hadir: 'Hadir', libur: 'Libur', belumAbsen: 'Belum absen', belumPulang: 'Belum pulang', perluKlarifikasi: 'Perlu klarifikasi' };
++const STATUS_VARIANT = { hadir: 'success', libur: 'neutral', belumAbsen: 'neutral', belumPulang: 'warning', perluKlarifikasi: 'danger' };
++
++const ADD_CATEGORIES = ['Bonus', 'THR', 'Tambahan'];
++const DED_CATEGORIES = ['Kasbon', 'Denda', 'Potongan'];
++
++const shiftMonth = (key, delta) => {
++  const d = new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1 + delta, 1));
++  return formatIsoDate(d).slice(0, 7);
++};
++
+ export default function PayrollView() {
+-  return <ViewPlaceholder title="Penggajian" note="Dihitung dari log absensi × upah per jam per karyawan (aturan sama dengan mamam-kasir)." />;
++  const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
++
++  const today = toLocalDateString();
++  const [mode, setMode] = useState('minggu');
++  const [anchor, setAnchor] = useState(today);          // tanggal di dalam minggu yang dilihat
++  const [month, setMonth] = useState(today.slice(0, 7));
++  const period = useMemo(() => (mode === 'minggu' ? weekPeriodForDate(anchor) : monthPeriod(month)), [mode, anchor, month]);
++
++  const data = usePayrollData({ period });
++  const { configured, loading, error, attendance, results, totals } = data;
++
++  const [selectedId, setSelectedId] = useState(null);
++  const [busy, setBusy] = useState(false);
++  const [form, setForm] = useState({ type: 'potongan', label: '', amount: '', date: '', category: 'Kasbon' });
++  const [openingInput, setOpeningInput] = useState('');
++
++  const run = async (fn) => {
++    if (busy) return;
++    setBusy(true);
++    try { await fn(); } catch (e) { triggerAlert(e.message || 'Terjadi kesalahan.'); }
++    finally { setBusy(false); }
++  };
++
++  const goPrev = () => (mode === 'minggu' ? setAnchor(shiftWeek(period, -7).start) : setMonth(shiftMonth(month, -1)));
++  const goNext = () => (mode === 'minggu' ? setAnchor(shiftWeek(period, 7).start) : setMonth(shiftMonth(month, 1)));
++  const goToday = () => { setAnchor(today); setMonth(today.slice(0, 7)); };
++  const label = mode === 'minggu'
++    ? `${fmtDay(period.start)} – ${fmtDayYear(period.end)}`
++    : `${MON_FULL[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
++
++  const selected = results.find(r => r.employee.id === selectedId) || null;
++  const openDetail = (r) => {
++    setSelectedId(r.employee.id);
++    setForm({ type: 'potongan', label: '', amount: '', date: clamp(today, period.start, period.end), category: 'Kasbon' });
++    setOpeningInput(String(r.payroll.openingBalance || ''));
++  };
++
++  const handleAdd = () => run(async () => {
++    const f = { employeeId: selected.employee.id, label: form.label, amount: form.amount, date: form.date, category: form.category };
++    if (form.type === 'tambahan') await data.addAddition(f); else await data.addDeduction(f);
++    setForm(prev => ({ ...prev, label: '', amount: '' }));
++  });
++
++  const handleDeleteItem = (kind, item) => {
++    triggerConfirm(`Hapus "${item.label}" (${formatRupiah(item.amount)})?`, () =>
++      run(() => (kind === 'tambahan' ? data.deleteAddition(item.id) : data.deleteDeduction(item.id))));
++  };
++
++  const handleSaveOpening = () => run(async () => {
++    await data.setOpeningBalance(selected.employee.id, openingInput === '' ? 0 : Number(openingInput));
++    triggerAlert('Saldo awal disimpan.');
++  });
++
++  const info = attendance.data;
++  const warnings = [];
++  if (info) {
++    if (info.unknownEmployees.length) warnings.push(`Absensi dari ${info.unknownEmployees.length} orang belum ada di daftar Karyawan (${info.unknownEmployees.slice(0, 4).map(u => u.name).join(', ')}${info.unknownEmployees.length > 4 ? ', dst' : ''}). Impor dari mamam-global atau tambahkan ID Absensi-nya, kalau tidak gaji mereka tidak terhitung.`);
++    if (info.withoutExternalId.length) warnings.push(`Belum punya ID Absensi, jadi absensinya tidak bisa dicocokkan: ${info.withoutExternalId.join(', ')}.`);
++    if (info.staleLiburIgnored) warnings.push(`${info.staleLiburIgnored} catatan "libur" otomatis diabaikan karena karyawannya ternyata masuk hari itu.`);
++    if (info.duplicatePulangIgnored) warnings.push(`${info.duplicatePulangIgnored} catatan pulang ganda diabaikan (dipakai yang terakhir).`);
++    if (info.skippedInvalid) warnings.push(`${info.skippedInvalid} baris absensi rusak dilewati.`);
++  }
++  const clarifyCount = results.reduce((s, r) => s + r.needsClarification.length, 0);
++
++  return (
++    <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
++      <div className="max-w-3xl w-full space-y-4 pb-10">
++
++        <Card className="space-y-3">
++          <SegmentedControl value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan (Jum–Kam)' }, { value: 'bulan', label: 'Bulanan' }]} />
++          <div className="flex items-center justify-between gap-2">
++            <button onClick={goPrev} aria-label="Sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
++            <div className="text-center min-w-0">
++              <p className="font-heading font-black text-slate-800 dark:text-slate-100 text-sm truncate" data-testid="period-label">{label}</p>
++              <button onClick={goToday} className="text-[11px] font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
++            </div>
++            <button onClick={goNext} aria-label="Berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
++          </div>
++        </Card>
++
++        {!configured && (
++          <Card className="space-y-3 border-2 border-amber-200 dark:border-amber-500/30">
++            <div className="flex items-start gap-2">
++              <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
++              <div>
++                <p className="font-bold text-sm text-slate-800 dark:text-slate-100">Sumber absensi belum tersambung</p>
++                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gaji dihitung dari absensi di sistem absensi (project Supabase lama). Isi dua baris ini di file <span className="font-mono font-bold">.env.local</span> (jangan ditempel di chat), lalu jalankan ulang <span className="font-mono font-bold">npm run dev</span>. Di Vercel, isi di Environment Variables lalu redeploy.</p>
++              </div>
++            </div>
++            <pre className="text-[11px] leading-relaxed bg-slate-100 dark:bg-slate-900 rounded-xl p-3 overflow-x-auto text-slate-700 dark:text-slate-300">{`VITE_ABSENSI_SUPABASE_URL=https://xxxx.supabase.co\nVITE_ABSENSI_SUPABASE_ANON_KEY=eyJ...`}</pre>
++            <p className="text-[11px] text-slate-400 dark:text-slate-500">Nilainya dari Project Settings → Data API di project Supabase yang dipakai web absensi. URL tanpa /rest/v1/. Aplikasi ini hanya MEMBACA dari sana.</p>
++          </Card>
++        )}
++
++        {loading && configured && <div className="text-center text-sm text-slate-400 dark:text-slate-500 py-10">Memuat gaji...</div>}
++        {error && (
++          <Card className="text-center space-y-2">
++            <p className="text-sm font-semibold text-red-500">Gagal memuat data</p><p className="text-xs text-slate-400 max-w-xs mx-auto">{error}</p>
++            <Button onClick={data.reload} icon={<RefreshCw className="w-4 h-4" />}>Coba Lagi</Button>
++          </Card>
++        )}
++        {attendance.status === 'error' && (
++          <Card className="text-center space-y-2 border-2 border-red-200 dark:border-red-500/30">
++            <p className="text-sm font-semibold text-red-500">Absensi gagal dibaca</p>
++            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">{attendance.error}</p>
++            <p className="text-[11px] text-slate-400">Gaji tidak ditampilkan supaya tidak ada angka Rp 0 yang menyesatkan.</p>
++            <Button onClick={data.reload} icon={<RefreshCw className="w-4 h-4" />}>Coba Lagi</Button>
++          </Card>
++        )}
++        {attendance.status === 'loading' && !loading && configured && <div className="text-center text-sm text-slate-400 dark:text-slate-500 py-6">Membaca absensi...</div>}
++
++        {attendance.status === 'ready' && (
++          <>
++            {(warnings.length > 0 || clarifyCount > 0) && (
++              <Card className="space-y-2 border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
++                {clarifyCount > 0 && (
++                  <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-start gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" />{clarifyCount} hari perlu klarifikasi (bolong belum selesai) dan BELUM dibayar. Buka karyawan yang bertanda merah.</p>
++                )}
++                {warnings.map((w, i) => <p key={i} className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{w}</p>)}
++              </Card>
++            )}
++
++            <Card variant="dark" padding="lg" className="space-y-3">
++              <div>
++                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Gaji Bersih Periode Ini</p>
++                <p className="font-heading text-3xl font-black text-white" data-testid="total-net">{formatRupiah(totals.net)}</p>
++              </div>
++              <div className="grid grid-cols-1 gap-y-1.5 text-xs">
++                {[['Upah', totals.wage], ['Lembur', totals.overtime], ['Bonus Full Time', totals.fullTime], ['Tambahan', totals.additions], ['Potongan', -totals.deductions], ...(period.monthKey ? [['Saldo Awal', -totals.openingBalance]] : [])].map(([k, v]) => (
++                  <div key={k} className="flex justify-between text-slate-300"><span>{k}</span><span className="font-bold text-white">{formatRupiah(v)}</span></div>
++                ))}
++              </div>
++            </Card>
++
++            {results.length === 0 ? (
++              <EmptyState icon={<Wallet className="w-12 h-12" />} title="Belum ada karyawan. Tambah atau impor di menu Karyawan." />
++            ) : results.map(r => {
++              const a = r.payroll.attendance;
++              return (
++                <button key={r.employee.id} onClick={() => openDetail(r)} data-testid={`emp-${r.employee.name}`}
++                  className={`w-full text-left bg-white dark:bg-slate-900 rounded-2xl border p-4 active:scale-[0.99] transition-all ${r.needsClarification.length ? 'border-red-300 dark:border-red-500/40' : 'border-slate-100 dark:border-slate-800'}`}>
++                  <div className="flex justify-between items-start gap-3">
++                    <div className="min-w-0">
++                      <p className="font-heading font-bold text-slate-800 dark:text-slate-100 truncate">{r.employee.name}</p>
++                      <div className="flex gap-1.5 mt-1 flex-wrap">
++                        <Badge size="sm" variant="neutral">{a.hadirDays} hari hadir</Badge>
++                        <Badge size="sm" variant="info">{fmtHM(a.totalWorkedMinutes)}</Badge>
++                        {a.totalOvertimeMinutes > 0 && <Badge size="sm" variant="warning">lembur {a.totalOvertimeMinutes} mnt</Badge>}
++                        {r.needsClarification.length > 0 && <Badge size="sm" variant="danger">perlu klarifikasi</Badge>}
++                      </div>
++                    </div>
++                    <p className={`font-heading font-black text-base shrink-0 ${r.payroll.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}`}>{formatRupiah(r.payroll.netPay)}</p>
++                  </div>
++                </button>
++              );
++            })}
++          </>
++        )}
++      </div>
++
++      <Modal isOpen={!!selected} onClose={() => setSelectedId(null)} sheet size="lg" maxHeight title={selected ? selected.employee.name : ''}>
++        {selected && (() => {
++          const p = selected.payroll, a = p.attendance;
++          return (
++            <div className="p-5 space-y-5 text-sm">
++              <div className="space-y-1.5">
++                <Row k={`Upah (${fmtHM(a.totalWorkedMinutes)})`} v={a.wagePay} f={formatRupiah} />
++                <Row k={`Lembur (${a.totalOvertimeMinutes} mnt → ${a.overtimeBlocks30Min} blok × ${formatRupiah(a.overtimeRate)})`} v={a.overtimePay} f={formatRupiah} />
++                <Row k={`Bonus Full Time (${a.fullTimeDays} hari)`} v={a.fullTimeBonusPay} f={formatRupiah} />
++                <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
++                <Row k="Potongan" v={-p.deductionsTotal} f={formatRupiah} />
++                {period.monthKey && <Row k="Saldo awal" v={-p.openingBalance} f={formatRupiah} />}
++                <div className="flex justify-between font-black text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
++              </div>
++
++              {selected.needsClarification.length > 0 && (
++                <p className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-xl p-3">Ada {selected.needsClarification.length} hari dengan bolong yang belum selesai ({selected.needsClarification.map(d => `${fmtDay(d.date)} jam ${d.stuckBolongTime}`).join(', ')}). Hari itu belum dibayar sampai ada masuk-lagi atau harinya lewat.</p>
++              )}
++
++              <div>
++                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Rincian Harian</p>
++                {a.dayRows.length === 0 ? <p className="text-xs text-slate-400">Tidak ada absensi pada periode ini.</p> : (
++                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
++                    {a.dayRows.map(d => (
++                      <div key={d.date} className="py-2 flex justify-between items-center gap-2 text-xs" data-testid="day-row">
++                        <div className="min-w-0"><span className="font-bold text-slate-700 dark:text-slate-200">{fmtDay(d.date)}</span> <Badge size="sm" variant={STATUS_VARIANT[d.status]}>{STATUS_LABEL[d.status]}</Badge>
++                          {d.effectiveFromBolong && <span className="text-[10px] text-amber-600 ml-1">bolong dianggap pulang</span>}</div>
++                        {d.status === 'hadir' && <div className="text-right text-slate-500 dark:text-slate-400 shrink-0">{fmtHM(d.workedMinutes)}{d.overtimeMinutes > 0 && ` · lembur ${d.overtimeMinutes}m`}{d.bolongMinutes > 0 && ` · bolong ${d.bolongMinutes}m`}{d.fullTimeBonus && ' · FT'}</div>}
++                      </div>
++                    ))}
++                  </div>
++                )}
++              </div>
++
++              <div className="space-y-2">
++                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tambahan & Potongan</p>
++                {[...p.additions.map(x => ['tambahan', x]), ...p.deductions.map(x => ['potongan', x])].map(([kind, it]) => (
++                  <div key={kind + it.id} className="flex justify-between items-center gap-2 bg-slate-50 dark:bg-slate-950 rounded-xl p-2.5 text-xs" data-testid="adj-row">
++                    <div className="min-w-0"><Badge size="sm" variant={kind === 'tambahan' ? 'success' : 'danger'}>{it.category}</Badge> <span className="font-semibold">{it.label}</span> <span className="text-slate-400">{fmtDay(it.date)}</span></div>
++                    <div className="flex items-center gap-1.5 shrink-0"><span className={`font-bold ${kind === 'tambahan' ? 'text-emerald-600' : 'text-red-500'}`}>{kind === 'tambahan' ? '+' : '-'}{formatRupiah(it.amount)}</span>
++                      <button aria-label="Hapus" onClick={() => handleDeleteItem(kind, it)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
++                  </div>
++                ))}
++                <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
++                  <SegmentedControl value={form.type} onChange={(v) => setForm({ ...form, type: v, category: v === 'tambahan' ? ADD_CATEGORIES[0] : DED_CATEGORIES[0] })}
++                    options={[{ value: 'potongan', label: 'Potongan' }, { value: 'tambahan', label: 'Tambahan' }]} />
++                  <Select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
++                    {(form.type === 'tambahan' ? ADD_CATEGORIES : DED_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
++                  </Select>
++                  <Input placeholder="Keterangan" value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} />
++                  <Input type="number" placeholder="Nominal" icon={<span className="font-bold">Rp</span>} value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
++                  <Input type="date" value={form.date} min={period.start} max={period.end} onChange={e => setForm({ ...form, date: e.target.value })} />
++                  <Button size="full" onClick={handleAdd} disabled={busy} icon={<Plus className="w-4 h-4" />}>{busy ? 'Menyimpan...' : `Tambah ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}</Button>
++                  <p className="text-[10px] text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
++                </div>
++              </div>
++
++              {period.monthKey && (
++                <div className="space-y-2">
++                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bulan</p>
++                  <p className="text-[11px] text-slate-400">Positif = karyawan berutang ke toko (mengurangi gaji). Negatif = toko berutang (menambah gaji). Kosong/0 = tidak ada.</p>
++                  <div className="flex gap-2">
++                    <div className="flex-1"><Input type="number" placeholder="0" icon={<span className="font-bold">Rp</span>} value={openingInput} onChange={e => setOpeningInput(e.target.value)} /></div>
++                    <Button variant="secondary" onClick={handleSaveOpening} disabled={busy}>Simpan</Button>
++                  </div>
++                </div>
++              )}
++            </div>
++          );
++        })()}
++      </Modal>
++    </div>
++  );
++}
++
++function Row({ k, v, f }) {
++  return <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400">{k}</span><span className="font-bold text-slate-800 dark:text-slate-100 shrink-0">{f(v)}</span></div>;
+ }
+diff --git a/src/features/payroll/__fixtures__/hrdSeed.js b/src/features/payroll/__fixtures__/hrdSeed.js
+new file mode 100644
+index 0000000..8454076
+--- /dev/null
++++ b/src/features/payroll/__fixtures__/hrdSeed.js
+@@ -0,0 +1,88 @@
++// DIHASILKAN OTOMATIS dari mamam-kasir/lib/features/hrd/domain/hrd_seed_data.dart — jangan diedit tangan.
++// Dipakai hanya untuk tes patokan (golden) mesin payroll.
++export const seedEmployees = [
++  {
++    "id": "EMP-1001",
++    "name": "Andi Wijaya",
++    "wagePerHour": 15000,
++    "bonusFullTime": 25000,
++    "overtimeRatePer30Min": 5000
++  },
++  {
++    "id": "EMP-1002",
++    "name": "Budi Santoso",
++    "wagePerHour": 14000,
++    "bonusFullTime": 20000,
++    "overtimeRatePer30Min": 5000
++  },
++  {
++    "id": "EMP-1003",
++    "name": "Sari Dewanti",
++    "wagePerHour": 20000,
++    "bonusFullTime": 30000,
++    "overtimeRatePer30Min": 6000
++  },
++  {
++    "id": "EMP-1004",
++    "name": "Rian Pratama",
++    "wagePerHour": 13000,
++    "bonusFullTime": 0,
++    "overtimeRatePer30Min": 5000
++  },
++  {
++    "id": "EMP-1005",
++    "name": "Dewi Lestari",
++    "wagePerHour": 15000,
++    "bonusFullTime": 25000,
++    "overtimeRatePer30Min": 5000
++  },
++  {
++    "id": "EMP-1006",
++    "name": "Fajar Nugroho",
++    "wagePerHour": 14000,
++    "bonusFullTime": 20000,
++    "overtimeRatePer30Min": 5000
++  }
++];
++export const seedAttendance = [{"id": "a1", "employeeId": "EMP-1001", "date": "2026-09-01", "type": "masuk", "time": "08:58"}, {"id": "a2", "employeeId": "EMP-1001", "date": "2026-09-01", "type": "pulang", "time": "19:05"}, {"id": "a3", "employeeId": "EMP-1001", "date": "2026-09-02", "type": "masuk", "time": "09:03"}, {"id": "a4", "employeeId": "EMP-1001", "date": "2026-09-02", "type": "pulang", "time": "19:00"}, {"id": "a5", "employeeId": "EMP-1001", "date": "2026-09-03", "type": "masuk", "time": "08:25"}, {"id": "a6", "employeeId": "EMP-1001", "date": "2026-09-03", "type": "pulang", "time": "20:15"}, {"id": "a7", "employeeId": "EMP-1001", "date": "2026-09-04", "type": "masuk", "time": "08:55"}, {"id": "a8", "employeeId": "EMP-1001", "date": "2026-09-04", "type": "bolong", "time": "13:00"}, {"id": "a9", "employeeId": "EMP-1001", "date": "2026-09-04", "type": "masuk_lagi", "time": "14:30"}, {"id": "a10", "employeeId": "EMP-1001", "date": "2026-09-04", "type": "pulang", "time": "19:00"}, {"id": "a11", "employeeId": "EMP-1001", "date": "2026-09-05", "type": "masuk", "time": "08:58"}, {"id": "a12", "employeeId": "EMP-1001", "date": "2026-09-05", "type": "pulang", "time": "19:02"}, {"id": "a13", "employeeId": "EMP-1001", "date": "2026-09-08", "type": "masuk", "time": "09:10"}, {"id": "a14", "employeeId": "EMP-1001", "date": "2026-09-08", "type": "pulang", "time": "19:00"}, {"id": "a15", "employeeId": "EMP-1001", "date": "2026-09-09", "type": "masuk", "time": "08:59"}, {"id": "a16", "employeeId": "EMP-1001", "date": "2026-09-09", "type": "pulang", "time": "19:40"}, {"id": "a17", "employeeId": "EMP-1001", "date": "2026-09-10", "type": "masuk", "time": "08:58"}, {"id": "a18", "employeeId": "EMP-1001", "date": "2026-09-10", "type": "pulang", "time": "19:00"}, {"id": "a19", "employeeId": "EMP-1001", "date": "2026-09-11", "type": "masuk", "time": "08:57"}, {"id": "a20", "employeeId": "EMP-1001", "date": "2026-09-11", "type": "pulang", "time": "19:01"}, {"id": "b1", "employeeId": "EMP-1002", "date": "2026-09-01", "type": "masuk", "time": "09:00"}, {"id": "b2", "employeeId": "EMP-1002", "date": "2026-09-01", "type": "pulang", "time": "19:00"}, {"id": "b3", "employeeId": "EMP-1002", "date": "2026-09-02", "type": "masuk", "time": "09:05"}, {"id": "b4", "employeeId": "EMP-1002", "date": "2026-09-02", "type": "pulang", "time": "18:50"}, {"id": "b5", "employeeId": "EMP-1002", "date": "2026-09-03", "type": "libur", "time": null}, {"id": "b6", "employeeId": "EMP-1002", "date": "2026-09-04", "type": "masuk", "time": "09:00"}, {"id": "b7", "employeeId": "EMP-1002", "date": "2026-09-04", "type": "pulang", "time": "19:30"}, {"id": "b8", "employeeId": "EMP-1002", "date": "2026-09-05", "type": "masuk", "time": "09:02"}, {"id": "b9", "employeeId": "EMP-1002", "date": "2026-09-05", "type": "pulang", "time": "19:00"}, {"id": "b10", "employeeId": "EMP-1002", "date": "2026-09-08", "type": "masuk", "time": "08:58"}, {"id": "b11", "employeeId": "EMP-1002", "date": "2026-09-08", "type": "pulang", "time": "19:00"}, {"id": "b12", "employeeId": "EMP-1002", "date": "2026-09-09", "type": "masuk", "time": "09:00"}, {"id": "b13", "employeeId": "EMP-1002", "date": "2026-09-09", "type": "pulang", "time": "19:00"}, {"id": "b14", "employeeId": "EMP-1002", "date": "2026-09-10", "type": "masuk", "time": "09:00"}, {"id": "b15", "employeeId": "EMP-1002", "date": "2026-09-10", "type": "pulang", "time": "19:00"}, {"id": "b16", "employeeId": "EMP-1002", "date": "2026-09-11", "type": "masuk", "time": "09:00"}, {"id": "b17", "employeeId": "EMP-1002", "date": "2026-09-11", "type": "pulang", "time": "19:00"}, {"id": "c1", "employeeId": "EMP-1003", "date": "2026-09-01", "type": "masuk", "time": "08:50"}, {"id": "c2", "employeeId": "EMP-1003", "date": "2026-09-01", "type": "pulang", "time": "19:15"}, {"id": "c3", "employeeId": "EMP-1003", "date": "2026-09-02", "type": "masuk", "time": "08:45"}, {"id": "c4", "employeeId": "EMP-1003", "date": "2026-09-02", "type": "pulang", "time": "19:20"}, {"id": "c5", "employeeId": "EMP-1003", "date": "2026-09-03", "type": "masuk", "time": "08:55"}, {"id": "c6", "employeeId": "EMP-1003", "date": "2026-09-03", "type": "pulang", "time": "19:00"}, {"id": "c7", "employeeId": "EMP-1003", "date": "2026-09-04", "type": "masuk", "time": "08:59"}, {"id": "c8", "employeeId": "EMP-1003", "date": "2026-09-04", "type": "pulang", "time": "19:00"}, {"id": "c9", "employeeId": "EMP-1003", "date": "2026-09-05", "type": "masuk", "time": "08:50"}, {"id": "c10", "employeeId": "EMP-1003", "date": "2026-09-05", "type": "pulang", "time": "19:30"}, {"id": "c11", "employeeId": "EMP-1003", "date": "2026-09-11", "type": "masuk", "time": "08:58"}, {"id": "c12", "employeeId": "EMP-1003", "date": "2026-09-11", "type": "pulang", "time": "19:00"}, {"id": "d1", "employeeId": "EMP-1004", "date": "2026-09-02", "type": "masuk", "time": "10:00"}, {"id": "d2", "employeeId": "EMP-1004", "date": "2026-09-02", "type": "pulang", "time": "18:00"}, {"id": "d3", "employeeId": "EMP-1004", "date": "2026-09-05", "type": "masuk", "time": "10:00"}, {"id": "d4", "employeeId": "EMP-1004", "date": "2026-09-05", "type": "pulang", "time": "18:00"}, {"id": "d5", "employeeId": "EMP-1004", "date": "2026-09-09", "type": "libur", "time": null, "auto": true}];
++export const seedAdditions = [
++  {
++    "id": "add-1",
++    "employeeId": "EMP-1001",
++    "label": "THR",
++    "amount": 100000,
++    "date": "2026-09-05",
++    "category": "Tambahan"
++  },
++  {
++    "id": "add-2",
++    "employeeId": "EMP-1002",
++    "label": "Ongkir ekstra",
++    "amount": 50000,
++    "date": "2026-09-08",
++    "category": "Tambahan"
++  }
++];
++export const seedDeductions = [
++  {
++    "id": "ded-1",
++    "employeeId": "EMP-1001",
++    "label": "Kasbon",
++    "amount": 150000,
++    "date": "2026-09-03",
++    "category": "Kasbon"
++  },
++  {
++    "id": "ded-2",
++    "employeeId": "EMP-1003",
++    "label": "Kasbon",
++    "amount": 200000,
++    "date": "2026-09-01",
++    "category": "Kasbon"
++  }
++];
++export const seedOpeningBalances = {
++  "EMP-1001|2026-09": 0,
++  "EMP-1003|2026-09": -50000
++};
++export const PLACEHOLDER_TODAY = '2026-09-11';
+diff --git a/src/features/payroll/attendanceProvider.js b/src/features/payroll/attendanceProvider.js
+new file mode 100644
+index 0000000..9ef76df
+--- /dev/null
++++ b/src/features/payroll/attendanceProvider.js
+@@ -0,0 +1,124 @@
++/**
++ * attendanceProvider — mengambil log absensi dari sistem absensi dan mengubahnya
++ * ke bentuk yang dimengerti payrollEngine (bentuk AttendanceLog milik mamam-kasir).
++ * Ini padanan "AttendanceProvider port" di B: sumber absensi TIDAK disalin ke C.
++ *
++ * Bentuk baris di sistem absensi (tabel attendanceLog, isi di kolom `payload`):
++ *   { id, employeeId:'EMP-…', employeeName, type, date:'<waktu UTC ISO>',
++ *     dateStr:'YYYY-MM-DD' (tanggal lokal), photoUrl, location, deletedAt }
++ *   type: masuk | bolong | masuk_lagi | keluar | libur
++ *
++ * Perbedaan penamaan ke bentuk B: 'keluar' -> 'pulang'; jam 'HH:mm' diambil dari
++ * `date` dan diubah ke waktu LOKAL perangkat (sama seperti mamam-global), tanggal
++ * memakai `dateStr` apa adanya.
++ */
++
++export const PAGE_SIZE = 1000;   // batas baris per permintaan PostgREST
++
++const TYPE_MAP = { masuk: 'masuk', masuk_lagi: 'masuk_lagi', bolong: 'bolong', keluar: 'pulang', pulang: 'pulang', libur: 'libur' };
++const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
++const pad2 = (n) => String(n).padStart(2, '0');
++
++/** Jam lokal perangkat 'HH:mm' dari timestamp ISO (null kalau tidak valid). */
++export function defaultLocalHHmm(iso) {
++  const d = new Date(iso);
++  if (Number.isNaN(d.getTime())) return null;
++  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
++}
++
++/**
++ * Ubah baris mentah jadi log siap hitung. FUNGSI MURNI.
++ * @param rows  baris { id, payload } (atau payload langsung)
++ * @param externalIdToEmployeeId  Map dari id lama ('EMP-…') ke id karyawan di C
++ */
++export function mapAttendanceRows(rows, externalIdToEmployeeId, { toLocalHHmm = defaultLocalHHmm } = {}) {
++  const parsed = [];
++  const unknown = new Map();
++  let skippedDeleted = 0, skippedInvalid = 0;
++
++  for (const row of rows || []) {
++    const p = row && typeof row === 'object' ? (row.payload ?? row) : null;
++    if (!p || typeof p !== 'object') { skippedInvalid++; continue; }
++    if (p.deletedAt) { skippedDeleted++; continue; }
++
++    const type = TYPE_MAP[p.type];
++    const date = String(p.dateStr ?? '').slice(0, 10);
++    if (!type || !DATE_RE.test(date)) { skippedInvalid++; continue; }
++
++    const employeeId = externalIdToEmployeeId.get(String(p.employeeId));
++    if (!employeeId) { unknown.set(String(p.employeeId), p.employeeName || String(p.employeeId)); continue; }
++
++    let time = null;
++    if (type !== 'libur') {
++      time = toLocalHHmm(p.date);
++      if (!time) { skippedInvalid++; continue; }
++    }
++    parsed.push({ id: String(p.id ?? row.id), employeeId, date, type, time, auto: false, ts: Date.parse(p.date) || 0 });
++  }
++
++  // Urut kronologis, supaya "masuk pertama" = masuk paling awal.
++  parsed.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.ts - b.ts));
++
++  // Kunci hari: karyawan|tanggal
++  const key = (l) => `${l.employeeId}|${l.date}`;
++  const hasMasuk = new Set(parsed.filter((l) => l.type === 'masuk').map(key));
++
++  // (1) 'libur' yang tersimpan padahal karyawan itu akhirnya masuk = tebakan usang
++  //     dari watchdog otomatis di mamam-global. Fakta (masuk) menang. Kalau tidak
++  //     dibuang, mesin B akan memberi libur pada hari itu dan gajinya hangus.
++  let staleLiburIgnored = 0;
++  const afterLibur = parsed.filter((l) => {
++    if (l.type === 'libur' && hasMasuk.has(key(l))) { staleLiburIgnored++; return false; }
++    return true;
++  });
++
++  // (2) Lebih dari satu 'pulang' di hari yang sama: pakai yang TERAKHIR
++  //     (sama seperti mamam-global memilih keluar terakhir).
++  const lastPulangIdx = new Map();
++  afterLibur.forEach((l, i) => { if (l.type === 'pulang') lastPulangIdx.set(key(l), i); });
++  let duplicatePulangIgnored = 0;
++  const logs = afterLibur.filter((l, i) => {
++    if (l.type !== 'pulang') return true;
++    if (lastPulangIdx.get(key(l)) === i) return true;
++    duplicatePulangIgnored++;
++    return false;
++  }).map(({ ts, ...l }) => l);
++
++  return {
++    logs,
++    unknownEmployees: [...unknown].map(([externalId, name]) => ({ externalId, name })),
++    skippedDeleted, skippedInvalid, staleLiburIgnored, duplicatePulangIgnored,
++  };
++}
++
++/**
++ * Ambil SEMUA baris absensi untuk rentang tanggal (inklusif), dengan paginasi:
++ * PostgREST membatasi 1000 baris per permintaan, sedangkan satu bulan absensi
++ * beberapa karyawan bisa lebih dari itu.
++ */
++export async function fetchAttendanceRows(client, fromDate, toDate) {
++  const rows = [];
++  for (let start = 0; ; start += PAGE_SIZE) {
++    const { data, error } = await client
++      .from('attendanceLog')
++      .select('id, payload')
++      .gte('payload->>dateStr', fromDate)
++      .lte('payload->>dateStr', toDate)
++      .order('id')
++      .range(start, start + PAGE_SIZE - 1);
++    if (error) throw new Error(`Gagal membaca absensi: ${error.message}`);
++    rows.push(...(data || []));
++    if (!data || data.length < PAGE_SIZE) break;
++    if (start > 200000) throw new Error('Data absensi terlalu banyak untuk satu periode.');
++  }
++  return rows;
++}
++
++/** Semua langkah: ambil + petakan. `employees` berbentuk hasil useEmployeeData. */
++export async function loadAttendance(client, period, employees, options) {
++  const map = new Map(employees.filter((e) => e.externalId).map((e) => [e.externalId, e.id]));
++  const rows = await fetchAttendanceRows(client, period.start, period.end);
++  const result = mapAttendanceRows(rows, map, options);
++  const withoutExternalId = employees.filter((e) => !e.externalId && e.status !== 'resign').map((e) => e.name);
++  return { ...result, withoutExternalId };
++}
+diff --git a/src/features/payroll/attendanceProvider.test.js b/src/features/payroll/attendanceProvider.test.js
+new file mode 100644
+index 0000000..29e801d
+--- /dev/null
++++ b/src/features/payroll/attendanceProvider.test.js
+@@ -0,0 +1,168 @@
++import { describe, it, expect } from 'vitest';
++import { mapAttendanceRows, fetchAttendanceRows, loadAttendance, defaultLocalHHmm, PAGE_SIZE } from './attendanceProvider.js';
++import { computeDayResult } from './payrollEngine.js';
++
++// Zona waktu tokoh tes: WITA (UTC+8). Diinjeksikan supaya tes tidak bergantung zona waktu mesin.
++const wita = (iso) => { const t = new Date(iso).getTime(); if (Number.isNaN(t)) return null; return new Date(t + 8 * 3600000).toISOString().slice(11, 16); };
++const row = (o) => ({ id: o.id ?? Math.random().toString(36).slice(2), payload: { id: o.id, employeeId: 'EMP-1', employeeName: 'Andi', deletedAt: null, ...o } });
++const MAP = new Map([['EMP-1', 'uuid-1'], ['EMP-2', 'uuid-2']]);
++const map = (rows) => mapAttendanceRows(rows, MAP, { toLocalHHmm: wita });
++
++describe('mapAttendanceRows', () => {
++  it("'keluar' -> 'pulang'; jam diubah ke waktu lokal; tanggal dari dateStr; id ke id karyawan C", () => {
++    const { logs } = map([
++      row({ id: 'a', type: 'masuk', date: '2026-09-04T00:58:00.000Z', dateStr: '2026-09-04' }),     // 08:58 WITA
++      row({ id: 'b', type: 'keluar', date: '2026-09-04T11:05:00.000Z', dateStr: '2026-09-04' }),    // 19:05 WITA
++    ]);
++    expect(logs).toEqual([
++      { id: 'a', employeeId: 'uuid-1', date: '2026-09-04', type: 'masuk', time: '08:58', auto: false },
++      { id: 'b', employeeId: 'uuid-1', date: '2026-09-04', type: 'pulang', time: '19:05', auto: false },
++    ]);
++  });
++
++  it('tanggal memakai dateStr, BUKAN tanggal dari timestamp (masuk 07:30 WITA = 23:30 UTC hari sebelumnya)', () => {
++    const { logs } = map([row({ id: 'a', type: 'masuk', date: '2026-09-03T23:30:00.000Z', dateStr: '2026-09-04' })]);
++    expect(logs[0]).toMatchObject({ date: '2026-09-04', time: '07:30' });
++  });
++
++  it('baris terhapus dilewati dan dihitung', () => {
++    const r = map([row({ id: 'a', type: 'masuk', date: '2026-09-04T01:00:00Z', dateStr: '2026-09-04', deletedAt: '2026-09-05T00:00:00Z' })]);
++    expect(r.logs).toEqual([]); expect(r.skippedDeleted).toBe(1);
++  });
++
++  it('karyawan yang belum ada di C dilaporkan (bukan diam-diam hilang)', () => {
++    const r = map([row({ id: 'a', employeeId: 'EMP-99', employeeName: 'Orang Baru', type: 'masuk', date: '2026-09-04T01:00:00Z', dateStr: '2026-09-04' })]);
++    expect(r.logs).toEqual([]); expect(r.unknownEmployees).toEqual([{ externalId: 'EMP-99', name: 'Orang Baru' }]);
++  });
++
++  it('baris rusak dilewati: tipe asing, tanggal jelek, timestamp jelek, bukan objek', () => {
++    const r = map([
++      row({ id: 'a', type: 'terbang', date: '2026-09-04T01:00:00Z', dateStr: '2026-09-04' }),
++      row({ id: 'b', type: 'masuk', date: '2026-09-04T01:00:00Z', dateStr: 'kemarin' }),
++      row({ id: 'c', type: 'masuk', date: 'bukan-tanggal', dateStr: '2026-09-04' }),
++      null, 'teks',
++    ]);
++    expect(r.logs).toEqual([]); expect(r.skippedInvalid).toBe(5);
++  });
++
++  it("'libur' tidak butuh jam (time = null)", () => {
++    const { logs } = map([row({ id: 'a', type: 'libur', date: '2026-09-04T00:00:00Z', dateStr: '2026-09-04' })]);
++    expect(logs[0]).toMatchObject({ type: 'libur', time: null });
++  });
++
++  it('URUT kronologis walau baris datang acak', () => {
++    const { logs } = map([
++      row({ id: 'p', type: 'keluar', date: '2026-09-04T11:00:00Z', dateStr: '2026-09-04' }),
++      row({ id: 'm', type: 'masuk', date: '2026-09-04T01:00:00Z', dateStr: '2026-09-04' }),
++    ]);
++    expect(logs.map((l) => l.id)).toEqual(['m', 'p']);
++  });
++
++  it('LIBUR USANG (watchdog) dibuang kalau karyawan itu akhirnya masuk — gajinya tidak hangus', () => {
++    const rows = [
++      row({ id: 'l', type: 'libur', date: '2026-09-04T11:30:00Z', dateStr: '2026-09-04' }),   // tersimpan duluan
++      row({ id: 'm', type: 'masuk', date: '2026-09-04T03:00:00Z', dateStr: '2026-09-04' }),   // 11:00 WITA (telat, absen setelahnya)
++      row({ id: 'p', type: 'keluar', date: '2026-09-04T11:00:00Z', dateStr: '2026-09-04' }),
++    ];
++    const r = map(rows);
++    expect(r.staleLiburIgnored).toBe(1);
++    expect(r.logs.map((l) => l.type)).toEqual(['masuk', 'pulang']);
++    // bukti dampaknya di mesin B: dengan libur ikut masuk, hari itu hangus
++    const withLibur = [{ id: 'l', employeeId: 'uuid-1', date: '2026-09-04', type: 'libur', time: null }, ...r.logs];
++    expect(computeDayResult(withLibur, {}, '2026-09-04', '2026-09-30').status).toBe('libur');   // hangus
++    expect(computeDayResult(r.logs, {}, '2026-09-04', '2026-09-30').status).toBe('hadir');      // benar
++  });
++
++  it('libur yang sah (tanpa masuk) tetap dipertahankan', () => {
++    const r = map([row({ id: 'l', type: 'libur', date: '2026-09-04T00:00:00Z', dateStr: '2026-09-04' })]);
++    expect(r.logs).toHaveLength(1); expect(r.staleLiburIgnored).toBe(0);
++  });
++
++  it('libur di hari lain karyawan yang sama TIDAK ikut dibuang', () => {
++    const r = map([
++      row({ id: 'l', type: 'libur', date: '2026-09-05T00:00:00Z', dateStr: '2026-09-05' }),
++      row({ id: 'm', type: 'masuk', date: '2026-09-04T01:00:00Z', dateStr: '2026-09-04' }),
++    ]);
++    expect(r.logs.some((l) => l.type === 'libur')).toBe(true);
++  });
++
++  it("dua 'keluar' di hari yang sama: pakai yang TERAKHIR (seperti mamam-global)", () => {
++    const r = map([
++      row({ id: 'm', type: 'masuk', date: '2026-09-04T01:00:00Z', dateStr: '2026-09-04' }),
++      row({ id: 'k1', type: 'keluar', date: '2026-09-04T08:00:00Z', dateStr: '2026-09-04' }),
++      row({ id: 'k2', type: 'keluar', date: '2026-09-04T11:00:00Z', dateStr: '2026-09-04' }),
++    ]);
++    expect(r.duplicatePulangIgnored).toBe(1);
++    expect(r.logs.filter((l) => l.type === 'pulang').map((l) => l.id)).toEqual(['k2']);
++  });
++
++  it('karyawan berbeda tidak saling mempengaruhi (libur/pulang dihitung per karyawan)', () => {
++    const r = map([
++      row({ id: 'l', employeeId: 'EMP-2', type: 'libur', date: '2026-09-04T00:00:00Z', dateStr: '2026-09-04' }),
++      row({ id: 'm', employeeId: 'EMP-1', type: 'masuk', date: '2026-09-04T01:00:00Z', dateStr: '2026-09-04' }),
++    ]);
++    expect(r.logs.find((l) => l.type === 'libur').employeeId).toBe('uuid-2');
++  });
++
++  it('defaultLocalHHmm: format HH:mm dan null untuk tak valid', () => {
++    expect(defaultLocalHHmm('2026-09-04T01:00:00Z')).toMatch(/^\d{2}:\d{2}$/);
++    expect(defaultLocalHHmm('xx')).toBeNull();
++  });
++});
++
++// ── klien palsu yang meniru rantai query supabase-js dan membatasi 1000 baris ──
++function fakeClient(all, { failAtPage = null } = {}) {
++  const calls = [];
++  const state = {};
++  const q = {
++    from(t) { state.table = t; return q; },
++    select() { return q; },
++    gte(c, v) { state.gte = [c, v]; return q; },
++    lte(c, v) { state.lte = [c, v]; return q; },
++    order() { return q; },
++    range(a, b) {
++      calls.push({ a, b, gte: state.gte, lte: state.lte, table: state.table });
++      if (failAtPage != null && calls.length === failAtPage) return Promise.resolve({ data: null, error: { message: 'timeout' } });
++      return Promise.resolve({ data: all.slice(a, b + 1), error: null });
++    },
++  };
++  return { client: q, calls };
++}
++
++describe('fetchAttendanceRows (paginasi)', () => {
++  const mk = (n) => Array.from({ length: n }, (_, i) => ({ id: String(i), payload: {} }));
++  it('mengambil SEMUA baris walau lebih dari 1000', async () => {
++    const { client, calls } = fakeClient(mk(2350));
++    const rows = await fetchAttendanceRows(client, '2026-09-01', '2026-09-30');
++    expect(rows).toHaveLength(2350); expect(calls).toHaveLength(3);
++    expect(calls.map((c) => [c.a, c.b])).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
++  });
++  it('tepat kelipatan 1000 tidak berhenti terlalu awal', async () => {
++    const { client, calls } = fakeClient(mk(2000));
++    expect(await fetchAttendanceRows(client, 'a', 'b')).toHaveLength(2000); expect(calls).toHaveLength(3);
++  });
++  it('kosong -> satu permintaan, hasil kosong', async () => {
++    const { client, calls } = fakeClient([]);
++    expect(await fetchAttendanceRows(client, 'a', 'b')).toEqual([]); expect(calls).toHaveLength(1);
++  });
++  it('filter memakai tanggal lokal dateStr pada tabel attendanceLog', async () => {
++    const { client, calls } = fakeClient([]);
++    await fetchAttendanceRows(client, '2026-09-01', '2026-09-30');
++    expect(calls[0]).toMatchObject({ table: 'attendanceLog', gte: ['payload->>dateStr', '2026-09-01'], lte: ['payload->>dateStr', '2026-09-30'] });
++  });
++  it('error di tengah paginasi dilempar jelas, bukan hasil setengah', async () => {
++    const { client } = fakeClient(mk(2500), { failAtPage: 2 });
++    await expect(fetchAttendanceRows(client, 'a', 'b')).rejects.toThrow(/Gagal membaca absensi: timeout/);
++  });
++  it('PAGE_SIZE sama dengan batas PostgREST (1000)', () => { expect(PAGE_SIZE).toBe(1000); });
++});
++
++describe('loadAttendance', () => {
++  it('memetakan lewat externalId dan melaporkan karyawan tanpa id absensi', async () => {
++    const { client } = fakeClient([row({ id: 'a', type: 'masuk', date: '2026-09-04T01:00:00Z', dateStr: '2026-09-04' })]);
++    const emps = [{ id: 'uuid-1', externalId: 'EMP-1', name: 'Andi', status: 'aktif' }, { id: 'uuid-9', externalId: null, name: 'Manual', status: 'aktif' }, { id: 'uuid-8', externalId: null, name: 'Sudah Resign', status: 'resign' }];
++    const r = await loadAttendance(client, { start: '2026-09-01', end: '2026-09-30' }, emps, { toLocalHHmm: wita });
++    expect(r.logs).toHaveLength(1); expect(r.logs[0].employeeId).toBe('uuid-1');
++    expect(r.withoutExternalId).toEqual(['Manual']);       // resign tidak dilaporkan
++  });
++});
+diff --git a/src/features/payroll/payrollEngine.js b/src/features/payroll/payrollEngine.js
+new file mode 100644
+index 0000000..e4eeeb9
+--- /dev/null
++++ b/src/features/payroll/payrollEngine.js
+@@ -0,0 +1,250 @@
++/**
++ * payrollEngine — mesin hitung gaji. FUNGSI MURNI (tanpa React, Supabase,
++ * atau Date.now() tersembunyi), port LANGSUNG dari
++ * mamam-kasir/lib/features/hrd/domain/payroll_engine.dart.
++ *
++ * Kenapa persis B: supaya saat migrasi ke mamam-kasir, gaji yang dihitung C
++ * dan yang dihitung B untuk data yang sama hasilnya SAMA. Nilai patokan di
++ * payrollEngine.test.js diambil dari tes B (yang dibuat dari mockup aslinya).
++ * Jangan "memperbaiki" aturan di sini tanpa mengubah B juga.
++ *
++ * Aturan (dari B):
++ *  - Jam toko tetap 09:00–19:00 untuk semua karyawan.
++ *  - Lembur pagi: masuk <= 08:30  -> (09:00 - jam masuk) menit.
++ *  - Lembur sore: pulang >= 19:30 -> (jam pulang - 19:00) menit.
++ *  - Uang lembur = floor(TOTAL menit lembur dalam periode / 30) x tarif per 30 menit.
++ *  - Upah hanya untuk menit DI DALAM 09:00–19:00; menit di luar jam itu
++ *    hanya dibayar lewat lembur (tidak dobel).
++ *  - Jam bolong (bolong -> masuk_lagi berikutnya) dikurangkan, hanya bagian
++ *    yang jatuh di dalam jam normal.
++ *  - Bonus Full Time: masuk <= 09:00 DAN pulang >= 19:00, per hari.
++ *  - Bolong yang "nyangkut" (tidak ada masuk_lagi sesudahnya) TIDAK pernah
++ *    otomatis dianggap pulang di hari yang sama. Baru dianggap pulang setelah
++ *    harinya lewat; sebelum itu statusnya "perlu klarifikasi".
++ *  - Bersih = upah + bonus full time + lembur + tambahan - potongan - saldo awal
++ *    (saldo awal hanya untuk periode bulanan).
++ *
++ * Satu fungsi menghitung rentang tanggal apa pun, jadi mode bulanan dan
++ * mingguan (Jumat–Kamis) tidak mungkin berbeda hasilnya.
++ *
++ * Bentuk data:
++ *   employee: { id, wagePerHour, bonusFullTime, overtimeRatePer30Min }
++ *   log:      { id, employeeId, date:'YYYY-MM-DD', type, time:'HH:mm'|null, auto? }
++ *             type: 'masuk' | 'masuk_lagi' | 'bolong' | 'pulang' | 'libur'
++ *   tambahan/potongan: { id, employeeId, label, amount, date, category }
++ */
++
++// ── Konstanta (menit sejak tengah malam) ─────────────────────────────
++export const STORE_START_MINUTES = 9 * 60;                 // 09:00
++export const STORE_END_MINUTES = 19 * 60;                  // 19:00
++export const OT_MORNING_THRESHOLD_MINUTES = 8 * 60 + 30;   // 08:30
++export const OT_EVENING_THRESHOLD_MINUTES = 19 * 60 + 30;  // 19:30
++export const DEFAULT_OVERTIME_RATE_PER_30MIN = 5000;
++
++// ── Utilitas tanggal/jam (UTC sengaja: tanpa geser zona waktu/DST) ───
++const pad = (n, len = 2) => String(n).padStart(len, '0');
++
++export const timeToMinutes = (t) => {
++  const [h, m] = String(t).split(':');
++  return parseInt(h, 10) * 60 + parseInt(m, 10);
++};
++
++export const parseIsoDate = (iso) =>
++  new Date(Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))));
++
++export const formatIsoDate = (d) => `${pad(d.getUTCFullYear(), 4)}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
++
++const addDays = (d, n) => new Date(d.getTime() + n * 86400000);
++
++// ── Periode ──────────────────────────────────────────────────────────
++/** Satu bulan penuh, mis. monthPeriod('2026-09'). */
++export function monthPeriod(yyyyMm) {
++  const y = Number(yyyyMm.slice(0, 4));
++  const m = Number(yyyyMm.slice(5, 7));
++  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
++  return { start: `${yyyyMm}-01`, end: `${yyyyMm}-${pad(lastDay)}`, isMonth: true, monthKey: yyyyMm };
++}
++
++/** Rentang tanggal bebas (inklusif), dipakai untuk minggu gajian. */
++export const rangePeriod = (start, end) => ({ start, end, isMonth: false, monthKey: null });
++
++export const periodContains = (period, iso) => iso >= period.start && iso <= period.end;
++
++/** Minggu gajian yang memuat tanggal itu: dihitung Jumat–Kamis (Jumat = hari ke-1). */
++export function weekPeriodForDate(dateIso) {
++  const d = parseIsoDate(dateIso);
++  const dow = d.getUTCDay();                       // Minggu=0 ... Jumat=5
++  const daysSinceFriday = (dow - 5 + 7) % 7;
++  const friday = addDays(d, -daysSinceFriday);
++  const thursday = addDays(friday, 6);
++  return rangePeriod(formatIsoDate(friday), formatIsoDate(thursday));
++}
++
++/** Geser minggu gajian maju/mundur (biasanya +/-7 hari). */
++export const shiftWeek = (week, deltaDays) =>
++  weekPeriodForDate(formatIsoDate(addDays(parseIsoDate(week.start), deltaDays)));
++
++// ── Aturan per hari ──────────────────────────────────────────────────
++const hasTime = (l) => l.time != null;
++const minutesOf = (l) => timeToMinutes(l.time);
++const firstOfType = (logs, type) => logs.find((l) => l.type === type) || null;
++
++/** Bolong pertama yang tidak punya masuk_lagi sesudahnya di hari yang sama. */
++export function findStuckBolong(dayLogs) {
++  const bolongs = dayLogs.filter((l) => l.type === 'bolong' && hasTime(l)).sort((a, b) => minutesOf(a) - minutesOf(b));
++  for (const b of bolongs) {
++    const hasResumeAfter = dayLogs.some((l) => l.type === 'masuk_lagi' && hasTime(l) && minutesOf(l) > minutesOf(b));
++    if (!hasResumeAfter) return b;
++  }
++  return null;
++}
++
++function resultWithClockOut(dayLogs, masuk, clockOutMinutes, effectiveFromBolong) {
++  const masukMin = minutesOf(masuk);
++  const pulangMin = clockOutMinutes;
++
++  // Lembur: pagi (masuk <= 08:30) + sore (pulang >= 19:30). Bolong yang dipakai
++  // sebagai jam pulang tidak pernah menghasilkan lembur sore.
++  let overtimeMinutes = 0;
++  if (masukMin <= OT_MORNING_THRESHOLD_MINUTES) overtimeMinutes += STORE_START_MINUTES - masukMin;
++  if (!effectiveFromBolong && pulangMin >= OT_EVENING_THRESHOLD_MINUTES) overtimeMinutes += pulangMin - STORE_END_MINUTES;
++
++  // Menit upah biasa dijepit KE DALAM jam toko; di luar itu hanya lembur.
++  const normalStart = Math.max(masukMin, STORE_START_MINUTES);
++  const normalEnd = Math.min(pulangMin, STORE_END_MINUTES);
++  const grossNormalMinutes = Math.max(0, normalEnd - normalStart);
++
++  // Kurangi jeda bolong -> masuk_lagi, hanya bagian di dalam jam normal.
++  let bolongMinutes = 0;
++  for (const b of dayLogs.filter((l) => l.type === 'bolong' && hasTime(l))) {
++    const bMin = minutesOf(b);
++    const resumes = dayLogs
++      .filter((l) => l.type === 'masuk_lagi' && hasTime(l) && minutesOf(l) > bMin)
++      .sort((x, y) => minutesOf(x) - minutesOf(y));
++    if (resumes.length === 0) continue;            // yang nyangkut tidak punya jeda untuk dikurangi
++    const resumeMin = minutesOf(resumes[0]);
++    const gapStart = Math.max(bMin, normalStart);
++    const gapEnd = Math.min(resumeMin, normalEnd);
++    if (gapEnd - gapStart > 0) bolongMinutes += gapEnd - gapStart;
++  }
++
++  const worked = grossNormalMinutes - bolongMinutes;
++  return {
++    status: 'hadir',
++    workedMinutes: Math.max(0, worked),
++    overtimeMinutes,
++    bolongMinutes,
++    fullTimeBonus: !effectiveFromBolong && masukMin <= STORE_START_MINUTES && pulangMin >= STORE_END_MINUTES,
++    effectiveFromBolong,
++    stuckBolongTime: null,
++  };
++}
++
++const emptyDay = (status, extra = {}) => ({
++  status, workedMinutes: 0, overtimeMinutes: 0, bolongMinutes: 0,
++  fullTimeBonus: false, effectiveFromBolong: false, stuckBolongTime: null, ...extra,
++});
++
++/**
++ * Evaluasi satu karyawan pada satu hari dari log mentah hari itu.
++ * `date` dan `today` berupa tanggal ISO; "hari sudah lewat" = date < today.
++ * Status: 'hadir' | 'libur' | 'belumAbsen' | 'belumPulang' | 'perluKlarifikasi'.
++ */
++export function computeDayResult(dayLogs, _employee, date, today) {
++  const masuk = firstOfType(dayLogs, 'masuk');
++  const pulang = firstOfType(dayLogs, 'pulang');
++  const libur = firstOfType(dayLogs, 'libur');
++  const stuck = masuk ? findStuckBolong(dayLogs) : null;
++  const dayHasEnded = date < today;
++
++  if (libur || !masuk) return emptyDay(libur ? 'libur' : 'belumAbsen');
++
++  if (stuck) {
++    // Hari yang sama, atau ada pulang bersama bolong yang belum selesai (keadaan
++    // janggal yang tidak pernah kita tebak): butuh keputusan manusia.
++    if (pulang || !dayHasEnded) return emptyDay('perluKlarifikasi', { stuckBolongTime: stuck.time });
++    // Hari sudah lewat dan tidak ada yang mengklarifikasi: bolong itu jam pulang.
++    return resultWithClockOut(dayLogs, masuk, minutesOf(stuck), true);
++  }
++
++  if (!pulang) return emptyDay('belumPulang');
++  return resultWithClockOut(dayLogs, masuk, minutesOf(pulang), false);
++}
++
++// ── Aturan per periode ───────────────────────────────────────────────
++/** round(menit / 60 * upahPerJam) dengan aritmetika bilangan bulat (setengah naik). */
++export const roundedWage = (minutes, wagePerHour) => Math.floor((minutes * wagePerHour + 30) / 60);
++
++/** Gaji dari absensi untuk satu karyawan pada satu periode. */
++export function computeAttendance(employee, allLogs, period, today) {
++  const byDate = new Map();
++  for (const l of allLogs) {
++    if (l.employeeId === employee.id && periodContains(period, l.date)) {
++      if (!byDate.has(l.date)) byDate.set(l.date, []);
++      byDate.get(l.date).push(l);
++    }
++  }
++  const dates = [...byDate.keys()].sort();
++
++  let totalWorkedMinutes = 0, totalOvertimeMinutes = 0, fullTimeDays = 0, hadirDays = 0, liburDays = 0;
++  const dayRows = [];
++  for (const date of dates) {
++    const r = computeDayResult(byDate.get(date), employee, date, today);
++    if (r.status === 'hadir') {
++      hadirDays++;
++      totalWorkedMinutes += r.workedMinutes;
++      totalOvertimeMinutes += r.overtimeMinutes;
++      if (r.fullTimeBonus) fullTimeDays++;
++    } else if (r.status === 'libur') {
++      liburDays++;
++    }
++    dayRows.push({ date, ...r });
++  }
++
++  const overtimeBlocks30Min = Math.floor(totalOvertimeMinutes / 30);   // dibulatkan ke bawah, per aturan
++  const overtimeRate = employee.overtimeRatePer30Min > 0 ? employee.overtimeRatePer30Min : DEFAULT_OVERTIME_RATE_PER_30MIN;
++
++  return {
++    dayRows, hadirDays, liburDays, fullTimeDays,
++    totalWorkedMinutes, totalOvertimeMinutes, overtimeBlocks30Min, overtimeRate,
++    wagePay: roundedWage(totalWorkedMinutes, employee.wagePerHour),
++    overtimePay: overtimeBlocks30Min * overtimeRate,
++    fullTimeBonusPay: fullTimeDays * employee.bonusFullTime,
++  };
++}
++
++/**
++ * Gaji lengkap satu karyawan pada satu periode.
++ * openingBalances berkunci '<employeeId>|<yyyy-MM>' dan hanya berlaku untuk
++ * periode bulanan (positif = karyawan berutang ke toko; negatif = toko berutang).
++ */
++export function computePayroll({ employee, logs, additions, deductions, openingBalances, period, today }) {
++  const attendance = computeAttendance(employee, logs, period, today);
++  const periodAdditions = additions.filter((a) => a.employeeId === employee.id && periodContains(period, a.date));
++  const periodDeductions = deductions.filter((d) => d.employeeId === employee.id && periodContains(period, d.date));
++  const additionsTotal = periodAdditions.reduce((s, a) => s + a.amount, 0);
++  const deductionsTotal = periodDeductions.reduce((s, d) => s + d.amount, 0);
++  const openingBalance = period.monthKey == null ? 0 : (openingBalances?.[`${employee.id}|${period.monthKey}`] ?? 0);
++
++  const totalPenghasilan = attendance.wagePay + attendance.fullTimeBonusPay + attendance.overtimePay + additionsTotal;
++  const netPay = totalPenghasilan - deductionsTotal - openingBalance;
++
++  return {
++    attendance, additions: periodAdditions, deductions: periodDeductions,
++    additionsTotal, deductionsTotal, openingBalance, totalPenghasilan, netPay,
++  };
++}
++
++// ── Status "saat ini" ────────────────────────────────────────────────
++export function todayStatus(todayLogs, employee, today) {
++  if (todayLogs.length === 0) return 'belumAbsen';
++  return computeDayResult(todayLogs, employee, today, today).status;
++}
++
++/** "Sedang Jaga": sudah masuk hari ini, belum pulang, dan tidak nyangkut di bolong. */
++export function isOnShiftNow(todayLogs) {
++  const hasMasuk = todayLogs.some((l) => l.type === 'masuk');
++  const hasPulang = todayLogs.some((l) => l.type === 'pulang');
++  const stuck = hasMasuk ? findStuckBolong(todayLogs) : null;
++  return hasMasuk && !hasPulang && !stuck;
++}
+diff --git a/src/features/payroll/payrollEngine.test.js b/src/features/payroll/payrollEngine.test.js
+new file mode 100644
+index 0000000..7bb89a9
+--- /dev/null
++++ b/src/features/payroll/payrollEngine.test.js
+@@ -0,0 +1,209 @@
++/**
++ * Tes patokan (golden) mesin payroll — port dari
++ * mamam-kasir/test/hrd_payroll_engine_test.dart. Angka harapan SAMA persis
++ * dengan tes B (yang berasal dari mockup aslinya), jadi tes ini membuktikan
++ * hasil C == hasil B, bukan sekadar "terlihat masuk akal".
++ * Fixture bulanan dihasilkan otomatis dari hrd_seed_data.dart milik B.
++ */
++import { describe, it, expect } from 'vitest';
++import {
++  weekPeriodForDate, shiftWeek, monthPeriod, computeDayResult, computePayroll,
++  findStuckBolong, roundedWage, computeAttendance, isOnShiftNow, todayStatus,
++} from './payrollEngine.js';
++import {
++  seedEmployees, seedAttendance, seedAdditions, seedDeductions, seedOpeningBalances, PLACEHOLDER_TODAY,
++} from './__fixtures__/hrdSeed.js';
++
++const employeeById = (id) => seedEmployees.find((e) => e.id === id);
++const log = (type, time, date = '2026-09-04') => ({ id: 't', employeeId: 'EMP-1001', date, type, time });
++const E = employeeById('EMP-1001');          // upah 15000/jam, lembur 5000/30mnt, bonus 25000
++const day = (logs, date = '2026-09-04', today = '2026-09-11') => computeDayResult(logs, E, date, today);
++
++describe('weekPeriodForDate (berpatok Jumat)', () => {
++  const cases = {
++    '2026-09-04': ['2026-09-04', '2026-09-10'],   // Jumat memulai minggunya sendiri
++    '2026-09-10': ['2026-09-04', '2026-09-10'],   // Kamis -> minggu yang sama
++    '2026-09-11': ['2026-09-11', '2026-09-17'],
++    '2026-09-12': ['2026-09-11', '2026-09-17'],
++    '2026-09-16': ['2026-09-11', '2026-09-17'],
++    '2026-09-17': ['2026-09-11', '2026-09-17'],
++    '2026-09-18': ['2026-09-18', '2026-09-24'],
++    '2026-08-31': ['2026-08-28', '2026-09-03'],   // melewati batas bulan
++  };
++  for (const [date, [start, end]] of Object.entries(cases)) {
++    it(`${date} -> minggu ${start}..${end}`, () => {
++      const w = weekPeriodForDate(date);
++      expect(w.start).toBe(start); expect(w.end).toBe(end);
++    });
++  }
++  it('shiftWeek maju/mundur 7 hari', () => {
++    const w = weekPeriodForDate('2026-09-11');
++    expect(shiftWeek(w, 7)).toMatchObject({ start: '2026-09-18', end: '2026-09-24' });
++    expect(shiftWeek(w, -7)).toMatchObject({ start: '2026-09-04', end: '2026-09-10' });
++  });
++  it('monthPeriod: akhir bulan benar (termasuk Februari kabisat)', () => {
++    expect(monthPeriod('2026-09')).toMatchObject({ start: '2026-09-01', end: '2026-09-30', monthKey: '2026-09' });
++    expect(monthPeriod('2028-02').end).toBe('2028-02-29');
++    expect(monthPeriod('2026-02').end).toBe('2026-02-28');
++  });
++});
++
++describe('computeDayResult — skenario harian (EMP-1001)', () => {
++  it('s01 normal 09:00-19:00', () => {
++    const r = day([log('masuk', '09:00'), log('pulang', '19:00')]);
++    expect(r).toMatchObject({ status: 'hadir', workedMinutes: 600, overtimeMinutes: 0, bolongMinutes: 0, fullTimeBonus: true, effectiveFromBolong: false });
++  });
++  it('s02 lembur pagi + sore (08:25-20:15)', () => {
++    const r = day([log('masuk', '08:25'), log('pulang', '20:15')]);
++    expect(r).toMatchObject({ workedMinutes: 600, overtimeMinutes: 110, fullTimeBonus: true });
++  });
++  it('s03 telat masuk / pulang awal — tanpa lembur & bonus (09:10-18:30)', () => {
++    const r = day([log('masuk', '09:10'), log('pulang', '18:30')]);
++    expect(r).toMatchObject({ workedMinutes: 560, overtimeMinutes: 0, fullTimeBonus: false });
++  });
++  it('s04 pasangan bolong di jam normal mengurangi jam kerja', () => {
++    const r = day([log('masuk', '08:55'), log('bolong', '13:00'), log('masuk_lagi', '14:30'), log('pulang', '19:00')]);
++    expect(r).toMatchObject({ workedMinutes: 510, bolongMinutes: 90, fullTimeBonus: true });
++  });
++  it('s05 bolong nyangkut, hari sudah lewat -> dianggap pulang', () => {
++    const r = day([log('masuk', '08:55'), log('bolong', '13:00')]);
++    expect(r).toMatchObject({ status: 'hadir', workedMinutes: 240, overtimeMinutes: 0, fullTimeBonus: false, effectiveFromBolong: true });
++  });
++  it('s06 bolong nyangkut di hari yang sama -> perlu klarifikasi, belum dibayar', () => {
++    const d = '2026-09-11';
++    const r = day([log('masuk', '08:55', d), log('bolong', '13:00', d)], d, d);
++    expect(r).toMatchObject({ status: 'perluKlarifikasi', workedMinutes: 0, stuckBolongTime: '13:00' });
++  });
++  it('s07 bolong nyangkut tapi ada pulang (janggal) -> tetap perlu klarifikasi', () => {
++    expect(day([log('masuk', '08:55'), log('bolong', '13:00'), log('pulang', '19:00')]).status).toBe('perluKlarifikasi');
++  });
++  it('s08 bolong nyangkut, hari lewat, masuk pagi -> lembur pagi tetap, tanpa lembur sore/bonus', () => {
++    const r = day([log('masuk', '08:00'), log('bolong', '13:00')]);
++    expect(r).toMatchObject({ workedMinutes: 240, overtimeMinutes: 60, fullTimeBonus: false, effectiveFromBolong: true });
++  });
++  it('s09 libur', () => { expect(day([log('libur', null)]).status).toBe('libur'); });
++  it('s10 hanya masuk, belum pulang', () => { expect(day([log('masuk', '09:00')]).status).toBe('belumPulang'); });
++  it('s11 lembur besar dua sisi (07:30-21:00)', () => {
++    expect(day([log('masuk', '07:30'), log('pulang', '21:00')])).toMatchObject({ workedMinutes: 600, overtimeMinutes: 210, fullTimeBonus: true });
++  });
++  it('s12 bolong seluruhnya sebelum toko buka -> tidak mengurangi jam kerja', () => {
++    const r = day([log('masuk', '08:00'), log('bolong', '08:10'), log('masuk_lagi', '08:20'), log('pulang', '19:00')]);
++    expect(r).toMatchObject({ workedMinutes: 600, overtimeMinutes: 60, bolongMinutes: 0 });
++  });
++  it('s13 bolong melintasi jam buka -> hanya bagian di dalam yang dikurangi', () => {
++    const r = day([log('masuk', '08:00'), log('bolong', '08:50'), log('masuk_lagi', '09:20'), log('pulang', '19:00')]);
++    expect(r).toMatchObject({ workedMinutes: 580, overtimeMinutes: 60, bolongMinutes: 20 });
++  });
++  it('s14 ambang pas (masuk 08:30, pulang 19:30) sama-sama dihitung lembur', () => {
++    expect(day([log('masuk', '08:30'), log('pulang', '19:30')])).toMatchObject({ workedMinutes: 600, overtimeMinutes: 60, fullTimeBonus: true });
++  });
++  it('s15 tepat di dalam ambang (08:31 / 19:29) -> tanpa lembur', () => {
++    expect(day([log('masuk', '08:31'), log('pulang', '19:29')])).toMatchObject({ workedMinutes: 600, overtimeMinutes: 0, fullTimeBonus: true });
++  });
++  it('s17 hanya ada bolong tanpa masuk -> belum absen (bukan "nyangkut")', () => {
++    expect(day([log('bolong', '13:00')]).status).toBe('belumAbsen');
++  });
++});
++
++describe('computePayroll — bulanan, 6 karyawan seed (2026-09)', () => {
++  const expected = {
++    'EMP-1001': { hadir: 9, wage: 1324250, ot: 25000, ft: 175000, net: 1474250 },
++    'EMP-1002': { hadir: 8, wage: 1116033, ot: 5000, ft: 120000, net: 1291033 },
++    'EMP-1003': { hadir: 6, wage: 1200000, ot: 6000, ft: 180000, net: 1236000 },
++    'EMP-1004': { hadir: 2, wage: 208000, ot: 0, ft: 0, net: 208000 },
++    'EMP-1005': { hadir: 0, wage: 0, ot: 0, ft: 0, net: 0 },
++    'EMP-1006': { hadir: 0, wage: 0, ot: 0, ft: 0, net: 0 },
++  };
++  const run = (e) => computePayroll({
++    employee: e, logs: seedAttendance, additions: seedAdditions, deductions: seedDeductions,
++    openingBalances: seedOpeningBalances, period: monthPeriod('2026-09'), today: PLACEHOLDER_TODAY,
++  });
++
++  for (const [id, exp] of Object.entries(expected)) {
++    it(id, () => {
++      const r = run(employeeById(id));
++      expect(r.attendance.hadirDays, 'hadirDays').toBe(exp.hadir);
++      expect(r.attendance.wagePay, 'wagePay').toBe(exp.wage);
++      expect(r.attendance.overtimePay, 'overtimePay').toBe(exp.ot);
++      expect(r.attendance.fullTimeBonusPay, 'fullTimeBonusPay').toBe(exp.ft);
++      expect(r.netPay, 'netPay').toBe(exp.net);
++    });
++  }
++
++  it('EMP-1003: saldo awal mengurangi gaji bersih', () => {
++    const r = run(employeeById('EMP-1003'));
++    expect(r.openingBalance).toBe(-50000);
++    expect(r.totalPenghasilan).toBe(1386000);
++    expect(r.netPay).toBe(1236000);
++  });
++
++  it('total Owner Overview seluruh karyawan', () => {
++    let wage = 0, bonus = 0, overtime = 0, deductions = 0;
++    for (const e of seedEmployees) {
++      const p = run(e);
++      wage += p.attendance.wagePay;
++      bonus += p.attendance.fullTimeBonusPay + p.additionsTotal;
++      overtime += p.attendance.overtimePay;
++      deductions += p.deductionsTotal;
++    }
++    expect(wage).toBe(3848283);
++    expect(bonus).toBe(625000);
++    expect(overtime).toBe(36000);
++    expect(deductions).toBe(350000);
++    expect(wage + bonus + overtime).toBe(4509283);
++  });
++});
++
++describe('bolong nyangkut — transisi status', () => {
++  it('pulang tidak boleh berdampingan dengan bolong yang belum selesai', () => {
++    expect(findStuckBolong([log('masuk', '09:00'), log('bolong', '12:00')])).not.toBeNull();
++  });
++  it('masuk_lagi setelah bolong menyelesaikannya', () => {
++    expect(findStuckBolong([log('masuk', '09:00'), log('bolong', '12:00'), log('masuk_lagi', '13:00')])).toBeNull();
++  });
++  it('bolong kedua setelah masuk_lagi bisa nyangkut sendiri', () => {
++    const s = findStuckBolong([log('masuk', '09:00'), log('bolong', '12:00'), log('masuk_lagi', '13:00'), log('bolong', '16:00')]);
++    expect(s.time).toBe('16:00');
++  });
++});
++
++describe('roundedWage & tambahan', () => {
++  it('pembulatan setengah naik dengan bilangan bulat', () => {
++    expect(roundedWage(90, 15000)).toBe(22500);
++    expect(roundedWage(1, 15000)).toBe(250);
++    expect(roundedWage(599, 15000)).toBe(149750);
++  });
++  it('lembur dibulatkan ke bawah pada TOTAL periode, bukan per hari', () => {
++    // 3 hari x 20 menit lembur: per hari 0 blok, tapi total 60 menit = 2 blok
++    const logs = ['2026-09-01', '2026-09-02', '2026-09-03'].flatMap((d) => [
++      { id: d + 'a', employeeId: 'EMP-1001', date: d, type: 'masuk', time: '08:40' },      // masuk 08:40 -> tidak lembur pagi
++      { id: d + 'b', employeeId: 'EMP-1001', date: d, type: 'pulang', time: '19:30' },     // pulang 19:30 -> 30 menit lembur
++    ]);
++    const a = computeAttendance(E, logs, monthPeriod('2026-09'), '2026-09-30');
++    expect(a.totalOvertimeMinutes).toBe(90);
++    expect(a.overtimeBlocks30Min).toBe(3);
++  });
++  it('tarif lembur 0/kosong memakai bawaan 5.000', () => {
++    const a = computeAttendance({ ...E, overtimeRatePer30Min: 0 }, [
++      { id: 'x', employeeId: 'EMP-1001', date: '2026-09-01', type: 'masuk', time: '09:00' },
++      { id: 'y', employeeId: 'EMP-1001', date: '2026-09-01', type: 'pulang', time: '20:00' },
++    ], monthPeriod('2026-09'), '2026-09-30');
++    expect(a.overtimeRate).toBe(5000);
++    expect(a.overtimePay).toBe(2 * 5000);
++  });
++  it('saldo awal HANYA berlaku untuk periode bulanan, bukan mingguan', () => {
++    const args = { employee: employeeById('EMP-1003'), logs: seedAttendance, additions: [], deductions: [], openingBalances: seedOpeningBalances, today: PLACEHOLDER_TODAY };
++    expect(computePayroll({ ...args, period: monthPeriod('2026-09') }).openingBalance).toBe(-50000);
++    expect(computePayroll({ ...args, period: weekPeriodForDate('2026-09-04') }).openingBalance).toBe(0);
++  });
++  it('log karyawan lain / di luar periode tidak ikut terhitung', () => {
++    const a = computeAttendance(E, seedAttendance, weekPeriodForDate('2026-09-04'), PLACEHOLDER_TODAY);
++    expect(a.dayRows.every((r) => r.date >= '2026-09-04' && r.date <= '2026-09-10')).toBe(true);
++  });
++  it('status hari ini & sedang jaga', () => {
++    expect(isOnShiftNow([log('masuk', '09:00')])).toBe(true);
++    expect(isOnShiftNow([log('masuk', '09:00'), log('bolong', '12:00')])).toBe(false);
++    expect(isOnShiftNow([log('masuk', '09:00'), log('pulang', '19:00')])).toBe(false);
++    expect(todayStatus([], E, '2026-09-11')).toBe('belumAbsen');
++  });
++});
+diff --git a/src/hook/useEmployeeData.js b/src/hook/useEmployeeData.js
+index 7fc7ebe..b5f3dab 100644
+--- a/src/hook/useEmployeeData.js
++++ b/src/hook/useEmployeeData.js
+@@ -51,6 +51,7 @@ export function useEmployeeData() {
+     const row = {
+       name, phone: (f.phone || '').trim() || null, address: (f.address || '').trim() || null,
+       status, role: f.role || 'kasir',
++      external_id: (f.externalId || '').trim() || null,   // id di sistem absensi (EMP-xxxx), untuk mencocokkan log absen
+       wage_per_hour: Math.round(rate),
+       bonus_full_time: Math.max(0, Math.round(Number(f.fullTimeBonus) || 0)),
+       overtime_rate_per_30_min: Number(f.overtimeRate30) > 0 ? Math.round(Number(f.overtimeRate30)) : OVERTIME_RATE_PER_30MIN,
+@@ -69,7 +70,13 @@ export function useEmployeeData() {
+ 
+   const deleteEmployee = async (id) => {
+     const { error: e } = await supabase.from('employees').delete().eq('id', id);
+-    if (e) fail(e, 'Gagal menghapus karyawan');
++    if (e) {
++      // 23503 = foreign_key_violation: masih ada tambahan/potongan/saldo awal gaji (ON DELETE RESTRICT)
++      if (e.code === '23503' || /foreign key|violates/i.test(e.message)) {
++        throw new Error('Karyawan ini masih punya data gaji (tambahan, potongan, atau saldo awal), jadi tidak bisa dihapus. Ubah statusnya jadi Resign saja.');
++      }
++      fail(e, 'Gagal menghapus karyawan');
++    }
+     await reload();
+   };
+ 
+diff --git a/src/hook/usePayrollData.js b/src/hook/usePayrollData.js
+new file mode 100644
+index 0000000..a858b67
+--- /dev/null
++++ b/src/hook/usePayrollData.js
+@@ -0,0 +1,157 @@
++import { useState, useEffect, useCallback, useMemo } from 'react';
++import { supabase } from '../lib/supabase';
++import { absensiClient } from '../lib/absensiClient';
++import { computePayroll } from '../features/payroll/payrollEngine';
++import { loadAttendance } from '../features/payroll/attendanceProvider';
++import { toLocalDateString } from '../utils/formatters';
++
++/**
++ * usePayrollData — data Penggajian untuk satu periode (mingguan Jumat–Kamis
++ * atau bulanan), ONLINE-FIRST.
++ *
++ * Sumber data:
++ *  - karyawan, tambahan, potongan, saldo awal  -> project Supabase C (baca & tulis)
++ *  - absensi                                    -> sistem absensi (project A, BACA-SAJA)
++ * Semua angka dihitung ulang oleh payrollEngine tiap tampil; tidak ada hasil
++ * gaji yang disimpan, jadi tidak ada angka basi yang bisa nyangkut.
++ *
++ * Kalau absensi belum tersambung / gagal dibaca, `results` KOSONG dan status
++ * dijelaskan — TIDAK menampilkan gaji Rp 0 yang menyesatkan.
++ */
++
++const fail = (error, aksi) => { throw new Error(`${aksi}: ${error.message}`); };
++const day = (v) => String(v).slice(0, 10);
++
++const toEngineEmployee = (e) => ({
++  id: e.id, wagePerHour: e.wage_per_hour, bonusFullTime: e.bonus_full_time, overtimeRatePer30Min: e.overtime_rate_per_30_min,
++});
++
++export function usePayrollData({ period, attendanceClient = absensiClient }) {
++  const [employees, setEmployees] = useState([]);
++  const [additions, setAdditions] = useState([]);
++  const [deductions, setDeductions] = useState([]);
++  const [openingBalances, setOpeningBalances] = useState({});
++  const [attendance, setAttendance] = useState({ status: attendanceClient ? 'loading' : 'not-configured', data: null, error: null });
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++
++  const start = period.start, end = period.end, monthKey = period.monthKey;
++  const configured = Boolean(attendanceClient);
++
++  const reload = useCallback(async () => {
++    try {
++      const [emps, adds, deds, opens] = await Promise.all([
++        supabase.from('employees').select('*').order('name'),
++        supabase.from('payroll_additions').select('*').gte('date', start).lte('date', end).order('date'),
++        supabase.from('payroll_deductions').select('*').gte('date', start).lte('date', end).order('date'),
++        monthKey ? supabase.from('payroll_opening_balances').select('*').eq('month', monthKey) : Promise.resolve({ data: [], error: null }),
++      ]);
++      const bad = [emps, adds, deds, opens].find(r => r.error);
++      if (bad) throw new Error(bad.error.message);
++
++      const empList = (emps.data || []).map(e => ({ ...e, externalId: e.external_id || null, name: e.name }));
++      setEmployees(empList);
++      setAdditions((adds.data || []).map(a => ({ id: a.id, employeeId: a.employee_id, label: a.label, amount: a.amount, date: day(a.date), category: a.category })));
++      setDeductions((deds.data || []).map(d => ({ id: d.id, employeeId: d.employee_id, label: d.label, amount: d.amount, date: day(d.date), category: d.category })));
++      setOpeningBalances(Object.fromEntries((opens.data || []).map(o => [`${o.employee_id}|${o.month}`, o.amount])));
++      setError(null);
++      setLoading(false);
++
++      if (!attendanceClient) { setAttendance({ status: 'not-configured', data: null, error: null }); return; }
++      setAttendance(prev => ({ status: 'loading', data: prev.data, error: null }));
++      try {
++        const data = await loadAttendance(attendanceClient, { start, end }, empList);
++        setAttendance({ status: 'ready', data, error: null });
++      } catch (e) {
++        setAttendance({ status: 'error', data: null, error: e.message });
++      }
++    } catch (e) {
++      setError(e.message);
++      setLoading(false);
++    }
++  }, [start, end, monthKey, attendanceClient]);
++
++  useEffect(() => { setLoading(true); reload(); }, [reload]);
++
++  const today = toLocalDateString();
++
++  const { results, totals } = useMemo(() => {
++    if (attendance.status !== 'ready') return { results: [], totals: null };
++    const logs = attendance.data.logs;
++    const rows = [];
++    for (const e of employees) {
++      const payroll = computePayroll({
++        employee: toEngineEmployee(e), logs, additions, deductions, openingBalances, period: { start, end, monthKey, isMonth: !!monthKey }, today,
++      });
++      const active = payroll.attendance.dayRows.length > 0 || payroll.additions.length > 0 || payroll.deductions.length > 0 || payroll.openingBalance !== 0;
++      if (e.status === 'resign' && !active) continue;      // resign tanpa aktivitas di periode ini: disembunyikan
++      const needsClarification = payroll.attendance.dayRows.filter(r => r.status === 'perluKlarifikasi');
++      rows.push({ employee: { id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.externalId }, payroll, needsClarification });
++    }
++    const sum = (f) => rows.reduce((s, r) => s + f(r.payroll), 0);
++    return {
++      results: rows,
++      totals: {
++        wage: sum(p => p.attendance.wagePay), overtime: sum(p => p.attendance.overtimePay), fullTime: sum(p => p.attendance.fullTimeBonusPay),
++        additions: sum(p => p.additionsTotal), deductions: sum(p => p.deductionsTotal), openingBalance: sum(p => p.openingBalance),
++        net: sum(p => p.netPay),
++      },
++    };
++  }, [attendance, employees, additions, deductions, openingBalances, start, end, monthKey, today]);
++
++  // ── Penulisan (semua ke server, gagal = pesan jelas) ────────────────
++  const validate = ({ employeeId, label, amount, date }) => {
++    const amt = Number(amount);
++    if (!employeeId) throw new Error('Pilih karyawan.');
++    if (!(label || '').trim()) throw new Error('Isi keterangan.');
++    if (!Number.isInteger(amt) || amt <= 0) throw new Error('Nominal harus angka bulat lebih dari 0.');
++    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('Pilih tanggal.');
++    return amt;
++  };
++
++  const addAddition = async (f) => {
++    const amt = validate(f);
++    const { error: e } = await supabase.from('payroll_additions').insert({
++      employee_id: f.employeeId, label: f.label.trim(), amount: amt, date: f.date, category: (f.category || 'Tambahan').trim() || 'Tambahan',
++    });
++    if (e) fail(e, 'Gagal menyimpan tambahan');
++    await reload();
++  };
++  const addDeduction = async (f) => {
++    const amt = validate(f);
++    const { error: e } = await supabase.from('payroll_deductions').insert({
++      employee_id: f.employeeId, label: f.label.trim(), amount: amt, date: f.date, category: (f.category || 'Potongan').trim() || 'Potongan',
++    });
++    if (e) fail(e, 'Gagal menyimpan potongan');
++    await reload();
++  };
++  const deleteAddition = async (id) => {
++    const { error: e } = await supabase.from('payroll_additions').delete().eq('id', id);
++    if (e) fail(e, 'Gagal menghapus tambahan');
++    await reload();
++  };
++  const deleteDeduction = async (id) => {
++    const { error: e } = await supabase.from('payroll_deductions').delete().eq('id', id);
++    if (e) fail(e, 'Gagal menghapus potongan');
++    await reload();
++  };
++
++  /** Saldo awal bulan (hanya periode bulanan). Positif = karyawan berutang ke toko. */
++  const setOpeningBalance = async (employeeId, amount) => {
++    if (!monthKey) throw new Error('Saldo awal hanya untuk periode bulanan.');
++    const amt = Number(amount);
++    if (!Number.isInteger(amt)) throw new Error('Saldo awal harus angka bulat.');
++    const del = await supabase.from('payroll_opening_balances').delete().eq('employee_id', employeeId).eq('month', monthKey);
++    if (del.error) fail(del.error, 'Gagal menyimpan saldo awal');
++    if (amt !== 0) {
++      const { error: e } = await supabase.from('payroll_opening_balances').insert({ employee_id: employeeId, month: monthKey, amount: amt });
++      if (e) fail(e, 'Gagal menyimpan saldo awal');
++    }
++    await reload();
++  };
++
++  return {
++    configured, loading, error, attendance, results, totals, employees,
++    reload, addAddition, addDeduction, deleteAddition, deleteDeduction, setOpeningBalance,
++  };
++}
+diff --git a/src/lib/absensiClient.js b/src/lib/absensiClient.js
+new file mode 100644
+index 0000000..314d677
+--- /dev/null
++++ b/src/lib/absensiClient.js
+@@ -0,0 +1,26 @@
++import { createClient } from '@supabase/supabase-js';
++
++/**
++ * Klien BACA-SAJA ke database sistem absensi (project Supabase A, tabel
++ * `attendanceLog`). Ini project yang BERBEDA dari project C (src/lib/supabase.js).
++ *
++ * Diisi lewat .env.local (jangan ditempel di chat / jangan di-commit):
++ *   VITE_ABSENSI_SUPABASE_URL=https://xxxx.supabase.co     (tanpa /rest/v1/)
++ *   VITE_ABSENSI_SUPABASE_ANON_KEY=eyJ...                   (anon public key project A)
++ *
++ * Anon key project A memang sudah dipakai publik oleh web absensi karyawan,
++ * jadi menaruhnya di frontend C tidak menambah paparan. C TIDAK PERNAH menulis
++ * ke database ini — hanya membaca.
++ *
++ * Kalau env belum diisi, absensiClient = null dan halaman Penggajian
++ * menampilkan petunjuk pengisian (bukan angka nol yang menyesatkan).
++ */
++const url = import.meta.env.VITE_ABSENSI_SUPABASE_URL;
++const key = import.meta.env.VITE_ABSENSI_SUPABASE_ANON_KEY;
++
++export const absensiConfigured = Boolean(url && key);
++
++// Tanpa sesi/penyimpanan login: klien ini cuma membaca data publik.
++export const absensiClient = absensiConfigured
++  ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
++  : null;
+diff --git a/supabase/migrations/005_payroll.sql b/supabase/migrations/005_payroll.sql
+new file mode 100644
+index 0000000..7470383
+--- /dev/null
++++ b/supabase/migrations/005_payroll.sql
+@@ -0,0 +1,56 @@
++-- =====================================================================
++-- Migrasi 005 — Data gaji: tambahan, potongan, saldo awal bulan.
++-- Jalankan SEKALI di SQL Editor. Aman diulang.
++--
++-- Bentuk mengikuti model HRD mamam-kasir (PayrollAddition, PayrollDeduction,
++-- saldo awal per '<karyawan>|<yyyy-MM>') supaya migrasi ke B tinggal
++-- memetakan tipe data. Absensi TIDAK disimpan di sini: dibaca langsung dari
++-- sistem absensi (lihat src/features/payroll/attendanceProvider.js).
++--
++-- employee_id memakai ON DELETE RESTRICT: karyawan yang masih punya data gaji
++-- tidak bisa dihapus (ubah statusnya jadi Resign). Ini disengaja — data gaji
++-- adalah uang, tidak boleh hilang diam-diam karena satu tombol hapus.
++-- =====================================================================
++
++create table if not exists payroll_additions (
++  id           uuid primary key default gen_random_uuid(),
++  employee_id  uuid not null references employees(id) on delete restrict,
++  label        text not null,
++  amount       integer not null check (amount > 0),
++  date         date not null,
++  category     text not null default 'Tambahan',
++  source       text not null default 'owner' check (source in ('owner','staff')),
++  approved_by  text,
++  approved_at  timestamptz,
++  created_at   timestamptz not null default now()
++);
++create index if not exists idx_payroll_additions_emp_date on payroll_additions (employee_id, date);
++
++create table if not exists payroll_deductions (
++  id           uuid primary key default gen_random_uuid(),
++  employee_id  uuid not null references employees(id) on delete restrict,
++  label        text not null,
++  amount       integer not null check (amount > 0),
++  date         date not null,
++  category     text not null default 'Potongan',
++  created_at   timestamptz not null default now()
++);
++create index if not exists idx_payroll_deductions_emp_date on payroll_deductions (employee_id, date);
++
++-- Saldo awal bulan: positif = karyawan berutang ke toko; negatif = toko berutang.
++create table if not exists payroll_opening_balances (
++  employee_id  uuid not null references employees(id) on delete restrict,
++  month        text not null check (month ~ '^[0-9]{4}-[0-9]{2}$'),
++  amount       integer not null default 0,
++  primary key (employee_id, month)
++);
++
++do $$
++declare t text;
++begin
++  foreach t in array array['payroll_additions','payroll_deductions','payroll_opening_balances'] loop
++    execute format('alter table %I enable row level security', t);
++    execute format('drop policy if exists "anon_all_%s" on %I', t, t);
++    execute format('create policy "anon_all_%s" on %I for all to anon using (true) with check (true)', t, t);
++  end loop;
++end $$;
+diff --git a/supabase/schema.sql b/supabase/schema.sql
+index ab949c8..8aae2f4 100644
+--- a/supabase/schema.sql
++++ b/supabase/schema.sql
+@@ -263,6 +263,45 @@ begin
+   end if;
+ end $$;
+ 
++-- ---------------------------------------------------------------------
++-- DATA GAJI (tambahan, potongan, saldo awal) — model HRD mamam-kasir.
++-- employee_id ON DELETE RESTRICT: karyawan dengan data gaji tidak bisa dihapus.
++-- Absensi TIDAK disimpan di sini (dibaca dari sistem absensi).
++-- ---------------------------------------------------------------------
++create table if not exists payroll_additions (
++  id           uuid primary key default gen_random_uuid(),
++  employee_id  uuid not null references employees(id) on delete restrict,
++  label        text not null,
++  amount       integer not null check (amount > 0),
++  date         date not null,
++  category     text not null default 'Tambahan',
++  source       text not null default 'owner' check (source in ('owner','staff')),
++  approved_by  text,
++  approved_at  timestamptz,
++  created_at   timestamptz not null default now()
++);
++create index if not exists idx_payroll_additions_emp_date on payroll_additions (employee_id, date);
++
++create table if not exists payroll_deductions (
++  id           uuid primary key default gen_random_uuid(),
++  employee_id  uuid not null references employees(id) on delete restrict,
++  label        text not null,
++  amount       integer not null check (amount > 0),
++  date         date not null,
++  category     text not null default 'Potongan',
++  created_at   timestamptz not null default now()
++);
++create index if not exists idx_payroll_deductions_emp_date on payroll_deductions (employee_id, date);
++
++-- Saldo awal bulan: positif = karyawan berutang ke toko; negatif = toko berutang.
++create table if not exists payroll_opening_balances (
++  employee_id  uuid not null references employees(id) on delete restrict,
++  month        text not null check (month ~ '^[0-9]{4}-[0-9]{2}$'),
++  amount       integer not null default 0,
++  primary key (employee_id, month)
++);
++
++
+ -- ---------------------------------------------------------------------
+ -- RLS
+ -- Disepakati: BELUM ada auth di C. Policy di bawah membuka akses penuh ke
+@@ -276,7 +315,7 @@ begin
+   foreach t in array array[
+     'categories','menu_items','variant_categories','variant_groups','variant_options',
+     'menu_item_variant_groups','customers','vouchers','expense_categories','transactions',
+-    'transaction_items','expenses','shifts','employees'
++    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances'
+   ] loop
+     execute format('alter table %I enable row level security', t);
+     execute format('drop policy if exists "anon_all_%s" on %I', t, t);
+-- 
+2.43.0
+

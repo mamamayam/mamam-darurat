@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, TrendingDown, Receipt, Wallet, ShoppingBag, Eye, DollarSign } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatters';
 import { DetailModal } from '../../components/ui';
+import { useAuth } from '../../auth/AuthContext';
 import { supabase } from '../../lib/supabase';
 
 /**
@@ -27,6 +28,7 @@ import { supabase } from '../../lib/supabase';
  */
 
 const HomeView = () => {
+    const { can } = useAuth();
     const [sales, setSales] = useState([]);
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -164,6 +166,7 @@ const HomeView = () => {
                     <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(totalExpensesToday)}</p>
                 </div>
 
+                {can('beranda.laba') && (
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -173,6 +176,7 @@ const HomeView = () => {
                     </div>
                     <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(netProfitToday)}</p>
                 </div>
+                )}
 
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2 mb-2">

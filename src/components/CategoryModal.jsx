@@ -114,6 +114,7 @@ const CategoryModal = ({
     categories = [], setCategories,
     onRename, onDelete, onDeleteFallback = 'Uncategorized',
     onDeleteAsync, // opsional (C): hapus kategori + pindahkan item secara BERURUTAN di server
+    deleteMessage, // opsional (C): (cat) => string, ganti teks konfirmasi hapus bawaan
     onRenameAsync, // opsional (C): rename = UPDATE nama di baris yang sama (bukan hapus+tambah)
     triggerAlert, triggerConfirm,
 }) => {
@@ -140,7 +141,7 @@ const CategoryModal = ({
 
     const handleDelete = (cat, idx) => {
         triggerConfirm?.(
-            `Yakin ingin menghapus kategori "${cat}"? Item yang menggunakan kategori ini akan masuk ke "${onDeleteFallback}".`,
+            deleteMessage ? deleteMessage(cat) : `Yakin ingin menghapus kategori "${cat}"? Item yang menggunakan kategori ini akan masuk ke "${onDeleteFallback}".`,
             () => {
                 // Jalur C: satu operasi server berurutan (pindahkan item -> hapus kategori).
                 // Menjalankan setCategories & onDelete bersamaan akan balapan.

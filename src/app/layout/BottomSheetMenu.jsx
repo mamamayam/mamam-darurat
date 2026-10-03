@@ -1,6 +1,7 @@
 import React from 'react';
-import { ShieldUser, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
+import { roleLabel } from '../../auth/permissions';
 
 /**
  * BottomSheetMenu — swipe-up sheet, ported dari test-app-baru (mamam-global).
@@ -16,10 +17,8 @@ export default function BottomSheetMenu({
   visibleMenus,
   currentView,
   navigate,
-  isAdminMode,
-  setShowPinModal,
-  triggerConfirm,
-  setIsAdminMode,
+  role,
+  onLogout,
 }) {
   const handleSelect = (id) => {
     navigate(id);
@@ -56,29 +55,15 @@ export default function BottomSheetMenu({
           })}
         </div>
 
-        {/* Admin login/logout — dipertahankan dari versi asli meski C belum
-            punya PIN modal beneran; disabled dulu sampai auth diputuskan */}
-        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-          {!isAdminMode ? (
-            <button
-              onClick={() => { setShowPinModal(true); onClose(); }}
-              className="w-full flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 rounded-2xl font-semibold text-sm active:scale-[0.98] transition-all duration-200"
-            >
-              <ShieldUser className="w-4 h-4" />
-              Login Admin
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                onClose();
-                triggerConfirm('Yakin ingin keluar dari mode admin?', () => setIsAdminMode(false));
-              }}
-              className="w-full flex items-center justify-center gap-2 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-3 rounded-2xl font-semibold text-sm active:scale-[0.98] transition-all duration-200"
-            >
-              <LogOut className="w-4 h-4" />
-              Keluar Admin
-            </button>
-          )}
+        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500">Masuk sebagai <span className="font-bold text-slate-600 dark:text-slate-300" data-testid="role-label">{roleLabel(role)}</span></p>
+          <button
+            onClick={() => { onClose(); onLogout(); }}
+            className="w-full flex items-center justify-center gap-2 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 py-3 rounded-2xl font-semibold text-sm active:scale-[0.98] transition-all duration-200"
+          >
+            <LogOut className="w-4 h-4" />
+            Keluar
+          </button>
         </div>
       </div>
     </Modal>

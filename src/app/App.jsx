@@ -6,6 +6,9 @@ import Header from './layout/Header';
 import BottomNav from './layout/BottomNav';
 import { AppContext } from '../context/AppContext';
 import { formatRupiah } from '../utils/formatters';
+import { useAuth } from '../auth/AuthContext';
+import LoginScreen from '../auth/LoginScreen';
+import { VIEW_PERMISSION } from '../auth/permissions';
 
 import {
   Briefcase,
@@ -16,6 +19,7 @@ import {
   TrendingDown,
   BarChart3,
   Users,
+  UserCog,
 } from 'lucide-react';
 
 /**
@@ -43,7 +47,7 @@ import {
  * apa pun soal data bisnis).
  */
 export default function App() {
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  const { role, logout, can: allowed } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Modal konfirmasi generik — dipakai BottomSheetMenu (logout admin) dan
@@ -114,14 +118,27 @@ export default function App() {
     { id: 'menu',        icon: List,         label: 'Manajemen Menu' },
     { id: 'pelanggan',   icon: Users,        label: 'Pelanggan' },
     { id: 'pengeluaran', icon: TrendingDown, label: 'Pengeluaran' },
+    { id: 'karyawan',    icon: UserCog,      label: 'Karyawan' },
     { id: 'absensi',     icon: Fingerprint,  label: 'Absensi' },
     { id: 'penggajian',  icon: Briefcase,    label: 'Penggajian' },
     { id: 'laporan',     icon: BarChart3,    label: 'Laporan' },
   ], []);
 
-  // Belum ada auth sungguhan (disepakati: nanti dulu) — semua menu selalu
-  // terlihat, tidak ada filtering by isAdminMode seperti test-app-baru.
-  const visibleMenus = menuItems;
+  // Menu yang butuh izin khusus (mis. Penggajian, Manajemen Menu) disembunyikan
+  // dari peran yang tidak berhak. Pagar kedua ada di AppRoutes.
+  const visibleMenus = useMemo(
+    () => menuItems.filter(item => !VIEW_PERMISSION[item.id] || allowed(VIEW_PERMISSION[item.id])),
+    [menuItems, allowed]
+  );
+
+  // Keluar: kembali ke Beranda supaya peran berikutnya tidak mendarat di layar yang bukan miliknya.
+  const handleLogout = useCallback(() => {
+    setViewHistory([]);
+    setMountedViews(new Set(['beranda']));
+    setNavDirection('forward-root');
+    setCurrentView('beranda');
+    logout();
+  }, [logout]);
 
   const today = useMemo(() => {
     const now = new Date();
@@ -133,6 +150,9 @@ export default function App() {
   // lewat context/hook bersama — sekarang masih placeholder false supaya
   // App.jsx bisa dirender & ditest independen dari data layer.
   const currentShift = false;
+
+  // Belum masuk: tampilkan layar PIN saja (tidak ada data yang dimuat).
+  if (!role) return <LoginScreen />;
 
   return (
     <AppContext.Provider value={appContextValue}>
@@ -161,13 +181,11 @@ export default function App() {
         visibleMenus={visibleMenus}
         currentView={currentView}
         navigate={navigate}
-        isAdminMode={isAdminMode}
-        setShowPinModal={() => {}}
-        triggerConfirm={triggerConfirm}
-        setIsAdminMode={setIsAdminMode}
+        role={role}
+        onLogout={() => triggerConfirm('Yakin ingin keluar?', handleLogout)}
       />
 
-      <Modal isOpen={confirmModal.isOpen} onClose={closeConfirm} size="sm">
+      <Modal isOpen={confirmModal.isOpen} onClose={closeConfirm} size="sm" zLevel="top">
         <div className="p-5">
           <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">{confirmModal.message}</p>
           <div className="flex gap-2 justify-end">
@@ -177,7 +195,7 @@ export default function App() {
         </div>
       </Modal>
 
-      <Modal isOpen={alertModal.isOpen} onClose={() => setAlertModal({ isOpen: false, message: '' })} size="sm">
+      <Modal isOpen={alertModal.isOpen} onClose={() => setAlertModal({ isOpen: false, message: '' })} size="sm" zLevel="top">
         <div className="p-5">
           <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">{alertModal.message}</p>
           <div className="flex justify-end">
