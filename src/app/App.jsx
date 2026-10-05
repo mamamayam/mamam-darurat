@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Modal, Button } from '../components/ui';
 import AppRoutes, { VIEWS } from './AppRoutes';
 import BottomSheetMenu from './layout/BottomSheetMenu';
@@ -9,6 +9,7 @@ import { formatRupiah } from '../utils/formatters';
 import { useAuth } from '../auth/AuthContext';
 import LoginScreen from '../auth/LoginScreen';
 import { VIEW_PERMISSION } from '../auth/permissions';
+import { backStack } from '../lib/backStack';
 
 import {
   Briefcase,
@@ -37,8 +38,9 @@ import {
  *
  * Yang DIBUANG (di luar scope Aplikasi C / gelombang 1):
  *   - syncEngine, usePersistState, usePosStore (Dexie/offline) — C online-first
- *   - PIN admin sungguhan, push notifications, Capacitor back-button/exit-toast
- *     (web biasa dulu; App.jsx test-app-baru target APK Android)
+ *   - PIN admin sungguhan, push notifications, Capacitor back-button
+ *     (App.jsx test-app-baru target APK Android; C web/PWA — tombol Back dan
+ *     "ketuk lagi untuk keluar" ditangani lib/backStack.js)
  *   - Auto-backfill payroll/libur, online/offline toast
  *
  * Guard shift: PosView tidak bisa diakses kalau belum ada shift yang
@@ -96,9 +98,27 @@ export default function App() {
       setNavDirection('backward-root');
       setCurrentView('beranda');
     }
-    // Tidak ada double-tap exit (itu perilaku APK Android/Capacitor) —
-    // di beranda tanpa history, tombol back browser biasa yang berlaku.
+    // Di Beranda tanpa history tidak ada yang dilakukan di sini: Back ditangani
+    // backStack ("ketuk lagi untuk keluar", notifnya = components/ui/ExitToast).
   }, [viewHistory, currentView]);
+
+  // --- Tombol Back browser/HP <-> stack navigasi ---
+  // Kedalaman stack = jumlah sub-layar, ditambah 1 kalau stack berakar di layar selain
+  // Beranda (Back dari layar itu kembali ke Beranda, seperti navigateBack di atas).
+  // Tiap tingkat punya satu "lapisan" di backStack; menekan Back = navigateBack().
+  // Modal/laci yang terbuka mendaftar sendiri (useBackLayer) dan ditutup lebih dulu.
+  // Di Beranda tanpa lapisan terbuka, Back pertama menampilkan "Ketuk lagi untuk keluar"
+  // dan Back kedua keluar dari aplikasi (diatur backStack, bukan di sini).
+  const navDepth = viewHistory.length + ((viewHistory[0] ?? currentView) !== 'beranda' ? 1 : 0);
+  const navigateBackRef = useRef(navigateBack);
+  useEffect(() => { navigateBackRef.current = navigateBack; });
+  const navLayerIds = useRef([]);
+  useEffect(() => {
+    const ids = navLayerIds.current.filter((id) => backStack.has(id));   // buang yang sudah dipakai tombol Back
+    while (ids.length > navDepth) backStack.unregister(ids.pop());
+    while (ids.length < navDepth) ids.push(backStack.register(() => navigateBackRef.current()));
+    navLayerIds.current = ids;
+  }, [navDepth]);
 
   // Helper UI + navigasi yang dibagikan ke semua View lewat useAppContext().
   // Diletakkan SETELAH navigate/navigateToSub/navigateBack didefinisikan

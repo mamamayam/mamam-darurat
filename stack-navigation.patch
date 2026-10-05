@@ -1,0 +1,709 @@
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index 29e1f80..52a5259 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -1,4 +1,4 @@
+-import React, { useState, useMemo, useCallback } from 'react';
++import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+ import { Modal, Button } from '../components/ui';
+ import AppRoutes, { VIEWS } from './AppRoutes';
+ import BottomSheetMenu from './layout/BottomSheetMenu';
+@@ -9,6 +9,7 @@ import { formatRupiah } from '../utils/formatters';
+ import { useAuth } from '../auth/AuthContext';
+ import LoginScreen from '../auth/LoginScreen';
+ import { VIEW_PERMISSION } from '../auth/permissions';
++import { backStack } from '../lib/backStack';
+ 
+ import {
+   Briefcase,
+@@ -100,6 +101,23 @@ export default function App() {
+     // di beranda tanpa history, tombol back browser biasa yang berlaku.
+   }, [viewHistory, currentView]);
+ 
++  // --- Tombol Back browser/HP <-> stack navigasi ---
++  // Kedalaman stack = jumlah sub-layar, ditambah 1 kalau stack berakar di layar selain
++  // Beranda (Back dari layar itu kembali ke Beranda, seperti navigateBack di atas).
++  // Tiap tingkat punya satu "lapisan" di backStack; menekan Back = navigateBack().
++  // Modal/laci yang terbuka mendaftar sendiri (useBackLayer) dan ditutup lebih dulu.
++  // Di Beranda tanpa lapisan terbuka tidak ada entri tambahan, jadi Back keluar seperti biasa.
++  const navDepth = viewHistory.length + ((viewHistory[0] ?? currentView) !== 'beranda' ? 1 : 0);
++  const navigateBackRef = useRef(navigateBack);
++  useEffect(() => { navigateBackRef.current = navigateBack; });
++  const navLayerIds = useRef([]);
++  useEffect(() => {
++    const ids = navLayerIds.current.filter((id) => backStack.has(id));   // buang yang sudah dipakai tombol Back
++    while (ids.length > navDepth) backStack.unregister(ids.pop());
++    while (ids.length < navDepth) ids.push(backStack.register(() => navigateBackRef.current()));
++    navLayerIds.current = ids;
++  }, [navDepth]);
++
+   // Helper UI + navigasi yang dibagikan ke semua View lewat useAppContext().
+   // Diletakkan SETELAH navigate/navigateToSub/navigateBack didefinisikan
+   // (bug yang pernah terjadi: dideklarasikan sebelum navigate ada, sehingga
+diff --git a/src/components/ui/Modal.jsx b/src/components/ui/Modal.jsx
+index 0746bac..ec75bda 100644
+--- a/src/components/ui/Modal.jsx
++++ b/src/components/ui/Modal.jsx
+@@ -1,5 +1,6 @@
+ import { useState, useEffect } from 'react';
+ import { X } from 'lucide-react';
++import useBackLayer from '../../hook/useBackLayer';
+ 
+ /**
+  * Modal — komponen global untuk semua dialog overlay.
+@@ -87,6 +88,9 @@ export default function Modal({
+     return () => clearTimeout(id);
+   }, [isOpen, side]);
+ 
++  // Tombol Back browser/HP menutup modal ini (sama dengan menekan X), bukan keluar dari layar.
++  useBackLayer(isOpen && Boolean(onClose), onClose);
++
+   if (!isOpen) return null;
+ 
+   const zClass = Z_LEVELS[zLevel] ?? Z_LEVELS.modal;
+diff --git a/src/features/customer/CustomerView.jsx b/src/features/customer/CustomerView.jsx
+index a74a552..c2cb8cf 100644
+--- a/src/features/customer/CustomerView.jsx
++++ b/src/features/customer/CustomerView.jsx
+@@ -4,6 +4,7 @@ import { Card, Input, Button, EmptyState, BulkSelectBar } from '../../components
+ import { useAppContext } from '../../context/AppContext';
+ import { useCustomerData } from '../../hook/useCustomerData';
+ import { useBulkSelect } from '../../hook/useBulkSelect';
++import useBackLayer from '../../hook/useBackLayer';
+ 
+ /**
+  * CustomerView — Pelanggan, gelombang 1. Kolom "Kelola Pelanggan" di-port
+@@ -27,6 +28,9 @@ const CustomerView = () => {
+   const [editing, setEditing] = useState(null); // { id, name, phone } | null
+   const [busy, setBusy] = useState(false);
+ 
++  // Back menutup panel edit (sama dengan tombol Batal).
++  useBackLayer(Boolean(editing), () => setEditing(null));
++
+   const run = async (fn) => {
+     if (busy) return;
+     setBusy(true);
+diff --git a/src/features/pos/CartDrawer.jsx b/src/features/pos/CartDrawer.jsx
+index 470d3c3..c11147b 100644
+--- a/src/features/pos/CartDrawer.jsx
++++ b/src/features/pos/CartDrawer.jsx
+@@ -4,6 +4,7 @@ import {
+ } from 'lucide-react';
+ import { usePosStore } from '../../store/usePosStore';
+ import { computeOrderTotals } from './posMath';
++import useBackLayer from '../../hook/useBackLayer';
+ import CustomerPickerModal from './CustomerPicker';
+ 
+ /**
+@@ -80,6 +81,8 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+     triggerAlert(`Voucher ${code} berhasil dipasang!`);
+   };
+ 
++  useBackLayer(isCartOpen, () => setIsCartOpen(false));
++
+   if (!isCartOpen) return null;
+ 
+   return (
+diff --git a/src/features/pos/CustomerPicker.jsx b/src/features/pos/CustomerPicker.jsx
+index 63bf22e..c2833d5 100644
+--- a/src/features/pos/CustomerPicker.jsx
++++ b/src/features/pos/CustomerPicker.jsx
+@@ -1,6 +1,7 @@
+ import { useState, useEffect, useRef } from 'react';
+ import { X, Search, UserPlus, User } from 'lucide-react';
+ import { usePosStore } from '../../store/usePosStore';
++import useBackLayer from '../../hook/useBackLayer';
+ 
+ /**
+  * CustomerPickerModal — di-port dari mamam-global dengan alasan desain
+@@ -32,6 +33,9 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
+     return () => clearTimeout(timer);
+   }, [isOpen]);
+ 
++  // Back = sama dengan tombol X (handleClose): kosongkan pencarian lalu tutup.
++  useBackLayer(isOpen, () => { setQuery(''); setNewPhone(''); onClose(); });
++
+   if (!isOpen) return null;
+ 
+   const handleClose = () => { setQuery(''); setNewPhone(''); onClose(); };
+diff --git a/src/features/pos/PaymentModal.jsx b/src/features/pos/PaymentModal.jsx
+index cc0c793..f9bd855 100644
+--- a/src/features/pos/PaymentModal.jsx
++++ b/src/features/pos/PaymentModal.jsx
+@@ -5,6 +5,7 @@ import {
+ import { usePosStore } from '../../store/usePosStore';
+ import { computeOrderTotals, cashChange, splitStatus } from './posMath';
+ import { checkout } from './useCheckout';
++import useBackLayer from '../../hook/useBackLayer';
+ 
+ /**
+  * PaymentModal — di-port dari mamam-global. Bagian bayar-tunai/QRIS/
+@@ -40,6 +41,8 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+ 
+   const [busy, setBusy] = useState(false);
+ 
++  useBackLayer(paymentModal.isOpen, () => setPaymentModal({ ...paymentModal, isOpen: false }));
++
+   if (!paymentModal.isOpen) return null;
+ 
+   const appliedVoucher = vouchers.find(v => v.code === voucherCode) || null;
+diff --git a/src/features/pos/ReceiptModal.jsx b/src/features/pos/ReceiptModal.jsx
+index a1c956c..64f23ae 100644
+--- a/src/features/pos/ReceiptModal.jsx
++++ b/src/features/pos/ReceiptModal.jsx
+@@ -1,4 +1,5 @@
+ import { CheckCircle2, X } from 'lucide-react';
++import useBackLayer from '../../hook/useBackLayer';
+ 
+ /**
+  * ReceiptModal — versi ringkas untuk gelombang 1. Menampilkan ringkasan
+@@ -7,6 +8,8 @@ import { CheckCircle2, X } from 'lucide-react';
+  * lalu lanjut transaksi berikutnya.
+  */
+ export default function ReceiptModal({ result, onClose, formatRupiah }) {
++  useBackLayer(Boolean(result), onClose);
++
+   if (!result) return null;
+   return (
+     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+diff --git a/src/features/pos/VariantSelectionModal.jsx b/src/features/pos/VariantSelectionModal.jsx
+index 718b94d..18194e1 100644
+--- a/src/features/pos/VariantSelectionModal.jsx
++++ b/src/features/pos/VariantSelectionModal.jsx
+@@ -1,5 +1,6 @@
+ import { X, CheckCircle2 } from 'lucide-react';
+ import { usePosStore } from '../../store/usePosStore';
++import useBackLayer from '../../hook/useBackLayer';
+ 
+ /**
+  * VariantSelectionModal — di-port hampir 100% dari mamam-global. Murni
+@@ -18,6 +19,13 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
+   const addToCart = usePosStore((state) => state.addToCart);
+   const updateCartItemVariants = usePosStore((state) => state.updateCartItemVariants);
+ 
++  // Back = sama dengan tombol X (handleCloseModal): tutup dan reset pilihan varian.
++  useBackLayer(Boolean(selectedMenuForVariant), () => {
++    setSelectedMenuForVariant(null);
++    setVariantSelectedOptions({});
++    setEditingCartItemId(null);
++  });
++
+   if (!selectedMenuForVariant) return null;
+ 
+   const menuVariants = variantGroups.filter(vg =>
+diff --git a/src/hook/useBackLayer.js b/src/hook/useBackLayer.js
+new file mode 100644
+index 0000000..4b478c8
+--- /dev/null
++++ b/src/hook/useBackLayer.js
+@@ -0,0 +1,23 @@
++import { useEffect, useRef } from 'react';
++import { backStack } from '../lib/backStack';
++
++/**
++ * useBackLayer(aktif, onBack)
++ *
++ * Selama `aktif` true, tombol Back browser/HP memanggil `onBack` (menutup
++ * overlay ini) alih-alih keluar dari layar/aplikasi. Pasang di komponen
++ * overlay: modal, laci, bottom sheet.
++ *
++ * Wajib dipanggil SEBELUM `if (!isOpen) return null` (aturan hooks).
++ * `onBack` tidak perlu di-memoize; versi terbaru selalu dipakai.
++ */
++export default function useBackLayer(active, onBack) {
++  const latest = useRef(onBack);
++  useEffect(() => { latest.current = onBack; });
++
++  useEffect(() => {
++    if (!active) return undefined;
++    const id = backStack.register(() => latest.current?.());
++    return () => backStack.unregister(id);
++  }, [active]);
++}
+diff --git a/src/lib/backStack.js b/src/lib/backStack.js
+new file mode 100644
+index 0000000..94b42d5
+--- /dev/null
++++ b/src/lib/backStack.js
+@@ -0,0 +1,162 @@
++/**
++ * backStack — menyambungkan tombol Back browser/HP (dan geser-mundur di iPhone)
++ * ke "lapisan" di dalam aplikasi, supaya Back MENUTUP lapisan teratas, bukan
++ * langsung keluar dari aplikasi.
++ *
++ * Lapisan = apa pun yang bisa "ditutup" pengguna:
++ *   - sub-layar / layar root selain Beranda (didaftarkan oleh App.jsx),
++ *   - modal, laci keranjang, pembayaran, dsb. (didaftarkan lewat useBackLayer).
++ * Urutan tutup: yang terakhir dibuka ditutup duluan (LIFO).
++ *
++ * Cara kerja: setiap lapisan punya SATU entri riwayat browser. Jumlah entri
++ * (`depth`) selalu disamakan dengan jumlah lapisan:
++ *   - lapisan bertambah  -> history.pushState
++ *   - lapisan ditutup lewat tombol di layar (X, Batal, tap Beranda) -> history.go(-n)
++ *     supaya tidak ada entri sisa yang membuat Back "tidak terjadi apa-apa"
++ *   - pengguna menekan Back -> popstate -> lapisan teratas ditutup lewat close()
++ * Di Beranda tanpa lapisan terbuka tidak ada entri tambahan, jadi Back
++ * berperilaku biasa (keluar dari aplikasi).
++ *
++ * history.go() bersifat ASINKRON. Supaya pushState tidak menabrak go() yang
++ * belum selesai, semua perubahan diserialkan: selama menunggu popstate dari go()
++ * buatan sendiri (`traversing`), perubahan berikutnya ditunda lalu disamakan lagi.
++ * Perubahan dalam satu tarikan napas (tutup modal + buka layar) digabung lewat
++ * microtask, jadi tidak menghasilkan go() + pushState yang sia-sia.
++ *
++ * Modul ini tidak mengimpor React; `win` bisa diganti objek palsu untuk tes.
++ */
++export function createBackStack(win) {
++  const layers = [];        // [{ id, close }] urutan dibuka
++  let nextId = 1;
++  let depth = 0;            // entri riwayat yang sudah kita buat di atas entri dasar
++  let traversing = false;   // menunggu popstate dari history.go() buatan sendiri
++  let scheduled = false;
++  let started = false;
++  let hopTried = false;
++  let guardTimer = null;
++  // Penanda unik muatan halaman ini. Entri riwayat dari muatan sebelumnya (mis. sebelum
++  // refresh) membawa penanda lain, sehingga bisa dikenali sebagai entri BASI.
++  const sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
++
++  const usable = Boolean(win && win.history && typeof win.addEventListener === 'function');
++
++  function start() {
++    if (started || !usable) return;
++    const st = win.history.state;
++    const base = st && typeof st === 'object' ? st : {};
++
++    // Halaman di-REFRESH saat berada di entri dalam (mis. di Kasir): entri riwayat sisa
++    // dari muatan sebelumnya masih ada di belakang. Kalau dibiarkan, Back pertama hanya
++    // memuat ulang aplikasi di entri sisa itu. Lompat langsung ke entri dasar; aplikasi
++    // dimuat ulang di sana dengan riwayat yang bersih (satu Back = keluar).
++    if (!hopTried && navigationType() === 'reload' && typeof base.mdr === 'number' && base.mdr > 0 && base.sid !== sid) {
++      hopTried = true;
++      try { win.history.go(-base.mdr); return; } catch { /* lanjut tanpa lompatan */ }
++    }
++
++    started = true;
++    // Entri dasar = posisi saat aplikasi dimuat. Kalau halaman di-refresh saat
++    // sedang di entri dalam, entri itu dijadikan dasar baru; entri-entri di
++    // belakangnya tetap membawa penanda lama (basi) dan dilewati saat Back.
++    try { win.history.replaceState({ ...base, mdr: 0, sid }, ''); } catch { /* abaikan */ }
++    win.addEventListener('popstate', onPop);
++  }
++
++  function navigationType() {
++    try { return win.performance.getEntriesByType('navigation')[0].type; } catch { return undefined; }
++  }
++
++  function schedule() {
++    if (scheduled) return;
++    scheduled = true;
++    Promise.resolve().then(() => { scheduled = false; sync(); });
++  }
++
++  /** Samakan jumlah entri riwayat dengan jumlah lapisan. */
++  function sync() {
++    if (!started || traversing) return;
++    while (depth < layers.length) {
++      depth += 1;
++      try {
++        win.history.pushState({ mdr: depth, sid }, '');
++      } catch {
++        depth -= 1;   // mis. batas pushState Safari: lanjut tanpa entri (Back biasa)
++        break;
++      }
++    }
++    if (depth > layers.length) {
++      const diff = depth - layers.length;
++      traversing = true;
++      clearTimeout(guardTimer);
++      // Jaga-jaga kalau popstate tidak pernah datang: jangan macet selamanya.
++      guardTimer = setTimeout(() => {
++        if (!traversing) return;
++        traversing = false;
++        depth = layers.length;
++        schedule();
++      }, 1500);
++      win.history.go(-diff);
++    }
++  }
++
++  function closeDownTo(n) {
++    while (layers.length > n) {
++      const top = layers.pop();
++      try { top.close(); } catch (err) { console.error('[backStack] close gagal:', err); }
++    }
++  }
++
++  function onPop(e) {
++    const st = e && e.state;
++    const mine = Boolean(st) && st.sid === sid && typeof st.mdr === 'number';
++
++    // Hasil dari history.go() buatan sendiri.
++    if (traversing) {
++      traversing = false;
++      clearTimeout(guardTimer);
++      depth = mine ? st.mdr : 0;
++      sync();
++      return;
++    }
++
++    // Dari pengguna (Back / Forward / geser mundur).
++    if (!mine) {
++      // Mendarat di entri basi (sisa muatan sebelumnya): tutup semua lapisan lalu
++      // lanjutkan mundur, supaya satu kali Back tetap berarti "keluar dari aplikasi".
++      depth = 0;
++      closeDownTo(0);
++      try { win.history.back(); } catch { /* abaikan */ }
++      return;
++    }
++    const target = st.mdr;
++    depth = target;
++    closeDownTo(target);
++    // Kalau pengguna menekan Forward (target > jumlah lapisan), dikembalikan di sini.
++    sync();
++  }
++
++  /** Daftarkan lapisan baru. `close` dipanggil saat pengguna menekan Back. Mengembalikan id. */
++  function register(close) {
++    start();
++    const id = nextId++;
++    layers.push({ id, close });
++    schedule();
++    return id;
++  }
++
++  /** Lapisan sudah ditutup lewat cara lain (tombol di layar). Aman dipanggil berulang. */
++  function unregister(id) {
++    const i = layers.findIndex((l) => l.id === id);
++    if (i === -1) return;
++    layers.splice(i, 1);
++    schedule();
++  }
++
++  const has = (id) => layers.some((l) => l.id === id);
++  const snapshot = () => ({ layers: layers.length, depth, traversing });
++
++  return { init: start, register, unregister, has, snapshot };
++}
++
++/** Instans tunggal untuk aplikasi (tidak melakukan apa-apa di luar browser). */
++export const backStack = createBackStack(typeof window !== 'undefined' ? window : null);
+diff --git a/src/lib/backStack.test.js b/src/lib/backStack.test.js
+new file mode 100644
+index 0000000..0813ddb
+--- /dev/null
++++ b/src/lib/backStack.test.js
+@@ -0,0 +1,294 @@
++import { describe, it, expect } from 'vitest';
++import { createBackStack } from './backStack.js';
++
++/**
++ * Browser palsu yang meniru aturan riwayat sungguhan:
++ *  - pushState membuang entri "maju" lalu menambah entri baru
++ *  - go(n) ASINKRON; arah dihitung saat dijalankan; popstate dikirim sesudahnya
++ *  - menuju entri "luar" (halaman sebelumnya) = keluar dari aplikasi, tanpa popstate
++ */
++function fakeBrowser({ previousPage = true, staleEntries = [], navType } = {}) {
++  const entries = [];
++  if (previousPage) entries.push({ external: true, state: null });
++  for (const st of staleEntries) entries.push({ state: st });
++  entries.push({ state: null });                // entri aplikasi saat dimuat
++  let index = entries.length - 1;
++  let left = false;
++  const listeners = [];
++  const log = [];
++  const fire = () => { log.push('pop'); listeners.forEach((fn) => fn({ state: entries[index].state })); };
++  const win = {
++    history: {
++      get state() { return entries[index].state; },
++      pushState(state) { entries.splice(index + 1); entries.push({ state }); index = entries.length - 1; log.push('push'); },
++      replaceState(state) { entries[index].state = state; log.push('replace'); },
++      go(n) {
++        log.push(`go${n}`);
++        setTimeout(() => {
++          const next = index + n;
++          if (next < 0 || next >= entries.length) return;
++          index = next;
++          if (entries[index].external) { left = true; return; }
++          fire();
++        }, 0);
++      },
++      back() { win.history.go(-1); },
++    },
++    addEventListener(type, fn) { if (type === 'popstate') listeners.push(fn); },
++    ...(navType ? { performance: { getEntriesByType: () => [{ type: navType }] } } : {}),
++  };
++  return {
++    win, log,
++    get index() { return index; },
++    get left() { return left; },
++    get length() { return entries.length; },
++    get listeners() { return listeners.length; },
++    get state() { return entries[index].state; },
++    userBack: () => win.history.go(-1),         // tombol Back / geser mundur
++    userForward: () => win.history.go(1),
++  };
++}
++
++const tick = (ms = 15) => new Promise((r) => setTimeout(r, ms));
++
++describe('backStack — dasar', () => {
++  it('tanpa lapisan: tidak menyentuh riwayat sama sekali; Back = keluar dari aplikasi', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win);
++    await tick();
++    expect(b.log).toEqual([]);                                   // belum ada replace/push
++    expect(bs.snapshot()).toMatchObject({ layers: 0, depth: 0 });
++    b.userBack(); await tick();
++    expect(b.left).toBe(true);
++  });
++
++  it('satu lapisan: dibuat 1 entri; Back menutup lapisan (close sekali) dan TIDAK keluar', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win);
++    let closed = 0; bs.register(() => { closed += 1; }); await tick();
++    expect(b.log).toEqual(['replace', 'push']);   // belum ada pop: tidak ada traversal
++    expect(bs.snapshot()).toMatchObject({ layers: 1, depth: 1 });
++    b.userBack(); await tick();
++    expect(closed).toBe(1);
++    expect(b.left).toBe(false);
++    expect(bs.snapshot()).toMatchObject({ layers: 0, depth: 0 });
++    b.userBack(); await tick();                                  // Back berikutnya: keluar
++    expect(b.left).toBe(true);
++    expect(closed).toBe(1);
++  });
++
++  it('dua lapisan: yang terakhir dibuka ditutup duluan (LIFO)', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win); const order = [];
++    bs.register(() => order.push('A')); bs.register(() => order.push('B')); await tick();
++    expect(bs.snapshot()).toMatchObject({ layers: 2, depth: 2 });
++    b.userBack(); await tick(); expect(order).toEqual(['B']);
++    b.userBack(); await tick(); expect(order).toEqual(['B', 'A']);
++    expect(b.left).toBe(false);
++    b.userBack(); await tick(); expect(b.left).toBe(true);
++  });
++});
++
++describe('backStack — lapisan ditutup lewat tombol di layar', () => {
++  it('unregister: entri riwayat ikut dibuang (go -1), close TIDAK dipanggil, Back berikutnya langsung keluar', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win);
++    let closed = 0; const id = bs.register(() => { closed += 1; }); await tick();
++    bs.unregister(id); await tick();
++    expect(b.log).toContain('go-1');
++    expect(closed).toBe(0);
++    expect(bs.snapshot()).toMatchObject({ layers: 0, depth: 0, traversing: false });
++    b.userBack(); await tick();
++    expect(b.left).toBe(true);                                   // tidak ada "Back yang tidak terjadi apa-apa"
++  });
++
++  it('tutup lapisan lalu buka lapisan lain dalam satu tarikan napas: tidak ada go()/push sia-sia', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win);
++    const a = bs.register(() => {}); await tick();
++    const before = b.log.length;
++    bs.unregister(a); bs.register(() => {}); await tick();
++    expect(b.log.length).toBe(before);                           // tidak ada operasi riwayat baru
++    expect(bs.snapshot()).toMatchObject({ layers: 1, depth: 1 });
++  });
++
++  it('menutup lapisan yang BUKAN teratas: jumlah entri tetap cocok, Back menutup yang tersisa', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win); const order = [];
++    const a = bs.register(() => order.push('A')); bs.register(() => order.push('B')); await tick();
++    bs.unregister(a); await tick();
++    expect(bs.snapshot()).toMatchObject({ layers: 1, depth: 1 });
++    b.userBack(); await tick();
++    expect(order).toEqual(['B']);
++    expect(b.left).toBe(false);
++  });
++
++  it('close() yang memanggil unregister sendiri (seperti modal sungguhan) tidak menggandakan go()', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win);
++    let id; id = bs.register(() => { bs.unregister(id); }); await tick();
++    const gosBefore = b.log.filter((l) => l.startsWith('go')).length;
++    b.userBack(); await tick();
++    expect(b.log.filter((l) => l.startsWith('go')).length).toBe(gosBefore + 1);   // hanya go dari pengguna
++    expect(bs.snapshot()).toMatchObject({ layers: 0, depth: 0 });
++    expect(b.left).toBe(false);
++  });
++});
++
++describe('backStack — urutan operasi asinkron', () => {
++  it('lapisan baru yang datang saat go() masih berjalan ditunda, lalu didorong sesudah popstate', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win); const order = [];
++    const a = bs.register(() => {}); await tick();
++    bs.unregister(a);
++    await Promise.resolve(); await Promise.resolve();            // sync() jalan: go(-1) dikirim, menunggu popstate
++    expect(bs.snapshot().traversing).toBe(true);
++    // Dua lapisan baru datang di tengah go(): jumlah lapisan (2) > entri yang ada (1),
++    // jadi tanpa serialisasi sync() akan langsung pushState menabrak go() yang belum selesai.
++    bs.register(() => order.push('B')); bs.register(() => order.push('C'));
++    await tick();
++    // Urutan operasi riwayat harus: ... go-1, pop, push, push  (push TIDAK boleh menyelip sebelum pop dari go)
++    const iGo = b.log.lastIndexOf('go-1');
++    const iPopAfterGo = b.log.indexOf('pop', iGo);
++    const iPushAfterGo = b.log.indexOf('push', iGo);
++    expect(iPopAfterGo).toBeGreaterThan(iGo);
++    expect(iPushAfterGo).toBeGreaterThan(iPopAfterGo);           // push SESUDAH go selesai, bukan menabraknya
++    expect(bs.snapshot()).toMatchObject({ layers: 2, depth: 2, traversing: false });
++    b.userBack(); await tick(); b.userBack(); await tick();
++    expect(order).toEqual(['C', 'B']);                           // tetap rapi: C lalu B, tidak keluar
++    expect(b.left).toBe(false);
++    b.userBack(); await tick();
++    expect(b.left).toBe(true);
++  });
++
++  it('pengguna menekan Forward setelah Back: tidak membuka ulang apa pun, dikembalikan ke posisi semula', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win);
++    let closed = 0; bs.register(() => { closed += 1; }); await tick();
++    b.userBack(); await tick();
++    expect(closed).toBe(1);
++    const idxBase = b.index;
++    b.userForward(); await tick(40);
++    expect(closed).toBe(1);
++    expect(bs.snapshot()).toMatchObject({ layers: 0, depth: 0, traversing: false });
++    expect(b.index).toBe(idxBase);                               // kembali di entri dasar
++  });
++});
++
++describe('backStack — refresh dan entri basi', () => {
++  it('halaman di-refresh saat di entri dalam: satu kali Back tetap keluar dari aplikasi', async () => {
++    // riwayat sebelum refresh: [halaman lain, dasar(0), dalam(1), dalam(2)]; refresh terjadi di entri terakhir
++    const stale = [{ mdr: 0, sid: 'lama' }, { mdr: 1, sid: 'lama' }, { mdr: 2, sid: 'lama' }];
++    const b = fakeBrowser({ staleEntries: stale.slice(0, 2) });
++    // entri aplikasi saat dimuat membawa state lama {mdr:2}
++    b.win.history.replaceState({ mdr: 2, sid: 'lama' });
++    const bs = createBackStack(b.win);
++    bs.register(() => {}); await tick();                         // aplikasi mulai: entri dijadikan dasar baru
++    expect(bs.snapshot()).toMatchObject({ layers: 1, depth: 1 });
++    bs.unregister(1); await tick();                              // layar kembali ke Beranda
++    b.userBack(); await tick(80);
++    expect(b.left).toBe(true);                                   // melewati semua entri basi, keluar
++  });
++
++  it('lapisan terbuka lalu Back menembus ke entri basi: lapisan ikut ditutup, lalu keluar', async () => {
++    const b = fakeBrowser({ staleEntries: [{ mdr: 0, sid: 'lama' }] });
++    const bs = createBackStack(b.win); let closed = 0;
++    bs.register(() => { closed += 1; }); await tick();
++    b.userBack(); await tick();                                  // menutup lapisan (entri dasar baru)
++    expect(closed).toBe(1); expect(b.left).toBe(false);
++    b.userBack(); await tick(80);                                // entri basi → dilewati → keluar
++    expect(b.left).toBe(true);
++  });
++
++  it('lingkungan tanpa window/history (mis. server): tidak error dan tidak melakukan apa-apa', async () => {
++    const bs = createBackStack(null);
++    const id = bs.register(() => {}); bs.unregister(id); await tick();
++    expect(bs.snapshot()).toMatchObject({ layers: 0, depth: 0 });
++  });
++});
++
++describe('backStack — refresh di entri dalam (lompat ke entri dasar)', () => {
++  const lama = { mdr: 2, sid: 'lama' };
++
++  it('di-refresh saat di entri dalam: langsung go(-mdr) ke entri dasar, belum mulai (tidak replace, tidak pasang listener)', async () => {
++    const b = fakeBrowser({ navType: 'reload', staleEntries: [{ mdr: 0, sid: 'lama' }, { mdr: 1, sid: 'lama' }] });
++    b.win.history.replaceState(lama); b.log.length = 0;
++    const bs = createBackStack(b.win);
++    bs.init();
++    expect(b.log).toEqual(['go-2']);
++    expect(b.listeners).toBe(0);
++  });
++
++  it('sesudah lompat, dokumen baru dimuat di entri dasar (back_forward): satu kali Back = keluar dari aplikasi', async () => {
++    const b = fakeBrowser({ navType: 'reload', staleEntries: [{ mdr: 0, sid: 'lama' }, { mdr: 1, sid: 'lama' }] });
++    b.win.history.replaceState(lama);
++    createBackStack(b.win).init();
++    await tick();
++    expect(b.index).toBe(1);                                      // [luar, dasar(basi mdr0), ...] -> berhenti di dasar
++    // browser memuat ulang halaman di entri itu: modul baru, jenis navigasi bukan reload
++    const win2 = { ...b.win, performance: { getEntriesByType: () => [{ type: 'back_forward' }] } };
++    const bs2 = createBackStack(win2); bs2.init();
++    expect(b.listeners).toBe(1);
++    expect(b.state).toMatchObject({ mdr: 0 });
++    b.userBack(); await tick();
++    expect(b.left).toBe(true);
++  });
++
++  it('jenis navigasi bukan reload (buka lewat link / back_forward): TIDAK lompat, entri jadi dasar baru', async () => {
++    for (const type of ['navigate', 'back_forward', 'prerender']) {
++      const b = fakeBrowser({ navType: type });
++      b.win.history.replaceState(lama); b.log.length = 0;
++      const bs = createBackStack(b.win); bs.init();
++      expect(b.log).toEqual(['replace']);
++      expect(b.state).toMatchObject({ mdr: 0 });
++      expect(b.listeners).toBe(1);
++    }
++  });
++
++  it('di-refresh di entri dasar (mdr 0 / tanpa state): tidak lompat', async () => {
++    for (const st of [null, { mdr: 0, sid: 'lama' }]) {
++      const b = fakeBrowser({ navType: 'reload' });
++      b.win.history.replaceState(st); b.log.length = 0;
++      createBackStack(b.win).init();
++      expect(b.log).toEqual(['replace']);
++    }
++  });
++
++  it('browser tanpa Performance API: tidak error, jalan seperti biasa tanpa lompat', async () => {
++    const b = fakeBrowser();                                      // tanpa performance sama sekali
++    b.win.history.replaceState(lama); b.log.length = 0;
++    expect(() => createBackStack(b.win).init()).not.toThrow();
++    expect(b.log).toEqual(['replace']);
++  });
++
++  it('history.go melempar error saat lompat: lanjut mulai normal, tidak macet', async () => {
++    const b = fakeBrowser({ navType: 'reload' });
++    b.win.history.replaceState(lama);
++    b.win.history.go = () => { throw new Error('SecurityError'); };
++    const bs = createBackStack(b.win);
++    expect(() => bs.init()).not.toThrow();
++    expect(b.listeners).toBe(1);
++    bs.register(() => {}); await tick();
++    expect(bs.snapshot()).toMatchObject({ layers: 1, depth: 1 });
++  });
++
++  it('lompat hanya dicoba SEKALI per muatan halaman (init lalu register tidak melompat dua kali)', async () => {
++    const b = fakeBrowser({ navType: 'reload', staleEntries: [{ mdr: 0, sid: 'lama' }, { mdr: 1, sid: 'lama' }] });
++    b.win.history.replaceState(lama); b.log.length = 0;
++    const bs = createBackStack(b.win);
++    bs.init(); bs.register(() => {});
++    expect(b.log.filter((l) => l === 'go-2').length).toBe(1);
++  });
++});
++
++describe('backStack — kegagalan yang tidak boleh menjatuhkan aplikasi', () => {
++  it('pushState melempar error (batas Safari): tidak macet, tidak error, Back berperilaku biasa', async () => {
++    const b = fakeBrowser(); const orig = b.win.history.pushState; let n = 0;
++    b.win.history.pushState = (...a) => { n += 1; throw new Error('SecurityError'); };
++    const bs = createBackStack(b.win);
++    bs.register(() => {}); await tick();
++    expect(n).toBeGreaterThan(0);
++    expect(bs.snapshot().depth).toBe(0);                         // tidak mengaku punya entri yang tidak ada
++    b.win.history.pushState = orig;
++  });
++
++  it('close() yang melempar error tidak menghentikan penutupan lapisan lain', async () => {
++    const b = fakeBrowser(); const bs = createBackStack(b.win); const order = [];
++    bs.register(() => order.push('A'));
++    bs.register(() => { order.push('B'); throw new Error('boom'); }); await tick();
++    const spy = console.error; console.error = () => {};
++    try { b.userBack(); await tick(); b.userBack(); await tick(); } finally { console.error = spy; }
++    expect(order).toEqual(['B', 'A']);
++  });
++});
+diff --git a/src/main.jsx b/src/main.jsx
+index 8f81225..1610476 100644
+--- a/src/main.jsx
++++ b/src/main.jsx
+@@ -1,9 +1,14 @@
+ import React from 'react'
+ import ReactDOM from 'react-dom/client'
+ import App from './app/App.jsx'
++import { backStack } from './lib/backStack'
+ import { AuthProvider } from './auth/AuthContext.jsx'
+ import './index.css'
+ 
++// Sambungkan tombol Back sedini mungkin (sebelum React render) supaya kasus refresh
++// di entri riwayat dalam bisa dibersihkan di awal.
++backStack.init();
++
+ ReactDOM.createRoot(document.getElementById('root')).render(
+   <React.StrictMode>
+     <AuthProvider>
