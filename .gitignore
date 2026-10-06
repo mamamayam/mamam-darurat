@@ -2,3 +2,19 @@ node_modules
 dist
 .env
 .env.local
+
+# --- Semua varian .env (berisi kunci), kecuali contoh kosongnya ---
+.env.*
+!.env.example
+
+# --- Data pribadi banyak orang (pelanggan, karyawan, transaksi) ---
+# JANGAN masuk git. Simpan di laptop saja, jangan di-commit / di-upload.
+# Backup & ekspor dari app lama (A)
+mamam-ayam-backup*.json
+backup*.json
+# Log migrasi (dipakai skrip --batalkan, cukup disimpan lokal)
+migrasi-log-*.json
+# Ekspor tabel / laporan
+*.csv
+*.xlsx
+*.xls
