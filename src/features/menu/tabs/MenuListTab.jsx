@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useAppContext } from "../../../context/AppContext";
-import { ChevronLeft, Plus, Edit3, Trash2, Settings2, Search, X, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Edit3, Trash2, Settings2, Search, X, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import CategoryModal from "../../../components/CategoryModal";
-import { Card, Button, IconButton, Input, NominalInput, Select, EmptyState, Badge } from "../../../components/ui";
+import { Button, IconButton, Input, NominalInput, Select, EmptyState, Badge, Modal } from "../../../components/ui";
 import { useDragReorder, getDragRowClass } from "../../../hook/useDragReorder";
 
 // ─── Komponen Kelompok Kategori Menu ───
@@ -205,83 +205,6 @@ const MenuListTab = ({ data }) => {
     return [...orderedCats, ...missingCats];
   }, [categories, groupedMenus]);
 
-  if (isEditing) {
-    // Form Edit / Tambah Menu - (Sama dengan aslinya, dipersingkat untuk render)
-    return (
-      <div className="p-4 md:p-6 bg-white dark:bg-slate-900 flex-1 animate-in fade-in slide-in-from-right-4 duration-300 h-full overflow-y-auto ease-out">
-        <button onClick={() => setIsEditing(false)} className="mb-4 text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-accent-600 dark:hover:text-accent-400 font-medium transition-all duration-300 active:scale-95">
-          <ChevronLeft className="w-5 h-5" /> Kembali
-        </button>
-        <h2 className="font-heading text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
-          {formData.id ? 'Edit Menu' : 'Tambah Menu Baru'}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
-          <div className="space-y-6">
-            <Card className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b pb-2">Informasi Dasar</Card>
-            <Input id="menuName" label="Nama Menu" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Misal: Lumpia Semarang" />
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="menuCategory" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
-                <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>Kelola Kategori</Button>
-              </div>
-              <Select id="menuCategory" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                {categories.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
-                {!categories.includes(formData.category) && formData.category && (
-                  <option value={formData.category}>{formData.category}</option>
-                )}
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <NominalInput id="menuPrice" label="Harga Jual" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
-              <NominalInput id="menuHpp" label="HPP / Modal" value={formData.hpp} onChange={e => setFormData({ ...formData, hpp: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
-            </div>
-          </div>
-          <div className="space-y-4">
-            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b pb-2">Varian Terkait</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Pilih kategori varian yang berlaku untuk menu ini.</p>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-              {variantGroups.length === 0 ? (
-                <p className="text-sm italic text-slate-400 dark:text-slate-500">Belum ada grup varian. Tambahkan di tab Varian.</p>
-              ) : (
-                variantGroups.map(vg => (
-                  <label key={vg.id} className={`flex items-center gap-3 p-3 border rounded-2xl cursor-pointer transition-all duration-300 ${formData.variantGroupIds.includes(vg.id) ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-200 dark:border-accent-500/30 shadow-sm' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900'}`}>
-                    <input type="checkbox" className="w-5 h-5 accent-[#ea580c] dark:accent-[#f97316] cursor-pointer" checked={formData.variantGroupIds.includes(vg.id)} onChange={() => setFormData(prev => ({ ...prev, variantGroupIds: prev.variantGroupIds.includes(vg.id) ? prev.variantGroupIds.filter(id => id !== vg.id) : [...prev.variantGroupIds, vg.id] }))} />
-                    <div className="flex-1">
-                      <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{vg.name}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{vg.options.map(o => o.name).join(', ')}</p>
-                    </div>
-                  </label>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="max-w-4xl mt-8 pt-6 border-t border-slate-200 flex justify-end">
-          <Button onClick={handleSave} size="lg" className="w-full md:w-auto">{formData.id ? 'Simpan Perubahan' : 'Tambah Menu'}</Button>
-        </div>
-        <CategoryModal
-          isOpen={isCategoryModalOpen}
-          onClose={() => setIsCategoryModalOpen(false)}
-          title="Kelola Kategori Menu"
-          onDeleteFallback="Umum"
-          categories={categories}
-          setCategories={(next) => run(() => setCategoriesPersist(next))}
-          triggerAlert={triggerAlert}
-          triggerConfirm={triggerConfirm}
-          onRenameAsync={(oldCat, newCat) => {
-            run(() => renameMenuCategory(oldCat, newCat));
-            if (formData.category === oldCat) setFormData(prev => ({ ...prev, category: newCat }));
-          }}
-          onDeleteAsync={(deletedCat) => {
-            // Item di kategori terhapus dipindah ke 'Umum' (sama seperti A), urut di server
-            run(() => deleteMenuCategory(deletedCat));
-            if (formData.category === deletedCat) setFormData(prev => ({ ...prev, category: 'Umum' }));
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       {/* Input Pencarian */}
@@ -338,6 +261,70 @@ const MenuListTab = ({ data }) => {
           <EmptyState icon={<Plus className="w-8 h-8" />} title="Belum ada data menu" description="Tambah menu pertama untuk mulai menerima pesanan" action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setIsEditing(true)}>Tambah Menu Pertama</Button>} />
         )}
       </div>
+
+      <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} sheet size="lg" maxHeight title={formData.id ? 'Edit Menu' : 'Tambah Menu Baru'}>
+        <div className="p-5 pt-2 space-y-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="space-y-4">
+            <Input id="menuName" label="Nama Menu" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Misal: Lumpia Semarang" />
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="menuCategory" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
+                <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>Kelola Kategori</Button>
+              </div>
+              <Select id="menuCategory" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                {categories.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
+                {!categories.includes(formData.category) && formData.category && (
+                  <option value={formData.category}>{formData.category}</option>
+                )}
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <NominalInput id="menuPrice" label="Harga Jual" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
+              <NominalInput id="menuHpp" label="HPP / Modal" value={formData.hpp} onChange={e => setFormData({ ...formData, hpp: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
+            </div>
+          </div>
+          <div className="space-y-3">
+            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">Varian Terkait</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Pilih kategori varian yang berlaku untuk menu ini.</p>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              {variantGroups.length === 0 ? (
+                <p className="text-sm italic text-slate-400 dark:text-slate-500">Belum ada grup varian. Tambahkan di tab Varian.</p>
+              ) : (
+                variantGroups.map(vg => (
+                  <label key={vg.id} className={`flex items-center gap-3 p-3 border rounded-2xl cursor-pointer transition-all duration-300 ${formData.variantGroupIds.includes(vg.id) ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-200 dark:border-accent-500/30 shadow-sm' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900'}`}>
+                    <input type="checkbox" className="w-5 h-5 accent-[#ea580c] dark:accent-[#f97316] cursor-pointer" checked={formData.variantGroupIds.includes(vg.id)} onChange={() => setFormData(prev => ({ ...prev, variantGroupIds: prev.variantGroupIds.includes(vg.id) ? prev.variantGroupIds.filter(id => id !== vg.id) : [...prev.variantGroupIds, vg.id] }))} />
+                    <div className="flex-1">
+                      <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{vg.name}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{vg.options.map(o => o.name).join(', ')}</p>
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+          <Button onClick={handleSave} size="full">{formData.id ? 'Simpan Perubahan' : 'Tambah Menu'}</Button>
+        </div>
+      </Modal>
+
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title="Kelola Kategori Menu"
+        onDeleteFallback="Umum"
+        categories={categories}
+        setCategories={(next) => run(() => setCategoriesPersist(next))}
+        triggerAlert={triggerAlert}
+        triggerConfirm={triggerConfirm}
+        onRenameAsync={(oldCat, newCat) => {
+          run(() => renameMenuCategory(oldCat, newCat));
+          if (formData.category === oldCat) setFormData(prev => ({ ...prev, category: newCat }));
+        }}
+        onDeleteAsync={(deletedCat) => {
+          // Item di kategori terhapus dipindah ke 'Umum' (sama seperti A), urut di server
+          run(() => deleteMenuCategory(deletedCat));
+          if (formData.category === deletedCat) setFormData(prev => ({ ...prev, category: 'Umum' }));
+        }}
+      />
     </div>
   );
 };

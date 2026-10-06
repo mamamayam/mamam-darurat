@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   TrendingDown,
   BarChart3,
+  History,
   Users,
   UserCog,
 } from 'lucide-react';
@@ -141,6 +142,7 @@ export default function App() {
     { id: 'karyawan',    icon: UserCog,      label: 'Karyawan' },
     { id: 'absensi',     icon: Fingerprint,  label: 'Absensi' },
     { id: 'penggajian',  icon: Briefcase,    label: 'Penggajian' },
+    { id: 'riwayat',     icon: History,      label: 'Riwayat' },
     { id: 'laporan',     icon: BarChart3,    label: 'Laporan' },
   ], []);
 

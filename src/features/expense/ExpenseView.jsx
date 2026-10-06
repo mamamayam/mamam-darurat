@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
-import { TrendingDown, Save, X, Pencil, Trash2, Settings2, History, ArrowUpDown } from 'lucide-react';
-import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar } from '../../components/ui';
+import { useState, useMemo } from 'react';
+import { TrendingDown, Save, Pencil, Trash2, Settings2, History, ArrowUpDown, Plus } from 'lucide-react';
+import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar, Modal, BulletListInput } from '../../components/ui';
+import { base as fieldBase } from '../../components/ui/Input';
 import CategoryModal from '../../components/CategoryModal';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -23,6 +24,9 @@ import { toLocalDateString } from '../../utils/formatters';
  */
 
 const dayOf = (v) => String(v).slice(0, 10);
+// Detail disimpan sebagai teks, satu poin per baris. Catatan lama (satu baris) = satu poin.
+const noteLines = (note) => String(note || '').split(/\r?\n/).map(t => t.trim()).filter(Boolean);
+const toItems = (note) => { const l = noteLines(note); return l.length ? l : ['']; };
 const showDate = (v) => {
   const [y, m, d] = dayOf(v).split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('id-ID');
@@ -38,10 +42,12 @@ const ExpenseView = () => {
     setCategoriesPersist, renameCategory, deleteCategory,
   } = useExpenseData();
 
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
-  const [note, setNote] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [detailItems, setDetailItems] = useState(['']);
   const [dateInput, setDateInput] = useState(toLocalDateString());
   const [paymentMethod, setPaymentMethod] = useState('Tunai');
   const [cashHolderId, setCashHolderId] = useState('kasir');
@@ -60,11 +66,6 @@ const ExpenseView = () => {
     try { await fn(); } catch (e) { triggerAlert(e.message || 'Terjadi kesalahan.'); }
     finally { setBusy(false); }
   };
-
-  // Pastikan kategori terpilih selalu ada di daftar (mis. setelah dihapus/rename).
-  useEffect(() => {
-    if (categories.length > 0 && !categories.includes(category)) setCategory(categories[0]);
-  }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const couriers = useMemo(
     () => employees.filter(e => e.role === 'kurir' && e.status !== 'resign'),
@@ -111,29 +112,34 @@ const ExpenseView = () => {
   const { selectedIds, allSelected, toggleOne, toggleAll, reset: resetSelection, count } = useBulkSelect(sortedExpenses);
 
   const resetForm = () => {
-    setEditingId(null); setAmount(''); setNote(''); setPaymentMethod('Tunai'); setCashHolderId('kasir');
+    setEditingId(null); setAmount(''); setSupplier(''); setDetailItems(['']); setPaymentMethod('Tunai'); setCashHolderId('kasir');
     setDateInput(toLocalDateString());
-    if (categories.length > 0) setCategory(categories[0]);
+    setCategory('');
   };
+
+  const openNew = () => { resetForm(); setIsFormOpen(true); };
+  const closeForm = () => { resetForm(); setIsFormOpen(false); };
 
   const handleSave = () => run(async () => {
     const holder = paymentMethod === 'Tunai' && cashHolderId !== 'kasir' ? couriers.find(c => c.id === cashHolderId) : null;
     await saveExpense({
-      id: editingId, amount, category, note, date: dateInput, paymentMethod,
+      id: editingId, amount, category, note: detailItems.map(t => t.trim()).filter(Boolean).join('\n'),
+      supplier: supplier.trim(), date: dateInput, paymentMethod,
       cashHolderEmployeeId: holder?.id || null, cashHolderName: holder?.name || null,
     });
-    resetForm();
+    closeForm();
   });
 
   const handleEditClick = (exp) => {
     setEditingId(exp.id);
     setAmount(String(exp.amount));
     setCategory(exp.category);
-    setNote(exp.note || '');
+    setSupplier(exp.supplier || '');
+    setDetailItems(toItems(exp.note));
     setDateInput(dayOf(exp.date));
     setPaymentMethod(exp.paymentMethod === 'Non-Tunai' ? 'Non-Tunai' : 'Tunai');
     setCashHolderId(exp.cashHolderEmployeeId || 'kasir');
-    window.scrollTo?.({ top: 0, behavior: 'smooth' });
+    setIsFormOpen(true);
   };
 
   const handleDelete = (exp) => {
@@ -160,65 +166,12 @@ const ExpenseView = () => {
 
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full min-w-0">
-        <Card padding="none" className="lg:col-span-1 p-5 space-y-4 h-fit w-full min-w-0 transition-shadow duration-300 hover:shadow-md">
-          {editingId && (
-            <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 p-3 rounded-xl text-xs font-bold flex justify-between items-center">
-              <span>Mode Edit Aktif</span>
-              <button onClick={resetForm} className="p-1 hover:bg-amber-100 dark:hover:bg-amber-500/15 rounded"><X className="w-3.5 h-3.5" /></button>
-            </div>
-          )}
+      <div className="flex flex-col gap-4 w-full min-w-0">
+        <Button onClick={openNew} variant="danger" icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
+          Tambah Pengeluaran
+        </Button>
 
-          <Input type="date" label="Tanggal Pengeluaran" value={dateInput} onChange={e => setDateInput(e.target.value)} />
-
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
-              <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>
-                Kelola Kategori
-              </Button>
-            </div>
-            <Select value={category} onChange={e => setCategory(e.target.value)}>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </Select>
-          </div>
-
-          <NominalInput label="Nominal" value={amount}
-            onChange={e => setAmount(e.target.value)} placeholder="0" className="text-lg font-bold" />
-
-          <Input label="Catatan Tambahan" value={note} onChange={e => setNote(e.target.value)} placeholder="Contoh: Saos BBQ Delmonte" />
-
-          <div>
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Sumber Dana (Metode Bayar)</label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant={paymentMethod === 'Tunai' ? 'primary' : 'secondary'} onClick={() => setPaymentMethod('Tunai')}>Tunai</Button>
-              <Button size="sm" variant={paymentMethod === 'Non-Tunai' ? 'primary' : 'secondary'}
-                onClick={() => { setPaymentMethod('Non-Tunai'); setCashHolderId('kasir'); }}>Non-Tunai</Button>
-            </div>
-          </div>
-
-          {paymentMethod === 'Tunai' && couriers.length > 0 && (
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibayar Pakai Uang Siapa?</label>
-              <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
-                <option value="kasir">Kasir / Toko</option>
-                {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
-              </Select>
-              {cashHolderId !== 'kasir' && (
-                <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1 italic">
-                  *Dicatat pakai cash yang lagi dipegang kurir ini (belum disetor). Terlihat di rincian posisi uang pada Dompet.
-                </p>
-              )}
-            </div>
-          )}
-
-          <Button onClick={handleSave} disabled={busy} size="full" variant={editingId ? 'primary' : 'danger'}
-            icon={<Save className="w-4 h-4" />} className="mt-2">
-            {busy ? 'Menyimpan...' : editingId ? 'Perbarui Data' : 'Simpan Data'}
-          </Button>
-        </Card>
-
-        <Card padding="none" className="lg:col-span-2 flex flex-col h-[600px] w-full min-w-0">
+        <Card padding="none" className="flex flex-col h-[600px] w-full min-w-0">
           <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap gap-2 justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-2xl">
             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 shrink-0"><History className="w-4 h-4" /> Riwayat Pengeluaran</h3>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -279,7 +232,13 @@ const ExpenseView = () => {
                       {exp.paymentMethod === 'Non-Tunai' && <Badge variant="info">Bank</Badge>}
                       {exp.cashHolderName && <Badge variant="warning">💰 {exp.cashHolderName}</Badge>}
                     </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{exp.note || 'Tanpa catatan'}</p>
+                    {exp.supplier && <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mt-1">🏪 {exp.supplier}</p>}
+                    {(() => {
+                      const lines = noteLines(exp.note);
+                      if (lines.length > 1) return <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>;
+                      if (lines.length === 1) return <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{lines[0]}</p>;
+                      return exp.supplier ? null : <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Tanpa catatan</p>;
+                    })()}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -296,6 +255,44 @@ const ExpenseView = () => {
           </div>
         </Card>
       </div>
+
+      <Modal isOpen={isFormOpen} onClose={closeForm} sheet size="lg" maxHeight title={editingId ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}>
+        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="grid grid-cols-2 gap-4 items-start">
+            <CategoryCombobox value={category} onChange={setCategory} options={categories} onManage={() => setIsCategoryModalOpen(true)} />
+            <Select label="Sumber Dana" value={paymentMethod}
+              onChange={e => { setPaymentMethod(e.target.value); if (e.target.value === 'Non-Tunai') setCashHolderId('kasir'); }}>
+              <option value="Tunai">Tunai</option>
+              <option value="Non-Tunai">Non-Tunai</option>
+            </Select>
+            <NominalInput label="Jumlah" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" />
+            <Input type="date" label="Tanggal Transaksi" value={dateInput} onChange={e => setDateInput(e.target.value)} />
+          </div>
+
+          {paymentMethod === 'Tunai' && couriers.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibayar Pakai Uang Siapa?</label>
+              <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
+                <option value="kasir">Kasir / Toko</option>
+                {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
+              </Select>
+              {cashHolderId !== 'kasir' && (
+                <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1 italic">
+                  *Dicatat pakai cash yang lagi dipegang kurir ini (belum disetor). Terlihat di rincian posisi uang pada Dompet.
+                </p>
+              )}
+            </div>
+          )}
+
+          <Input label="Nama Toko/Supplier" value={supplier} onChange={e => setSupplier(e.target.value)} placeholder="Opsional" />
+
+          <BulletListInput label="Detail" value={detailItems} onChange={setDetailItems} placeholder="Opsional, mis. Ayam 5 kg" />
+
+          <Button onClick={handleSave} disabled={busy} size="full" variant={editingId ? 'primary' : 'dark'} className="mt-2">
+            {busy ? 'Menyimpan...' : editingId ? 'Perbarui Data' : 'Simpan Data'}
+          </Button>
+        </div>
+      </Modal>
 
       <SortModal isOpen={isSortOpen} onClose={() => setIsSortOpen(false)} value={sortKey} onChange={setSortKey} options={sortOptions} />
 
@@ -320,5 +317,38 @@ const ExpenseView = () => {
     </div>
   );
 };
+
+/**
+ * Kategori: ketik bebas ATAU ketuk salah satu saran. Nama yang belum ada otomatis
+ * dibuat saat disimpan (lihat saveExpense). Ikon gerigi = Kelola Kategori.
+ */
+function CategoryCombobox({ value, onChange, options, onManage }) {
+  const [focused, setFocused] = useState(false);
+  const q = value.trim().toLowerCase();
+  const matches = options.filter(o => !q || o.toLowerCase().includes(q)).slice(0, 8);
+  const isNew = q !== '' && !options.some(o => o.toLowerCase() === q);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
+        <button type="button" onClick={onManage} aria-label="Kelola Kategori" title="Kelola Kategori"
+          className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 active:scale-90 transition-all"><Settings2 className="w-3.5 h-3.5" /></button>
+      </div>
+      <input
+        value={value} onChange={e => onChange(e.target.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+        placeholder="Pilih atau ketik baru" autoComplete="off" data-testid="category-input" className={fieldBase('default')}
+      />
+      {focused && matches.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {matches.map(o => (
+            <button key={o} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(o); document.activeElement?.blur?.(); }}
+              className="px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-all">{o}</button>
+          ))}
+        </div>
+      )}
+      {isNew && <p className="text-[10px] text-accent-600 dark:text-accent-400">Kategori baru, dibuat saat disimpan.</p>}
+    </div>
+  );
+}
 
 export default ExpenseView;

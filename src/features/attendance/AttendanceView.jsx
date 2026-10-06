@@ -9,7 +9,7 @@ import { toLocalDateString } from '../../utils/formatters';
 /**
  * AttendanceView — Absensi. Papan BACA-SAJA: siapa sedang jaga, bolong, belum
  * absen, sudah pulang, atau libur pada satu hari. Data dari sistem absensi;
- * absen dilakukan di sana, bukan di sini. Diperbarui otomatis tiap menit.
+ * absen dilakukan di sana, bukan di sini.
  */
 const STATUS = {
   sedangJaga: { label: 'Sedang Jaga', variant: 'success' },
@@ -20,7 +20,6 @@ const STATUS = {
   sudahPulang: { label: 'Sudah Pulang', variant: 'info' },
   libur: { label: 'Libur', variant: 'neutral' },
 };
-const SUMMARY = ['sedangJaga', 'bolong', 'belumAbsen', 'sudahPulang', 'libur'];
 const fmtHM = (min) => `${Math.floor(min / 60)}j ${String(min % 60).padStart(2, '0')}m`;
 const shiftDay = (iso, n) => formatIsoDate(new Date(parseIsoDate(iso).getTime() + n * 86400000));
 const longDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); };
@@ -50,7 +49,7 @@ export default function AttendanceView() {
           </div>
           {configured && (
             <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
-              <span data-testid="att-updated">{updatedAt ? `Diperbarui ${updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · otomatis tiap menit` : 'Memuat...'}</span>
+              <span data-testid="att-updated">{updatedAt ? `Diperbarui ${updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Memuat...'}</span>
               <button onClick={reload} className="flex items-center gap-1 font-bold text-accent-600 dark:text-accent-400"><RefreshCw className="w-3 h-3" /> Perbarui</button>
             </div>
           )}
@@ -68,15 +67,6 @@ export default function AttendanceView() {
 
         {board && (
           <>
-            <div className="grid grid-cols-5 gap-1.5">
-              {SUMMARY.map(k => (
-                <div key={k} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 py-2 text-center">
-                  <p className="font-heading font-black text-lg text-slate-800 dark:text-slate-100" data-testid={`count-${k}`}>{board.counts[k]}</p>
-                  <p className="text-[9px] font-bold text-slate-400 leading-tight px-0.5">{STATUS[k].label}</p>
-                </div>
-              ))}
-            </div>
-
             {warnings.length > 0 && (
               <Card className="space-y-1.5 border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
                 {warnings.map((w, i) => <p key={i} className="text-xs text-amber-800 dark:text-amber-300">• {w}</p>)}

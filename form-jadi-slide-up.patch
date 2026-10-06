@@ -1,0 +1,842 @@
+From 95e29f81785739d0385a4140265b98710ef92405 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 6 Oct 2026 15:14:59 +0700
+Subject: [PATCH] Ubah form input jadi slide-up sheet (kecuali POS)
+
+- Pengeluaran: form pindah ke sheet, tombol Catat Pengeluaran
+- Pelanggan: tambah + edit digabung jadi satu sheet
+- Karyawan: form full-page jadi sheet
+- Dompet: Buka Dompet dan Saldo Aktual (tutup) jadi sheet
+- Menu dan Varian: form full-page jadi sheet, Kelola Kategori tampil di atas sheet
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KtmRJYCNTTH7x5qFJFzS8j
+---
+ src/features/customer/CustomerView.jsx    |  69 +++-------
+ src/features/employee/EmployeeView.jsx    |  78 ++++++------
+ src/features/expense/ExpenseView.jsx      | 127 ++++++++++---------
+ src/features/menu/tabs/MenuListTab.jsx    | 145 ++++++++++------------
+ src/features/menu/tabs/VariantListTab.jsx | 113 ++++++++---------
+ src/features/shift/ShiftView.jsx          |  54 ++++----
+ 6 files changed, 266 insertions(+), 320 deletions(-)
+
+diff --git a/src/features/customer/CustomerView.jsx b/src/features/customer/CustomerView.jsx
+index c2cb8cf..732a292 100644
+--- a/src/features/customer/CustomerView.jsx
++++ b/src/features/customer/CustomerView.jsx
+@@ -1,10 +1,9 @@
+ import { useState, useMemo } from 'react';
+-import { Users, Plus, Pencil, Trash2, X, Search } from 'lucide-react';
+-import { Card, Input, Button, EmptyState, BulkSelectBar } from '../../components/ui';
++import { Users, Plus, Pencil, Trash2, Search } from 'lucide-react';
++import { Card, Input, Button, EmptyState, BulkSelectBar, Modal } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { useCustomerData } from '../../hook/useCustomerData';
+ import { useBulkSelect } from '../../hook/useBulkSelect';
+-import useBackLayer from '../../hook/useBackLayer';
+ 
+ /**
+  * CustomerView — Pelanggan, gelombang 1. Kolom "Kelola Pelanggan" di-port
+@@ -23,14 +22,9 @@ const CustomerView = () => {
+ 
+   const [search, setSearch] = useState('');
+   const [isSelecting, setIsSelecting] = useState(false);
+-  const [newName, setNewName] = useState('');
+-  const [newPhone, setNewPhone] = useState('');
+-  const [editing, setEditing] = useState(null); // { id, name, phone } | null
++  const [editing, setEditing] = useState(null); // form tambah/edit: { id ('' = baru), name, phone } | null
+   const [busy, setBusy] = useState(false);
+ 
+-  // Back menutup panel edit (sama dengan tombol Batal).
+-  useBackLayer(Boolean(editing), () => setEditing(null));
+-
+   const run = async (fn) => {
+     if (busy) return;
+     setBusy(true);
+@@ -46,13 +40,8 @@ const CustomerView = () => {
+ 
+   const { selectedIds, allSelected, toggleOne, toggleAll, reset, count } = useBulkSelect(filtered);
+ 
+-  const handleAdd = () => run(async () => {
+-    await saveCustomer({ name: newName, phone: newPhone });
+-    setNewName(''); setNewPhone('');
+-  });
+-
+-  const handleUpdate = () => run(async () => {
+-    await saveCustomer(editing);
++  const handleSave = () => run(async () => {
++    await saveCustomer({ id: editing.id || undefined, name: editing.name, phone: editing.phone });
+     setEditing(null);
+   });
+ 
+@@ -100,20 +89,11 @@ const CustomerView = () => {
+           >
+             {isSelecting ? 'Batal' : 'Pilih'}
+           </button>
+-        </div>
+-
+-        <div className="p-4 flex gap-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+-          <div className="flex-1">
+-            <Input variant="muted" type="text" placeholder="Nama Pelanggan" className="font-semibold" value={newName} onChange={e => setNewName(e.target.value)} />
+-          </div>
+-          <div className="w-1/3">
+-            <Input variant="muted" type="text" placeholder="No. Whatsapp" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
+-          </div>
+           <button
+-            onClick={handleAdd} disabled={busy} title="Tambah Pelanggan"
+-            className="px-4 py-2 text-white rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 duration-300 transition-colors flex items-center justify-center bg-accent-600 dark:bg-accent-500 hover:bg-accent-700 dark:hover:bg-accent-600 disabled:opacity-50"
++            onClick={() => setEditing({ id: '', name: '', phone: '' })} title="Tambah Pelanggan"
++            className="px-3 py-2.5 text-white rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 duration-300 transition-colors flex items-center justify-center gap-1 shrink-0 bg-accent-600 dark:bg-accent-500 hover:bg-accent-700 dark:hover:bg-accent-600"
+           >
+-            <Plus className="w-5 h-5" />
++            <Plus className="w-4 h-4" /> Tambah
+           </button>
+         </div>
+ 
+@@ -150,32 +130,15 @@ const CustomerView = () => {
+         </div>
+       </Card>
+ 
+-      {editing && (
+-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setEditing(null)}>
+-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 slide-in-from-bottom-2 duration-200" onClick={e => e.stopPropagation()}>
+-            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
+-              <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-base">Edit Data Pelanggan</h3>
+-              <button onClick={() => setEditing(null)} title="Tutup" className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+-                <X className="w-5 h-5" />
+-              </button>
+-            </div>
+-            <div className="p-4 space-y-3">
+-              <div>
+-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">Nama Pelanggan</label>
+-                <Input variant="muted" type="text" placeholder="Nama Pelanggan" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} />
+-              </div>
+-              <div>
+-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">No. Whatsapp</label>
+-                <Input variant="muted" type="text" placeholder="No. Whatsapp" value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} />
+-              </div>
+-            </div>
+-            <div className="flex gap-2 p-4 border-t border-slate-100 dark:border-slate-800">
+-              <Button variant="secondary" onClick={() => setEditing(null)} className="flex-1">Batal</Button>
+-              <Button onClick={handleUpdate} disabled={busy} className="flex-1">{busy ? 'Menyimpan...' : 'Simpan'}</Button>
+-            </div>
++      <Modal isOpen={Boolean(editing)} onClose={() => setEditing(null)} sheet size="lg" maxHeight title={editing?.id ? 'Edit Data Pelanggan' : 'Tambah Pelanggan'}>
++        {editing && (
++          <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
++            <Input label="Nama Pelanggan" variant="muted" type="text" placeholder="Nama Pelanggan" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} />
++            <Input label="No. Whatsapp" variant="muted" type="text" placeholder="No. Whatsapp" value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} />
++            <Button size="full" onClick={handleSave} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan'}</Button>
+           </div>
+-        </div>
+-      )}
++        )}
++      </Modal>
+     </div>
+   );
+ };
+diff --git a/src/features/employee/EmployeeView.jsx b/src/features/employee/EmployeeView.jsx
+index 40ebaf9..ecf2d07 100644
+--- a/src/features/employee/EmployeeView.jsx
++++ b/src/features/employee/EmployeeView.jsx
+@@ -1,6 +1,6 @@
+ import { useState, useMemo, useRef } from 'react';
+-import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown, ChevronLeft, Upload } from 'lucide-react';
+-import { Card, Button, Input, NominalInput, Select, IconButton, Badge, SortModal, EmptyState } from '../../components/ui';
++import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown, Upload } from 'lucide-react';
++import { Card, Button, Input, NominalInput, Select, IconButton, Badge, SortModal, EmptyState, Modal } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { useAuth } from '../../auth/AuthContext';
+ import { useEmployeeData } from '../../hook/useEmployeeData';
+@@ -108,45 +108,6 @@ export default function EmployeeView() {
+ 
+   return (
+     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+-      {isEditing ? (
+-        <Card padding="lg" className="max-w-3xl w-full">
+-          <IconButton variant="neutral" label="Kembali" className="mb-4" onClick={() => setIsEditing(false)}>
+-            <ChevronLeft className="w-5 h-5" />
+-          </IconButton>
+-          <h2 className="font-heading text-xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">
+-            {form.id ? 'Edit Data Karyawan' : 'Tambah Karyawan Baru'}
+-          </h2>
+-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+-            <Input label="Nama Lengkap" variant="muted" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+-            <Input label="No. Handphone (WA)" variant="muted" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+-            <Select label="Status Karyawan" variant="muted" value={form.status || 'aktif'} onChange={e => setForm({ ...form, status: e.target.value })}>
+-              {EMPLOYEE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+-            </Select>
+-            <Select label="Role" variant="muted" value={form.role || 'kasir'} onChange={e => setForm({ ...form, role: e.target.value })}>
+-              {EMPLOYEE_ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+-            </Select>
+-            {form.status === 'resign' && (
+-              <Input type="date" label="Tanggal Resign" variant="muted" value={form.resignDate || ''} onChange={e => setForm({ ...form, resignDate: e.target.value })} />
+-            )}
+-            <div className="md:col-span-2">
+-              <Input label="Alamat" variant="muted" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+-            </div>
+-            <div className="md:col-span-2">
+-              <Input label="ID Absensi (opsional)" variant="muted" placeholder="Contoh: EMP-1699999999999" value={form.externalId || ''}
+-                onChange={e => setForm({ ...form, externalId: e.target.value })} />
+-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
+-            </div>
+-            <NominalInput label="Upah per Jam (Rp)" variant="muted"
+-              value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />
+-            <NominalInput label="Bonus Full Time (Rp)" variant="muted"
+-              value={form.fullTimeBonus || ''} onChange={e => setForm({ ...form, fullTimeBonus: e.target.value ? Number(e.target.value) : '' })} />
+-            <NominalInput label="Tarif Lembur per 30 Menit (Rp)" variant="muted"
+-              value={form.overtimeRate30 ?? OVERTIME_RATE_PER_30MIN} onChange={e => setForm({ ...form, overtimeRate30: e.target.value ? Number(e.target.value) : '' })} />
+-            <Input type="date" label="Mulai Kerja" variant="muted" value={form.startDate || ''} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+-          </div>
+-          <Button variant="primary" size="lg" onClick={handleSave} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Data Karyawan'}</Button>
+-        </Card>
+-      ) : (
+         <div className="space-y-6">
+           <Card className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
+             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase className="w-5 h-5 text-slate-700 dark:text-slate-200" /> Daftar Karyawan</h3>
+@@ -219,7 +180,40 @@ export default function EmployeeView() {
+           )}
+           <SortModal isOpen={isSortOpen} onClose={() => setIsSortOpen(false)} value={sortKey} onChange={setSortKey} options={sortOptions.filter(o => o.key !== 'rate-desc' || canWage)} />
+         </div>
+-      )}
++
++      <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} sheet size="lg" maxHeight title={form.id ? 'Edit Data Karyawan' : 'Tambah Karyawan Baru'}>
++        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
++          <div className="grid grid-cols-1 gap-4">
++            <Input label="Nama Lengkap" variant="muted" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
++            <Input label="No. Handphone (WA)" variant="muted" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
++            <Select label="Status Karyawan" variant="muted" value={form.status || 'aktif'} onChange={e => setForm({ ...form, status: e.target.value })}>
++              {EMPLOYEE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
++            </Select>
++            <Select label="Role" variant="muted" value={form.role || 'kasir'} onChange={e => setForm({ ...form, role: e.target.value })}>
++              {EMPLOYEE_ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
++            </Select>
++            {form.status === 'resign' && (
++              <Input type="date" label="Tanggal Resign" variant="muted" value={form.resignDate || ''} onChange={e => setForm({ ...form, resignDate: e.target.value })} />
++            )}
++            <div>
++              <Input label="Alamat" variant="muted" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
++            </div>
++            <div>
++              <Input label="ID Absensi (opsional)" variant="muted" placeholder="Contoh: EMP-1699999999999" value={form.externalId || ''}
++                onChange={e => setForm({ ...form, externalId: e.target.value })} />
++              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
++            </div>
++            <NominalInput label="Upah per Jam (Rp)" variant="muted"
++              value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />
++            <NominalInput label="Bonus Full Time (Rp)" variant="muted"
++              value={form.fullTimeBonus || ''} onChange={e => setForm({ ...form, fullTimeBonus: e.target.value ? Number(e.target.value) : '' })} />
++            <NominalInput label="Tarif Lembur per 30 Menit (Rp)" variant="muted"
++              value={form.overtimeRate30 ?? OVERTIME_RATE_PER_30MIN} onChange={e => setForm({ ...form, overtimeRate30: e.target.value ? Number(e.target.value) : '' })} />
++            <Input type="date" label="Mulai Kerja" variant="muted" value={form.startDate || ''} onChange={e => setForm({ ...form, startDate: e.target.value })} />
++          </div>
++          <Button variant="primary" size="full" onClick={handleSave} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Data Karyawan'}</Button>
++        </div>
++      </Modal>
+     </div>
+   );
+ }
+diff --git a/src/features/expense/ExpenseView.jsx b/src/features/expense/ExpenseView.jsx
+index 6438ff7..ef07055 100644
+--- a/src/features/expense/ExpenseView.jsx
++++ b/src/features/expense/ExpenseView.jsx
+@@ -1,6 +1,6 @@
+ import { useState, useMemo, useEffect } from 'react';
+-import { TrendingDown, Save, X, Pencil, Trash2, Settings2, History, ArrowUpDown } from 'lucide-react';
+-import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar } from '../../components/ui';
++import { TrendingDown, Save, Pencil, Trash2, Settings2, History, ArrowUpDown, Plus } from 'lucide-react';
++import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar, Modal } from '../../components/ui';
+ import CategoryModal from '../../components/CategoryModal';
+ import { useAppContext } from '../../context/AppContext';
+ import { useAuth } from '../../auth/AuthContext';
+@@ -38,6 +38,7 @@ const ExpenseView = () => {
+     setCategoriesPersist, renameCategory, deleteCategory,
+   } = useExpenseData();
+ 
++  const [isFormOpen, setIsFormOpen] = useState(false);
+   const [editingId, setEditingId] = useState(null);
+   const [amount, setAmount] = useState('');
+   const [category, setCategory] = useState('');
+@@ -116,13 +117,16 @@ const ExpenseView = () => {
+     if (categories.length > 0) setCategory(categories[0]);
+   };
+ 
++  const openNew = () => { resetForm(); setIsFormOpen(true); };
++  const closeForm = () => { resetForm(); setIsFormOpen(false); };
++
+   const handleSave = () => run(async () => {
+     const holder = paymentMethod === 'Tunai' && cashHolderId !== 'kasir' ? couriers.find(c => c.id === cashHolderId) : null;
+     await saveExpense({
+       id: editingId, amount, category, note, date: dateInput, paymentMethod,
+       cashHolderEmployeeId: holder?.id || null, cashHolderName: holder?.name || null,
+     });
+-    resetForm();
++    closeForm();
+   });
+ 
+   const handleEditClick = (exp) => {
+@@ -133,7 +137,7 @@ const ExpenseView = () => {
+     setDateInput(dayOf(exp.date));
+     setPaymentMethod(exp.paymentMethod === 'Non-Tunai' ? 'Non-Tunai' : 'Tunai');
+     setCashHolderId(exp.cashHolderEmployeeId || 'kasir');
+-    window.scrollTo?.({ top: 0, behavior: 'smooth' });
++    setIsFormOpen(true);
+   };
+ 
+   const handleDelete = (exp) => {
+@@ -160,65 +164,12 @@ const ExpenseView = () => {
+ 
+   return (
+     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full min-w-0">
+-        <Card padding="none" className="lg:col-span-1 p-5 space-y-4 h-fit w-full min-w-0 transition-shadow duration-300 hover:shadow-md">
+-          {editingId && (
+-            <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 p-3 rounded-xl text-xs font-bold flex justify-between items-center">
+-              <span>Mode Edit Aktif</span>
+-              <button onClick={resetForm} className="p-1 hover:bg-amber-100 dark:hover:bg-amber-500/15 rounded"><X className="w-3.5 h-3.5" /></button>
+-            </div>
+-          )}
+-
+-          <Input type="date" label="Tanggal Pengeluaran" value={dateInput} onChange={e => setDateInput(e.target.value)} />
+-
+-          <div>
+-            <div className="flex justify-between items-center mb-1.5">
+-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
+-              <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>
+-                Kelola Kategori
+-              </Button>
+-            </div>
+-            <Select value={category} onChange={e => setCategory(e.target.value)}>
+-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+-            </Select>
+-          </div>
+-
+-          <NominalInput label="Nominal" value={amount}
+-            onChange={e => setAmount(e.target.value)} placeholder="0" className="text-lg font-bold" />
+-
+-          <Input label="Catatan Tambahan" value={note} onChange={e => setNote(e.target.value)} placeholder="Contoh: Saos BBQ Delmonte" />
+-
+-          <div>
+-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Sumber Dana (Metode Bayar)</label>
+-            <div className="grid grid-cols-2 gap-2">
+-              <Button size="sm" variant={paymentMethod === 'Tunai' ? 'primary' : 'secondary'} onClick={() => setPaymentMethod('Tunai')}>Tunai</Button>
+-              <Button size="sm" variant={paymentMethod === 'Non-Tunai' ? 'primary' : 'secondary'}
+-                onClick={() => { setPaymentMethod('Non-Tunai'); setCashHolderId('kasir'); }}>Non-Tunai</Button>
+-            </div>
+-          </div>
+-
+-          {paymentMethod === 'Tunai' && couriers.length > 0 && (
+-            <div>
+-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibayar Pakai Uang Siapa?</label>
+-              <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
+-                <option value="kasir">Kasir / Toko</option>
+-                {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
+-              </Select>
+-              {cashHolderId !== 'kasir' && (
+-                <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1 italic">
+-                  *Dicatat pakai cash yang lagi dipegang kurir ini (belum disetor). Terlihat di rincian posisi uang pada Dompet.
+-                </p>
+-              )}
+-            </div>
+-          )}
+-
+-          <Button onClick={handleSave} disabled={busy} size="full" variant={editingId ? 'primary' : 'danger'}
+-            icon={<Save className="w-4 h-4" />} className="mt-2">
+-            {busy ? 'Menyimpan...' : editingId ? 'Perbarui Data' : 'Simpan Data'}
+-          </Button>
+-        </Card>
++      <div className="flex flex-col gap-4 w-full min-w-0">
++        <Button onClick={openNew} variant="danger" icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
++          Catat Pengeluaran
++        </Button>
+ 
+-        <Card padding="none" className="lg:col-span-2 flex flex-col h-[600px] w-full min-w-0">
++        <Card padding="none" className="flex flex-col h-[600px] w-full min-w-0">
+           <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap gap-2 justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-2xl">
+             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 shrink-0"><History className="w-4 h-4" /> Riwayat Pengeluaran</h3>
+             <div className="flex flex-wrap items-center gap-2 min-w-0">
+@@ -297,6 +248,58 @@ const ExpenseView = () => {
+         </Card>
+       </div>
+ 
++      <Modal isOpen={isFormOpen} onClose={closeForm} sheet size="lg" maxHeight title={editingId ? 'Edit Pengeluaran' : 'Catat Pengeluaran'}>
++        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
++          <Input type="date" label="Tanggal Pengeluaran" value={dateInput} onChange={e => setDateInput(e.target.value)} />
++
++          <div>
++            <div className="flex justify-between items-center mb-1.5">
++              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
++              <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>
++                Kelola Kategori
++              </Button>
++            </div>
++            <Select value={category} onChange={e => setCategory(e.target.value)}>
++              {categories.map(c => <option key={c} value={c}>{c}</option>)}
++            </Select>
++          </div>
++
++          <NominalInput label="Nominal" value={amount}
++            onChange={e => setAmount(e.target.value)} placeholder="0" className="text-lg font-bold" />
++
++          <Input label="Catatan Tambahan" value={note} onChange={e => setNote(e.target.value)} placeholder="Contoh: Saos BBQ Delmonte" />
++
++          <div>
++            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Sumber Dana (Metode Bayar)</label>
++            <div className="grid grid-cols-2 gap-2">
++              <Button size="sm" variant={paymentMethod === 'Tunai' ? 'primary' : 'secondary'} onClick={() => setPaymentMethod('Tunai')}>Tunai</Button>
++              <Button size="sm" variant={paymentMethod === 'Non-Tunai' ? 'primary' : 'secondary'}
++                onClick={() => { setPaymentMethod('Non-Tunai'); setCashHolderId('kasir'); }}>Non-Tunai</Button>
++            </div>
++          </div>
++
++          {paymentMethod === 'Tunai' && couriers.length > 0 && (
++            <div>
++              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibayar Pakai Uang Siapa?</label>
++              <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
++                <option value="kasir">Kasir / Toko</option>
++                {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
++              </Select>
++              {cashHolderId !== 'kasir' && (
++                <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1 italic">
++                  *Dicatat pakai cash yang lagi dipegang kurir ini (belum disetor). Terlihat di rincian posisi uang pada Dompet.
++                </p>
++              )}
++            </div>
++          )}
++
++          <Button onClick={handleSave} disabled={busy} size="full" variant={editingId ? 'primary' : 'danger'}
++            icon={<Save className="w-4 h-4" />} className="mt-2">
++            {busy ? 'Menyimpan...' : editingId ? 'Perbarui Data' : 'Simpan Data'}
++          </Button>
++        </div>
++      </Modal>
++
+       <SortModal isOpen={isSortOpen} onClose={() => setIsSortOpen(false)} value={sortKey} onChange={setSortKey} options={sortOptions} />
+ 
+       <CategoryModal
+diff --git a/src/features/menu/tabs/MenuListTab.jsx b/src/features/menu/tabs/MenuListTab.jsx
+index 693db90..8a23c4f 100644
+--- a/src/features/menu/tabs/MenuListTab.jsx
++++ b/src/features/menu/tabs/MenuListTab.jsx
+@@ -1,8 +1,8 @@
+ import React, { useState, useMemo, useEffect } from "react";
+ import { useAppContext } from "../../../context/AppContext";
+-import { ChevronLeft, Plus, Edit3, Trash2, Settings2, Search, X, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
++import { Plus, Edit3, Trash2, Settings2, Search, X, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+ import CategoryModal from "../../../components/CategoryModal";
+-import { Card, Button, IconButton, Input, NominalInput, Select, EmptyState, Badge } from "../../../components/ui";
++import { Button, IconButton, Input, NominalInput, Select, EmptyState, Badge, Modal } from "../../../components/ui";
+ import { useDragReorder, getDragRowClass } from "../../../hook/useDragReorder";
+ 
+ // ─── Komponen Kelompok Kategori Menu ───
+@@ -205,83 +205,6 @@ const MenuListTab = ({ data }) => {
+     return [...orderedCats, ...missingCats];
+   }, [categories, groupedMenus]);
+ 
+-  if (isEditing) {
+-    // Form Edit / Tambah Menu - (Sama dengan aslinya, dipersingkat untuk render)
+-    return (
+-      <div className="p-4 md:p-6 bg-white dark:bg-slate-900 flex-1 animate-in fade-in slide-in-from-right-4 duration-300 h-full overflow-y-auto ease-out">
+-        <button onClick={() => setIsEditing(false)} className="mb-4 text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-accent-600 dark:hover:text-accent-400 font-medium transition-all duration-300 active:scale-95">
+-          <ChevronLeft className="w-5 h-5" /> Kembali
+-        </button>
+-        <h2 className="font-heading text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+-          {formData.id ? 'Edit Menu' : 'Tambah Menu Baru'}
+-        </h2>
+-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
+-          <div className="space-y-6">
+-            <Card className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b pb-2">Informasi Dasar</Card>
+-            <Input id="menuName" label="Nama Menu" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Misal: Lumpia Semarang" />
+-            <div className="flex flex-col gap-1.5">
+-              <div className="flex items-center justify-between">
+-                <label htmlFor="menuCategory" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
+-                <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>Kelola Kategori</Button>
+-              </div>
+-              <Select id="menuCategory" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+-                {categories.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
+-                {!categories.includes(formData.category) && formData.category && (
+-                  <option value={formData.category}>{formData.category}</option>
+-                )}
+-              </Select>
+-            </div>
+-            <div className="grid grid-cols-2 gap-4">
+-              <NominalInput id="menuPrice" label="Harga Jual" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
+-              <NominalInput id="menuHpp" label="HPP / Modal" value={formData.hpp} onChange={e => setFormData({ ...formData, hpp: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
+-            </div>
+-          </div>
+-          <div className="space-y-4">
+-            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b pb-2">Varian Terkait</h3>
+-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Pilih kategori varian yang berlaku untuk menu ini.</p>
+-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+-              {variantGroups.length === 0 ? (
+-                <p className="text-sm italic text-slate-400 dark:text-slate-500">Belum ada grup varian. Tambahkan di tab Varian.</p>
+-              ) : (
+-                variantGroups.map(vg => (
+-                  <label key={vg.id} className={`flex items-center gap-3 p-3 border rounded-2xl cursor-pointer transition-all duration-300 ${formData.variantGroupIds.includes(vg.id) ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-200 dark:border-accent-500/30 shadow-sm' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900'}`}>
+-                    <input type="checkbox" className="w-5 h-5 accent-[#ea580c] dark:accent-[#f97316] cursor-pointer" checked={formData.variantGroupIds.includes(vg.id)} onChange={() => setFormData(prev => ({ ...prev, variantGroupIds: prev.variantGroupIds.includes(vg.id) ? prev.variantGroupIds.filter(id => id !== vg.id) : [...prev.variantGroupIds, vg.id] }))} />
+-                    <div className="flex-1">
+-                      <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{vg.name}</p>
+-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{vg.options.map(o => o.name).join(', ')}</p>
+-                    </div>
+-                  </label>
+-                ))
+-              )}
+-            </div>
+-          </div>
+-        </div>
+-        <div className="max-w-4xl mt-8 pt-6 border-t border-slate-200 flex justify-end">
+-          <Button onClick={handleSave} size="lg" className="w-full md:w-auto">{formData.id ? 'Simpan Perubahan' : 'Tambah Menu'}</Button>
+-        </div>
+-        <CategoryModal
+-          isOpen={isCategoryModalOpen}
+-          onClose={() => setIsCategoryModalOpen(false)}
+-          title="Kelola Kategori Menu"
+-          onDeleteFallback="Umum"
+-          categories={categories}
+-          setCategories={(next) => run(() => setCategoriesPersist(next))}
+-          triggerAlert={triggerAlert}
+-          triggerConfirm={triggerConfirm}
+-          onRenameAsync={(oldCat, newCat) => {
+-            run(() => renameMenuCategory(oldCat, newCat));
+-            if (formData.category === oldCat) setFormData(prev => ({ ...prev, category: newCat }));
+-          }}
+-          onDeleteAsync={(deletedCat) => {
+-            // Item di kategori terhapus dipindah ke 'Umum' (sama seperti A), urut di server
+-            run(() => deleteMenuCategory(deletedCat));
+-            if (formData.category === deletedCat) setFormData(prev => ({ ...prev, category: 'Umum' }));
+-          }}
+-        />
+-      </div>
+-    );
+-  }
+-
+   return (
+     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+       {/* Input Pencarian */}
+@@ -338,6 +261,70 @@ const MenuListTab = ({ data }) => {
+           <EmptyState icon={<Plus className="w-8 h-8" />} title="Belum ada data menu" description="Tambah menu pertama untuk mulai menerima pesanan" action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setIsEditing(true)}>Tambah Menu Pertama</Button>} />
+         )}
+       </div>
++
++      <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} sheet size="lg" maxHeight title={formData.id ? 'Edit Menu' : 'Tambah Menu Baru'}>
++        <div className="p-5 pt-2 space-y-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
++          <div className="space-y-4">
++            <Input id="menuName" label="Nama Menu" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Misal: Lumpia Semarang" />
++            <div className="flex flex-col gap-1.5">
++              <div className="flex items-center justify-between">
++                <label htmlFor="menuCategory" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
++                <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>Kelola Kategori</Button>
++              </div>
++              <Select id="menuCategory" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
++                {categories.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
++                {!categories.includes(formData.category) && formData.category && (
++                  <option value={formData.category}>{formData.category}</option>
++                )}
++              </Select>
++            </div>
++            <div className="grid grid-cols-2 gap-4">
++              <NominalInput id="menuPrice" label="Harga Jual" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
++              <NominalInput id="menuHpp" label="HPP / Modal" value={formData.hpp} onChange={e => setFormData({ ...formData, hpp: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
++            </div>
++          </div>
++          <div className="space-y-3">
++            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">Varian Terkait</h3>
++            <p className="text-xs text-slate-500 dark:text-slate-400">Pilih kategori varian yang berlaku untuk menu ini.</p>
++            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
++              {variantGroups.length === 0 ? (
++                <p className="text-sm italic text-slate-400 dark:text-slate-500">Belum ada grup varian. Tambahkan di tab Varian.</p>
++              ) : (
++                variantGroups.map(vg => (
++                  <label key={vg.id} className={`flex items-center gap-3 p-3 border rounded-2xl cursor-pointer transition-all duration-300 ${formData.variantGroupIds.includes(vg.id) ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-200 dark:border-accent-500/30 shadow-sm' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900'}`}>
++                    <input type="checkbox" className="w-5 h-5 accent-[#ea580c] dark:accent-[#f97316] cursor-pointer" checked={formData.variantGroupIds.includes(vg.id)} onChange={() => setFormData(prev => ({ ...prev, variantGroupIds: prev.variantGroupIds.includes(vg.id) ? prev.variantGroupIds.filter(id => id !== vg.id) : [...prev.variantGroupIds, vg.id] }))} />
++                    <div className="flex-1">
++                      <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{vg.name}</p>
++                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{vg.options.map(o => o.name).join(', ')}</p>
++                    </div>
++                  </label>
++                ))
++              )}
++            </div>
++          </div>
++          <Button onClick={handleSave} size="full">{formData.id ? 'Simpan Perubahan' : 'Tambah Menu'}</Button>
++        </div>
++      </Modal>
++
++      <CategoryModal
++        isOpen={isCategoryModalOpen}
++        onClose={() => setIsCategoryModalOpen(false)}
++        title="Kelola Kategori Menu"
++        onDeleteFallback="Umum"
++        categories={categories}
++        setCategories={(next) => run(() => setCategoriesPersist(next))}
++        triggerAlert={triggerAlert}
++        triggerConfirm={triggerConfirm}
++        onRenameAsync={(oldCat, newCat) => {
++          run(() => renameMenuCategory(oldCat, newCat));
++          if (formData.category === oldCat) setFormData(prev => ({ ...prev, category: newCat }));
++        }}
++        onDeleteAsync={(deletedCat) => {
++          // Item di kategori terhapus dipindah ke 'Umum' (sama seperti A), urut di server
++          run(() => deleteMenuCategory(deletedCat));
++          if (formData.category === deletedCat) setFormData(prev => ({ ...prev, category: 'Umum' }));
++        }}
++      />
+     </div>
+   );
+ };
+diff --git a/src/features/menu/tabs/VariantListTab.jsx b/src/features/menu/tabs/VariantListTab.jsx
+index f4e2bb8..40c843a 100644
+--- a/src/features/menu/tabs/VariantListTab.jsx
++++ b/src/features/menu/tabs/VariantListTab.jsx
+@@ -1,8 +1,8 @@
+ import React, { useState, useMemo, useEffect } from "react";
+ import { useAppContext } from "../../../context/AppContext";
+-import { ChevronLeft, Plus, Edit3, Trash2, Settings2, Trash, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
++import { Plus, Edit3, Trash2, Settings2, Trash, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+ import CategoryModal from "../../../components/CategoryModal";
+-import { Button, IconButton, Input, NominalInput, Select, EmptyState, Badge } from "../../../components/ui";
++import { Button, IconButton, Input, NominalInput, Select, EmptyState, Badge, Modal } from "../../../components/ui";
+ import { useDragReorder, getDragRowClass } from "../../../hook/useDragReorder";
+ 
+ // ─── Komponen Kelompok Kategori Varian ───
+@@ -231,19 +231,34 @@ const VariantListTab = ({ data }) => {
+     return [...orderedCats, ...missingCats];
+   }, [variantCategories, groupedVariantGroups]);
+ 
+-  if (isEditing) {
+-    // Form Edit / Tambah Varian - (Sama dengan aslinya, dipersingkat untuk render)
+-    return (
+-      <div className="p-4 md:p-6 bg-white dark:bg-slate-900 flex-1 animate-in fade-in slide-in-from-right-4 duration-300 h-full overflow-y-auto ease-out">
+-        <button onClick={() => setIsEditing(false)} className="mb-4 text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-slate-800 dark:hover:text-slate-100 font-medium transition-colors">
+-          <ChevronLeft className="w-5 h-5" /> Kembali
+-        </button>
+-        <h2 className="font-heading text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+-          {formData.id ? 'Edit Grup Varian' : 'Tambah Grup Varian Baru'}
+-        </h2>
+-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
++  return (
++    <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
++      <div className="flex justify-end mb-6">
++        <Button icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto" onClick={() => {
++          setFormData({ id: '', name: '', category: variantCategories?.[0] || 'Lainnya', isRequired: false, maxSelection: 1, options: [] });
++          setIsEditing(true);
++        }}>Tambah Grup Varian</Button>
++      </div>
++      <div className="space-y-6 pb-10">
++        {sortedCategoryKeys.map(category => (
++          <VariantCategorySection
++            key={category}
++            category={category}
++            groups={groupedVariantGroups[category]}
++            onReorder={handleReorderGroup(category)}
++            onEdit={(vg) => { setFormData({ ...vg, options: vg.options ?? [] }); setIsEditing(true); }}
++            onDelete={handleDelete}
++            categoryDrag={categoryDrag}
++          />
++        ))}
++        {(variantGroups ?? []).length === 0 && (
++          <EmptyState icon={<Plus className="w-8 h-8" />} title="Belum ada data grup varian" action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setIsEditing(true)}>Tambah Grup Varian</Button>} />
++        )}
++      </div>
++
++      <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} sheet size="lg" maxHeight title={formData.id ? 'Edit Grup Varian' : 'Tambah Grup Varian Baru'}>
++        <div className="p-5 pt-2 space-y-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+           <div className="space-y-4">
+-            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b pb-2">Informasi Dasar</h3>
+             <Input id="vgName" label="Nama Grup Varian" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Misal: Level Pedas, Topping" />
+             <div className="flex flex-col gap-1.5">
+               <div className="flex items-center justify-between">
+@@ -272,7 +287,7 @@ const VariantListTab = ({ data }) => {
+             </div>
+           </div>
+           <div className="space-y-4">
+-            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b pb-2">Opsi Pilihan Varian</h3>
++            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">Opsi Pilihan Varian</h3>
+             <div className={`flex gap-2 items-end p-3 rounded-xl border transition-colors ${editingOptionId ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-200 dark:border-accent-500/30' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800'}`}>
+               <div className="flex-1 min-w-0">
+                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Opsi</label>
+@@ -318,56 +333,28 @@ const VariantListTab = ({ data }) => {
+               )}
+             </div>
+           </div>
++          <Button onClick={handleSave} size="full">{formData.id ? 'Simpan Perubahan' : 'Simpan Grup Varian'}</Button>
+         </div>
+-        <div className="max-w-4xl mt-8 pt-6 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+-          <Button onClick={handleSave} size="lg" className="w-full md:w-auto">{formData.id ? 'Simpan Perubahan' : 'Simpan Grup Varian'}</Button>
+-        </div>
+-        <CategoryModal
+-          isOpen={isCategoryModalOpen}
+-          onClose={() => setIsCategoryModalOpen(false)}
+-          title="Kelola Kategori Varian"
+-          categories={variantCategories}
+-          setCategories={(next) => run(() => setVariantCategoriesPersist(next))}
+-          triggerAlert={triggerAlert}
+-          triggerConfirm={triggerConfirm}
+-          onDeleteFallback="Lainnya"
+-          onRenameAsync={(oldCat, newCat) => {
+-            run(() => renameVariantCategory(oldCat, newCat));
+-            if (formData.category === oldCat) setFormData(prev => ({ ...prev, category: newCat }));
+-          }}
+-          onDeleteAsync={(deletedCat) => {
+-            run(() => deleteVariantCategory(deletedCat));
+-            if (formData.category === deletedCat) setFormData(prev => ({ ...prev, category: 'Lainnya' }));
+-          }}
+-        />
+-      </div>
+-    );
+-  }
++      </Modal>
+ 
+-  return (
+-    <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+-      <div className="flex justify-end mb-6">
+-        <Button icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto" onClick={() => {
+-          setFormData({ id: '', name: '', category: variantCategories?.[0] || 'Lainnya', isRequired: false, maxSelection: 1, options: [] });
+-          setIsEditing(true);
+-        }}>Tambah Grup Varian</Button>
+-      </div>
+-      <div className="space-y-6 pb-10">
+-        {sortedCategoryKeys.map(category => (
+-          <VariantCategorySection
+-            key={category}
+-            category={category}
+-            groups={groupedVariantGroups[category]}
+-            onReorder={handleReorderGroup(category)}
+-            onEdit={(vg) => { setFormData({ ...vg, options: vg.options ?? [] }); setIsEditing(true); }}
+-            onDelete={handleDelete}
+-            categoryDrag={categoryDrag}
+-          />
+-        ))}
+-        {(variantGroups ?? []).length === 0 && (
+-          <EmptyState icon={<Plus className="w-8 h-8" />} title="Belum ada data grup varian" action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setIsEditing(true)}>Tambah Grup Varian</Button>} />
+-        )}
+-      </div>
++      <CategoryModal
++        isOpen={isCategoryModalOpen}
++        onClose={() => setIsCategoryModalOpen(false)}
++        title="Kelola Kategori Varian"
++        categories={variantCategories}
++        setCategories={(next) => run(() => setVariantCategoriesPersist(next))}
++        triggerAlert={triggerAlert}
++        triggerConfirm={triggerConfirm}
++        onDeleteFallback="Lainnya"
++        onRenameAsync={(oldCat, newCat) => {
++          run(() => renameVariantCategory(oldCat, newCat));
++          if (formData.category === oldCat) setFormData(prev => ({ ...prev, category: newCat }));
++        }}
++        onDeleteAsync={(deletedCat) => {
++          run(() => deleteVariantCategory(deletedCat));
++          if (formData.category === deletedCat) setFormData(prev => ({ ...prev, category: 'Lainnya' }));
++        }}
++      />
+     </div>
+   );
+ };
+diff --git a/src/features/shift/ShiftView.jsx b/src/features/shift/ShiftView.jsx
+index 9640376..b95bf83 100644
+--- a/src/features/shift/ShiftView.jsx
++++ b/src/features/shift/ShiftView.jsx
+@@ -1,6 +1,6 @@
+ import { useState, useMemo } from 'react';
+ import { Clock, FileText, History, AlertTriangle, Users } from 'lucide-react';
+-import { Button, Card, Input, NominalInput, Select, PageHeader, EmptyState, Badge } from '../../components/ui';
++import { Button, Card, Input, NominalInput, Select, PageHeader, EmptyState, Badge, Modal } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { useShiftData } from '../../hook/useShiftData';
+ import { toLocalDateString } from '../../utils/formatters';
+@@ -89,6 +89,8 @@ const ShiftView = () => {
+   const { currentShift, stats, history, employees, loading, error, reload, openShift, closeShift } = useShiftData();
+ 
+   const [activeTab, setActiveTab] = useState('aktif');
++  const [isOpenSheet, setIsOpenSheet] = useState(false);    // sheet Buka Dompet
++  const [isCloseSheet, setIsCloseSheet] = useState(false);  // sheet Tutup Dompet
+   const [initialCashInput, setInitialCashInput] = useState('');
+   const [openedBy, setOpenedBy] = useState('');
+   const [actualCashInput, setActualCashInput] = useState('');
+@@ -114,6 +116,7 @@ const ShiftView = () => {
+   const handleOpen = () => run(async () => {
+     await openShift({ initialCash: initialCashInput, openedByEmployeeId: openedBy });
+     setInitialCashInput(''); setOpenedBy('');
++    setIsOpenSheet(false);
+     triggerAlert('Dompet berhasil dibuka!');
+   });
+ 
+@@ -123,6 +126,7 @@ const ShiftView = () => {
+       run(async () => {
+         const closed = await closeShift({ actualCash: actualCashInput });
+         setActualCashInput('');
++        setIsCloseSheet(false);
+         setReport(closed);
+       }));
+   };
+@@ -206,20 +210,7 @@ const ShiftView = () => {
+           <h3 className="font-heading text-2xl font-black bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 mb-2">Dompet Belom Dibuka</h3>
+           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Masukkan jumlah uang tunai yang ada di dalam dompet saat ini sebagai modal harian.</p>
+ 
+-          <div className="text-left mb-6">
+-            <NominalInput label="Saldo Awal" value={initialCashInput}
+-              onChange={e => setInitialCashInput(e.target.value)} placeholder="0" className="text-lg font-bold" />
+-          </div>
+-
+-          <div className="text-left mb-6">
+-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibuka Oleh (Opsional)</label>
+-            <Select value={openedBy} onChange={e => setOpenedBy(e.target.value)}>
+-              <option value="">-- Pilih Karyawan --</option>
+-              {activeEmployees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+-            </Select>
+-          </div>
+-
+-          <Button size="full" onClick={handleOpen} disabled={busy}>{busy ? 'Memproses...' : 'Buka Dompet'}</Button>
++          <Button size="full" onClick={() => setIsOpenSheet(true)}>Buka Dompet</Button>
+         </Card>
+       ) : (
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl mb-8 shrink-0 w-full min-w-0">
+@@ -281,12 +272,7 @@ const ShiftView = () => {
+           <Card variant="elevated" className="flex flex-col justify-center">
+             <h3 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 text-center">Saldo Aktual</h3>
+             <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
+-            <div className="mb-6">
+-              <NominalInput label="Saldo aktual yang ada di dompet"
+-                value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
+-                className="text-xl font-black py-4 border-2 focus:border-accent-600" />
+-            </div>
+-            <Button size="full" onClick={handleClose} disabled={busy}>{busy ? 'Memproses...' : 'Tutup Dompet'}</Button>
++            <Button size="full" onClick={() => setIsCloseSheet(true)}>Hitung &amp; Tutup Dompet</Button>
+           </Card>
+         </div>
+       ))}
+@@ -380,6 +366,32 @@ const ShiftView = () => {
+           </Card>
+         </div>
+       )}
++
++      <Modal isOpen={isOpenSheet} onClose={() => setIsOpenSheet(false)} sheet size="lg" maxHeight title="Buka Dompet">
++        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
++          <p className="text-sm text-slate-500 dark:text-slate-400">Masukkan jumlah uang tunai yang ada di dalam dompet saat ini sebagai modal harian.</p>
++          <NominalInput label="Saldo Awal" value={initialCashInput}
++            onChange={e => setInitialCashInput(e.target.value)} placeholder="0" className="text-lg font-bold" />
++          <div>
++            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibuka Oleh (Opsional)</label>
++            <Select value={openedBy} onChange={e => setOpenedBy(e.target.value)}>
++              <option value="">-- Pilih Karyawan --</option>
++              {activeEmployees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
++            </Select>
++          </div>
++          <Button size="full" onClick={handleOpen} disabled={busy}>{busy ? 'Memproses...' : 'Buka Dompet'}</Button>
++        </div>
++      </Modal>
++
++      <Modal isOpen={isCloseSheet} onClose={() => setIsCloseSheet(false)} sheet size="lg" maxHeight title="Saldo Aktual">
++        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
++          <p className="text-sm text-slate-500 dark:text-slate-400">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
++          <NominalInput label="Saldo aktual yang ada di dompet"
++            value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
++            className="text-xl font-black py-4 border-2 focus:border-accent-600" />
++          <Button size="full" onClick={handleClose} disabled={busy}>{busy ? 'Memproses...' : 'Tutup Dompet'}</Button>
++        </div>
++      </Modal>
+     </div>
+   );
+ };
+-- 
+2.43.0
+

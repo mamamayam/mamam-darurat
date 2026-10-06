@@ -44,7 +44,7 @@ export function useExpenseData() {
     catIdByName.current = Object.fromEntries((cats.data || []).map(c => [c.name, c.id]));
     setCategories((cats.data || []).map(c => c.name));
     setExpenses((exps.data || []).map(e => ({
-      id: e.id, amount: e.amount, category: e.category, note: e.detail,
+      id: e.id, amount: e.amount, category: e.category, note: e.detail, supplier: e.store_or_supplier_name,
       date: e.transaction_date, paymentMethod: e.payment_method,
       cashHolderEmployeeId: e.cash_holder_employee_id, cashHolderName: e.cash_holder_name,
     })));
@@ -54,13 +54,17 @@ export function useExpenseData() {
 
   useEffect(() => { reload(); }, [reload]);
 
-  const saveExpense = async ({ id, amount, category, note, date, paymentMethod, cashHolderEmployeeId, cashHolderName }) => {
+  const saveExpense = async ({ id, amount, category, note, supplier, date, paymentMethod, cashHolderEmployeeId, cashHolderName }) => {
     const amt = Number(amount);
     if (!amt || amt <= 0) throw new Error('Masukkan nominal pengeluaran yang valid!');
     if (!date) throw new Error('Pilih tanggal pengeluaran!');
+    const cat = String(category || '').trim();
+    if (!cat) throw new Error('Pilih atau ketik kategori pengeluaran!');
+    // Kategori yang diketik baru langsung masuk daftar kategori (sudah ada = tidak ngapa-ngapain).
+    await ensureCategory(cat);
 
     const row = {
-      amount: amt, category, detail: note || null, transaction_date: date,
+      amount: amt, category: cat, detail: note || null, store_or_supplier_name: supplier || null, transaction_date: date,
       payment_method: paymentMethod,
       cash_holder_employee_id: paymentMethod === 'Tunai' ? (cashHolderEmployeeId || null) : null,
       cash_holder_name: paymentMethod === 'Tunai' ? (cashHolderName || null) : null,

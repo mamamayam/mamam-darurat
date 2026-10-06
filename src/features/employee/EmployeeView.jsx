@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
-import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown, ChevronLeft, Upload } from 'lucide-react';
-import { Card, Button, Input, NominalInput, Select, IconButton, Badge, SortModal, EmptyState } from '../../components/ui';
+import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown, Upload } from 'lucide-react';
+import { Card, Button, Input, NominalInput, Select, IconButton, Badge, SortModal, EmptyState, Modal } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useEmployeeData } from '../../hook/useEmployeeData';
@@ -108,45 +108,6 @@ export default function EmployeeView() {
 
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
-      {isEditing ? (
-        <Card padding="lg" className="max-w-3xl w-full">
-          <IconButton variant="neutral" label="Kembali" className="mb-4" onClick={() => setIsEditing(false)}>
-            <ChevronLeft className="w-5 h-5" />
-          </IconButton>
-          <h2 className="font-heading text-xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">
-            {form.id ? 'Edit Data Karyawan' : 'Tambah Karyawan Baru'}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <Input label="Nama Lengkap" variant="muted" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-            <Input label="No. Handphone (WA)" variant="muted" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-            <Select label="Status Karyawan" variant="muted" value={form.status || 'aktif'} onChange={e => setForm({ ...form, status: e.target.value })}>
-              {EMPLOYEE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </Select>
-            <Select label="Role" variant="muted" value={form.role || 'kasir'} onChange={e => setForm({ ...form, role: e.target.value })}>
-              {EMPLOYEE_ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </Select>
-            {form.status === 'resign' && (
-              <Input type="date" label="Tanggal Resign" variant="muted" value={form.resignDate || ''} onChange={e => setForm({ ...form, resignDate: e.target.value })} />
-            )}
-            <div className="md:col-span-2">
-              <Input label="Alamat" variant="muted" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
-            </div>
-            <div className="md:col-span-2">
-              <Input label="ID Absensi (opsional)" variant="muted" placeholder="Contoh: EMP-1699999999999" value={form.externalId || ''}
-                onChange={e => setForm({ ...form, externalId: e.target.value })} />
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
-            </div>
-            <NominalInput label="Upah per Jam (Rp)" variant="muted"
-              value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />
-            <NominalInput label="Bonus Full Time (Rp)" variant="muted"
-              value={form.fullTimeBonus || ''} onChange={e => setForm({ ...form, fullTimeBonus: e.target.value ? Number(e.target.value) : '' })} />
-            <NominalInput label="Tarif Lembur per 30 Menit (Rp)" variant="muted"
-              value={form.overtimeRate30 ?? OVERTIME_RATE_PER_30MIN} onChange={e => setForm({ ...form, overtimeRate30: e.target.value ? Number(e.target.value) : '' })} />
-            <Input type="date" label="Mulai Kerja" variant="muted" value={form.startDate || ''} onChange={e => setForm({ ...form, startDate: e.target.value })} />
-          </div>
-          <Button variant="primary" size="lg" onClick={handleSave} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Data Karyawan'}</Button>
-        </Card>
-      ) : (
         <div className="space-y-6">
           <Card className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase className="w-5 h-5 text-slate-700 dark:text-slate-200" /> Daftar Karyawan</h3>
@@ -219,7 +180,40 @@ export default function EmployeeView() {
           )}
           <SortModal isOpen={isSortOpen} onClose={() => setIsSortOpen(false)} value={sortKey} onChange={setSortKey} options={sortOptions.filter(o => o.key !== 'rate-desc' || canWage)} />
         </div>
-      )}
+
+      <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} sheet size="lg" maxHeight title={form.id ? 'Edit Data Karyawan' : 'Tambah Karyawan Baru'}>
+        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="grid grid-cols-1 gap-4">
+            <Input label="Nama Lengkap" variant="muted" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+            <Input label="No. Handphone (WA)" variant="muted" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+            <Select label="Status Karyawan" variant="muted" value={form.status || 'aktif'} onChange={e => setForm({ ...form, status: e.target.value })}>
+              {EMPLOYEE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+            <Select label="Role" variant="muted" value={form.role || 'kasir'} onChange={e => setForm({ ...form, role: e.target.value })}>
+              {EMPLOYEE_ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+            {form.status === 'resign' && (
+              <Input type="date" label="Tanggal Resign" variant="muted" value={form.resignDate || ''} onChange={e => setForm({ ...form, resignDate: e.target.value })} />
+            )}
+            <div>
+              <Input label="Alamat" variant="muted" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+            </div>
+            <div>
+              <Input label="ID Absensi (opsional)" variant="muted" placeholder="Contoh: EMP-1699999999999" value={form.externalId || ''}
+                onChange={e => setForm({ ...form, externalId: e.target.value })} />
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
+            </div>
+            <NominalInput label="Upah per Jam (Rp)" variant="muted"
+              value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />
+            <NominalInput label="Bonus Full Time (Rp)" variant="muted"
+              value={form.fullTimeBonus || ''} onChange={e => setForm({ ...form, fullTimeBonus: e.target.value ? Number(e.target.value) : '' })} />
+            <NominalInput label="Tarif Lembur per 30 Menit (Rp)" variant="muted"
+              value={form.overtimeRate30 ?? OVERTIME_RATE_PER_30MIN} onChange={e => setForm({ ...form, overtimeRate30: e.target.value ? Number(e.target.value) : '' })} />
+            <Input type="date" label="Mulai Kerja" variant="muted" value={form.startDate || ''} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+          </div>
+          <Button variant="primary" size="full" onClick={handleSave} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Data Karyawan'}</Button>
+        </div>
+      </Modal>
     </div>
   );
 }

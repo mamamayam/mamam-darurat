@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useAppContext } from "../../../context/AppContext";
-import { ChevronLeft, Plus, Edit3, Trash2, Settings2, Trash, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Edit3, Trash2, Settings2, Trash, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import CategoryModal from "../../../components/CategoryModal";
-import { Button, IconButton, Input, NominalInput, Select, EmptyState, Badge } from "../../../components/ui";
+import { Button, IconButton, Input, NominalInput, Select, EmptyState, Badge, Modal } from "../../../components/ui";
 import { useDragReorder, getDragRowClass } from "../../../hook/useDragReorder";
 
 // ─── Komponen Kelompok Kategori Varian ───
@@ -231,19 +231,34 @@ const VariantListTab = ({ data }) => {
     return [...orderedCats, ...missingCats];
   }, [variantCategories, groupedVariantGroups]);
 
-  if (isEditing) {
-    // Form Edit / Tambah Varian - (Sama dengan aslinya, dipersingkat untuk render)
-    return (
-      <div className="p-4 md:p-6 bg-white dark:bg-slate-900 flex-1 animate-in fade-in slide-in-from-right-4 duration-300 h-full overflow-y-auto ease-out">
-        <button onClick={() => setIsEditing(false)} className="mb-4 text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-slate-800 dark:hover:text-slate-100 font-medium transition-colors">
-          <ChevronLeft className="w-5 h-5" /> Kembali
-        </button>
-        <h2 className="font-heading text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
-          {formData.id ? 'Edit Grup Varian' : 'Tambah Grup Varian Baru'}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
+  return (
+    <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+      <div className="flex justify-end mb-6">
+        <Button icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto" onClick={() => {
+          setFormData({ id: '', name: '', category: variantCategories?.[0] || 'Lainnya', isRequired: false, maxSelection: 1, options: [] });
+          setIsEditing(true);
+        }}>Tambah Grup Varian</Button>
+      </div>
+      <div className="space-y-6 pb-10">
+        {sortedCategoryKeys.map(category => (
+          <VariantCategorySection
+            key={category}
+            category={category}
+            groups={groupedVariantGroups[category]}
+            onReorder={handleReorderGroup(category)}
+            onEdit={(vg) => { setFormData({ ...vg, options: vg.options ?? [] }); setIsEditing(true); }}
+            onDelete={handleDelete}
+            categoryDrag={categoryDrag}
+          />
+        ))}
+        {(variantGroups ?? []).length === 0 && (
+          <EmptyState icon={<Plus className="w-8 h-8" />} title="Belum ada data grup varian" action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setIsEditing(true)}>Tambah Grup Varian</Button>} />
+        )}
+      </div>
+
+      <Modal isOpen={isEditing} onClose={() => setIsEditing(false)} sheet size="lg" maxHeight title={formData.id ? 'Edit Grup Varian' : 'Tambah Grup Varian Baru'}>
+        <div className="p-5 pt-2 space-y-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <div className="space-y-4">
-            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b pb-2">Informasi Dasar</h3>
             <Input id="vgName" label="Nama Grup Varian" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Misal: Level Pedas, Topping" />
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
@@ -272,7 +287,7 @@ const VariantListTab = ({ data }) => {
             </div>
           </div>
           <div className="space-y-4">
-            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b pb-2">Opsi Pilihan Varian</h3>
+            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">Opsi Pilihan Varian</h3>
             <div className={`flex gap-2 items-end p-3 rounded-xl border transition-colors ${editingOptionId ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-200 dark:border-accent-500/30' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800'}`}>
               <div className="flex-1 min-w-0">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Opsi</label>
@@ -318,56 +333,28 @@ const VariantListTab = ({ data }) => {
               )}
             </div>
           </div>
+          <Button onClick={handleSave} size="full">{formData.id ? 'Simpan Perubahan' : 'Simpan Grup Varian'}</Button>
         </div>
-        <div className="max-w-4xl mt-8 pt-6 border-t border-slate-200 dark:border-slate-700 flex justify-end">
-          <Button onClick={handleSave} size="lg" className="w-full md:w-auto">{formData.id ? 'Simpan Perubahan' : 'Simpan Grup Varian'}</Button>
-        </div>
-        <CategoryModal
-          isOpen={isCategoryModalOpen}
-          onClose={() => setIsCategoryModalOpen(false)}
-          title="Kelola Kategori Varian"
-          categories={variantCategories}
-          setCategories={(next) => run(() => setVariantCategoriesPersist(next))}
-          triggerAlert={triggerAlert}
-          triggerConfirm={triggerConfirm}
-          onDeleteFallback="Lainnya"
-          onRenameAsync={(oldCat, newCat) => {
-            run(() => renameVariantCategory(oldCat, newCat));
-            if (formData.category === oldCat) setFormData(prev => ({ ...prev, category: newCat }));
-          }}
-          onDeleteAsync={(deletedCat) => {
-            run(() => deleteVariantCategory(deletedCat));
-            if (formData.category === deletedCat) setFormData(prev => ({ ...prev, category: 'Lainnya' }));
-          }}
-        />
-      </div>
-    );
-  }
+      </Modal>
 
-  return (
-    <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
-      <div className="flex justify-end mb-6">
-        <Button icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto" onClick={() => {
-          setFormData({ id: '', name: '', category: variantCategories?.[0] || 'Lainnya', isRequired: false, maxSelection: 1, options: [] });
-          setIsEditing(true);
-        }}>Tambah Grup Varian</Button>
-      </div>
-      <div className="space-y-6 pb-10">
-        {sortedCategoryKeys.map(category => (
-          <VariantCategorySection
-            key={category}
-            category={category}
-            groups={groupedVariantGroups[category]}
-            onReorder={handleReorderGroup(category)}
-            onEdit={(vg) => { setFormData({ ...vg, options: vg.options ?? [] }); setIsEditing(true); }}
-            onDelete={handleDelete}
-            categoryDrag={categoryDrag}
-          />
-        ))}
-        {(variantGroups ?? []).length === 0 && (
-          <EmptyState icon={<Plus className="w-8 h-8" />} title="Belum ada data grup varian" action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setIsEditing(true)}>Tambah Grup Varian</Button>} />
-        )}
-      </div>
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title="Kelola Kategori Varian"
+        categories={variantCategories}
+        setCategories={(next) => run(() => setVariantCategoriesPersist(next))}
+        triggerAlert={triggerAlert}
+        triggerConfirm={triggerConfirm}
+        onDeleteFallback="Lainnya"
+        onRenameAsync={(oldCat, newCat) => {
+          run(() => renameVariantCategory(oldCat, newCat));
+          if (formData.category === oldCat) setFormData(prev => ({ ...prev, category: newCat }));
+        }}
+        onDeleteAsync={(deletedCat) => {
+          run(() => deleteVariantCategory(deletedCat));
+          if (formData.category === deletedCat) setFormData(prev => ({ ...prev, category: 'Lainnya' }));
+        }}
+      />
     </div>
   );
 };

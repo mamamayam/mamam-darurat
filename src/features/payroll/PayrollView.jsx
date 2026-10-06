@@ -111,7 +111,7 @@ export default function PayrollView() {
       <div className="max-w-3xl w-full space-y-4 pb-10">
 
         <Card className="space-y-3">
-          <SegmentedControl value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan (Jum–Kam)' }, { value: 'bulan', label: 'Bulanan' }]} />
+          <SegmentedControl value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan' }, { value: 'bulan', label: 'Bulanan' }]} />
           <div className="flex items-center justify-between gap-2">
             <button onClick={goPrev} aria-label="Sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
             <div className="text-center min-w-0">
@@ -158,18 +158,6 @@ export default function PayrollView() {
                 {warnings.map((w, i) => <p key={i} className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{w}</p>)}
               </Card>
             )}
-
-            <Card variant="dark" padding="lg" className="space-y-3">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Gaji Bersih Periode Ini</p>
-                <p className="font-heading text-3xl font-black text-white" data-testid="total-net">{formatRupiah(totals.net)}</p>
-              </div>
-              <div className="grid grid-cols-1 gap-y-1.5 text-xs">
-                {[['Upah', totals.wage], ['Lembur', totals.overtime], ['Bonus Full Time', totals.fullTime], ['Tambahan', totals.additions], ['Potongan', -totals.deductions], ...(period.monthKey ? [['Saldo Awal', -totals.openingBalance]] : [])].map(([k, v]) => (
-                  <div key={k} className="flex justify-between text-slate-300"><span>{k}</span><span className="font-bold text-white">{formatRupiah(v)}</span></div>
-                ))}
-              </div>
-            </Card>
 
             {results.length === 0 ? (
               <EmptyState icon={<Wallet className="w-12 h-12" />} title="Belum ada karyawan. Tambah atau impor di menu Karyawan." />

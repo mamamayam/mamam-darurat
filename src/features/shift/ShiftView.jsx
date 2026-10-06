@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Clock, FileText, History, AlertTriangle, Users } from 'lucide-react';
-import { Button, Card, Input, NominalInput, Select, PageHeader, EmptyState, Badge } from '../../components/ui';
+import { Button, Card, Input, NominalInput, Select, PageHeader, EmptyState, Badge, Modal } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useShiftData } from '../../hook/useShiftData';
 import { toLocalDateString } from '../../utils/formatters';
@@ -89,6 +89,8 @@ const ShiftView = () => {
   const { currentShift, stats, history, employees, loading, error, reload, openShift, closeShift } = useShiftData();
 
   const [activeTab, setActiveTab] = useState('aktif');
+  const [isOpenSheet, setIsOpenSheet] = useState(false);    // sheet Buka Dompet
+  const [isCloseSheet, setIsCloseSheet] = useState(false);  // sheet Tutup Dompet
   const [initialCashInput, setInitialCashInput] = useState('');
   const [openedBy, setOpenedBy] = useState('');
   const [actualCashInput, setActualCashInput] = useState('');
@@ -114,6 +116,7 @@ const ShiftView = () => {
   const handleOpen = () => run(async () => {
     await openShift({ initialCash: initialCashInput, openedByEmployeeId: openedBy });
     setInitialCashInput(''); setOpenedBy('');
+    setIsOpenSheet(false);
     triggerAlert('Dompet berhasil dibuka!');
   });
 
@@ -123,6 +126,7 @@ const ShiftView = () => {
       run(async () => {
         const closed = await closeShift({ actualCash: actualCashInput });
         setActualCashInput('');
+        setIsCloseSheet(false);
         setReport(closed);
       }));
   };
@@ -206,20 +210,7 @@ const ShiftView = () => {
           <h3 className="font-heading text-2xl font-black bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 mb-2">Dompet Belom Dibuka</h3>
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Masukkan jumlah uang tunai yang ada di dalam dompet saat ini sebagai modal harian.</p>
 
-          <div className="text-left mb-6">
-            <NominalInput label="Saldo Awal" value={initialCashInput}
-              onChange={e => setInitialCashInput(e.target.value)} placeholder="0" className="text-lg font-bold" />
-          </div>
-
-          <div className="text-left mb-6">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibuka Oleh (Opsional)</label>
-            <Select value={openedBy} onChange={e => setOpenedBy(e.target.value)}>
-              <option value="">-- Pilih Karyawan --</option>
-              {activeEmployees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </Select>
-          </div>
-
-          <Button size="full" onClick={handleOpen} disabled={busy}>{busy ? 'Memproses...' : 'Buka Dompet'}</Button>
+          <Button size="full" onClick={() => setIsOpenSheet(true)}>Buka Dompet</Button>
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl mb-8 shrink-0 w-full min-w-0">
@@ -281,12 +272,7 @@ const ShiftView = () => {
           <Card variant="elevated" className="flex flex-col justify-center">
             <h3 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 text-center">Saldo Aktual</h3>
             <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
-            <div className="mb-6">
-              <NominalInput label="Saldo aktual yang ada di dompet"
-                value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
-                className="text-xl font-black py-4 border-2 focus:border-accent-600" />
-            </div>
-            <Button size="full" onClick={handleClose} disabled={busy}>{busy ? 'Memproses...' : 'Tutup Dompet'}</Button>
+            <Button size="full" onClick={() => setIsCloseSheet(true)}>Hitung &amp; Tutup Dompet</Button>
           </Card>
         </div>
       ))}
@@ -380,6 +366,32 @@ const ShiftView = () => {
           </Card>
         </div>
       )}
+
+      <Modal isOpen={isOpenSheet} onClose={() => setIsOpenSheet(false)} sheet size="lg" maxHeight title="Buka Dompet">
+        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Masukkan jumlah uang tunai yang ada di dalam dompet saat ini sebagai modal harian.</p>
+          <NominalInput label="Saldo Awal" value={initialCashInput}
+            onChange={e => setInitialCashInput(e.target.value)} placeholder="0" className="text-lg font-bold" />
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibuka Oleh (Opsional)</label>
+            <Select value={openedBy} onChange={e => setOpenedBy(e.target.value)}>
+              <option value="">-- Pilih Karyawan --</option>
+              {activeEmployees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </Select>
+          </div>
+          <Button size="full" onClick={handleOpen} disabled={busy}>{busy ? 'Memproses...' : 'Buka Dompet'}</Button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isCloseSheet} onClose={() => setIsCloseSheet(false)} sheet size="lg" maxHeight title="Saldo Aktual">
+        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
+          <NominalInput label="Saldo aktual yang ada di dompet"
+            value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
+            className="text-xl font-black py-4 border-2 focus:border-accent-600" />
+          <Button size="full" onClick={handleClose} disabled={busy}>{busy ? 'Memproses...' : 'Tutup Dompet'}</Button>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Receipt, Wallet, ShoppingBag, Eye, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Receipt, Wallet, ShoppingBag, Eye, DollarSign, ChevronRight } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatters';
 import { DetailModal } from '../../components/ui';
 import { useAuth } from '../../auth/AuthContext';
+import { useAppContext } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
 /**
@@ -29,6 +30,7 @@ import { supabase } from '../../lib/supabase';
 
 const HomeView = () => {
     const { can } = useAuth();
+    const { navigate } = useAppContext();
     const [sales, setSales] = useState([]);
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -141,7 +143,8 @@ const HomeView = () => {
         <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto pb-6 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out custom-scrollbar">
 
             {/* Hero Card — Total Penjualan Hari Ini */}
-            <div className="bg-slate-900 dark:bg-black rounded-2xl p-5 mb-4">
+            <button type="button" onClick={() => navigate('riwayat')} aria-label="Buka riwayat penjualan"
+                className="block w-full text-left bg-slate-900 dark:bg-black rounded-2xl p-5 mb-4 active:scale-[0.99] transition-transform">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Total Penjualan Hari Ini</p>
                 <div className="flex items-center justify-between gap-3">
                     <p className="font-heading text-3xl font-black text-white">{loading ? '...' : formatRupiah(totalSalesToday)}</p>
@@ -152,7 +155,8 @@ const HomeView = () => {
                         </span>
                     )}
                 </div>
-            </div>
+                <p className="mt-3 flex items-center gap-1 text-[11px] font-bold text-slate-500">Lihat riwayat <ChevronRight className="w-3 h-3" /></p>
+            </button>
 
             {/* Grid 2x2 Metrik */}
             <div className="grid grid-cols-2 gap-3 mb-4">

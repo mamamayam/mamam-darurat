@@ -23,6 +23,7 @@ const EmployeeView   = lazy(() => import('../features/employee/EmployeeView'));
 const AttendanceView = lazy(() => import('../features/attendance/AttendanceView'));
 const PayrollView    = lazy(() => import('../features/payroll/PayrollView'));
 const ReportsView    = lazy(() => import('../features/reports/ReportsView'));
+const RiwayatView    = lazy(() => import('../features/history/RiwayatView'));
 
 export const VIEWS = {
     beranda:     HomeView,
@@ -35,6 +36,7 @@ export const VIEWS = {
     absensi:     AttendanceView,
     penggajian:  PayrollView,
     laporan:     ReportsView,
+    riwayat:     RiwayatView,
 };
 
 // --- Error Boundary per-view (sama seperti A, minus chunk-reload logic) ---

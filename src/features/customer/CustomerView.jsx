@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Users, Plus, Pencil, Trash2, X, Search } from 'lucide-react';
-import { Card, Input, Button, EmptyState, BulkSelectBar } from '../../components/ui';
+import { Users, Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Card, Input, Button, EmptyState, BulkSelectBar, Modal } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useCustomerData } from '../../hook/useCustomerData';
 import { useBulkSelect } from '../../hook/useBulkSelect';
-import useBackLayer from '../../hook/useBackLayer';
 
 /**
  * CustomerView — Pelanggan, gelombang 1. Kolom "Kelola Pelanggan" di-port
@@ -23,13 +22,8 @@ const CustomerView = () => {
 
   const [search, setSearch] = useState('');
   const [isSelecting, setIsSelecting] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newPhone, setNewPhone] = useState('');
-  const [editing, setEditing] = useState(null); // { id, name, phone } | null
+  const [editing, setEditing] = useState(null); // form tambah/edit: { id ('' = baru), name, phone } | null
   const [busy, setBusy] = useState(false);
-
-  // Back menutup panel edit (sama dengan tombol Batal).
-  useBackLayer(Boolean(editing), () => setEditing(null));
 
   const run = async (fn) => {
     if (busy) return;
@@ -46,13 +40,8 @@ const CustomerView = () => {
 
   const { selectedIds, allSelected, toggleOne, toggleAll, reset, count } = useBulkSelect(filtered);
 
-  const handleAdd = () => run(async () => {
-    await saveCustomer({ name: newName, phone: newPhone });
-    setNewName(''); setNewPhone('');
-  });
-
-  const handleUpdate = () => run(async () => {
-    await saveCustomer(editing);
+  const handleSave = () => run(async () => {
+    await saveCustomer({ id: editing.id || undefined, name: editing.name, phone: editing.phone });
     setEditing(null);
   });
 
@@ -100,20 +89,11 @@ const CustomerView = () => {
           >
             {isSelecting ? 'Batal' : 'Pilih'}
           </button>
-        </div>
-
-        <div className="p-4 flex gap-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
-          <div className="flex-1">
-            <Input variant="muted" type="text" placeholder="Nama Pelanggan" className="font-semibold" value={newName} onChange={e => setNewName(e.target.value)} />
-          </div>
-          <div className="w-1/3">
-            <Input variant="muted" type="text" placeholder="No. Whatsapp" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
-          </div>
           <button
-            onClick={handleAdd} disabled={busy} title="Tambah Pelanggan"
-            className="px-4 py-2 text-white rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 duration-300 transition-colors flex items-center justify-center bg-accent-600 dark:bg-accent-500 hover:bg-accent-700 dark:hover:bg-accent-600 disabled:opacity-50"
+            onClick={() => setEditing({ id: '', name: '', phone: '' })} title="Tambah Pelanggan"
+            className="px-3 py-2.5 text-white rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 duration-300 transition-colors flex items-center justify-center gap-1 shrink-0 bg-accent-600 dark:bg-accent-500 hover:bg-accent-700 dark:hover:bg-accent-600"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" /> Tambah
           </button>
         </div>
 
@@ -150,32 +130,15 @@ const CustomerView = () => {
         </div>
       </Card>
 
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setEditing(null)}>
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 slide-in-from-bottom-2 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-base">Edit Data Pelanggan</h3>
-              <button onClick={() => setEditing(null)} title="Tutup" className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">Nama Pelanggan</label>
-                <Input variant="muted" type="text" placeholder="Nama Pelanggan" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">No. Whatsapp</label>
-                <Input variant="muted" type="text" placeholder="No. Whatsapp" value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} />
-              </div>
-            </div>
-            <div className="flex gap-2 p-4 border-t border-slate-100 dark:border-slate-800">
-              <Button variant="secondary" onClick={() => setEditing(null)} className="flex-1">Batal</Button>
-              <Button onClick={handleUpdate} disabled={busy} className="flex-1">{busy ? 'Menyimpan...' : 'Simpan'}</Button>
-            </div>
+      <Modal isOpen={Boolean(editing)} onClose={() => setEditing(null)} sheet size="lg" maxHeight title={editing?.id ? 'Edit Data Pelanggan' : 'Tambah Pelanggan'}>
+        {editing && (
+          <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            <Input label="Nama Pelanggan" variant="muted" type="text" placeholder="Nama Pelanggan" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} />
+            <Input label="No. Whatsapp" variant="muted" type="text" placeholder="No. Whatsapp" value={editing.phone} onChange={e => setEditing({ ...editing, phone: e.target.value })} />
+            <Button size="full" onClick={handleSave} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan'}</Button>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };
