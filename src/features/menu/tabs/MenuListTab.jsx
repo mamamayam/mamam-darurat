@@ -45,7 +45,7 @@ const MenuCategorySection = ({
               <GripVertical className="w-5 h-5" />
             </div>
           )}
-          <span className="font-heading text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">{category}</span>
+          <span className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">{category}</span>
           <Badge variant="neutral">{menus.length} Item</Badge>
         </div>
         <button
@@ -90,7 +90,7 @@ const MenuCategorySection = ({
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate mb-0.5">
                       {menu.name}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
                       <span className="font-medium">HPP: {formatRupiah(menu.hpp || 0)}</span>
                       {menu.variantGroupIds?.length > 0 && (
                         <>
@@ -295,7 +295,7 @@ const MenuListTab = ({ data }) => {
                     <input type="checkbox" className="w-5 h-5 accent-[#ea580c] dark:accent-[#f97316] cursor-pointer" checked={formData.variantGroupIds.includes(vg.id)} onChange={() => setFormData(prev => ({ ...prev, variantGroupIds: prev.variantGroupIds.includes(vg.id) ? prev.variantGroupIds.filter(id => id !== vg.id) : [...prev.variantGroupIds, vg.id] }))} />
                     <div className="flex-1">
                       <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{vg.name}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{vg.options.map(o => o.name).join(', ')}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{vg.options.map(o => o.name).join(', ')}</p>
                     </div>
                   </label>
                 ))

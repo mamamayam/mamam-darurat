@@ -26,7 +26,7 @@
  */
 
 const SIZES = {
-  sm: { wrapper: 'py-6',  icon: 'w-10 h-10 mb-2', title: 'text-xs', desc: 'text-[11px]' },
+  sm: { wrapper: 'py-6',  icon: 'w-10 h-10 mb-2', title: 'text-xs', desc: 'text-xs' },
   md: { wrapper: 'py-10', icon: 'w-14 h-14 mb-3', title: 'text-sm', desc: 'text-xs'    },
   lg: { wrapper: 'py-16', icon: 'w-16 h-16 mb-4', title: 'text-base', desc: 'text-sm'  },
 };

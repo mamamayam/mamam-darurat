@@ -23,7 +23,7 @@
  *   ghost-success  → green-50/10 dengan border     — aksi penambahan yang lebih subtle
  *
  * Size:
- *   xs   → px-3 py-1.5 text-[11px]  — badge/chip action
+ *   xs   → px-3 py-1.5 text-xs  — badge/chip action
  *   sm   → px-3 py-2   text-xs      — inline action
  *   md   → px-4 py-2.5 text-sm      — default
  *   lg   → px-8 py-3.5 text-sm      — modal CTA
@@ -83,7 +83,7 @@ const VARIANTS = {
 };
 
 const SIZES = {
-  xs:   'px-3 py-1.5 text-[11px]',
+  xs:   'px-3 py-1.5 text-xs',
   sm:   'px-3 py-2 text-xs',
   md:   'px-4 py-2.5 text-sm',
   lg:   'px-8 py-3.5 text-sm',

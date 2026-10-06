@@ -174,7 +174,7 @@ export default function DetailModal({
         {visibleSections.map((section, i) => (
           <div key={i} className={i > 0 ? 'mt-4' : ''}>
             {section.title && (
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
                 {section.title}
               </p>
             )}
@@ -186,7 +186,7 @@ export default function DetailModal({
 
         {hasItems && (
           <div className={visibleSections.length > 0 ? 'mt-4' : ''}>
-            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
+            <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
               {itemsTitle} ({items.length})
             </p>
             <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
@@ -195,9 +195,9 @@ export default function DetailModal({
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{it.name}</p>
                     {it.note && (
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{it.note}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{it.note}</p>
                     )}
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {it.qty} x {formatRupiah(it.price)}
                     </p>
                   </div>
@@ -227,8 +227,8 @@ export default function DetailModal({
           <div className={`grid gap-2 ${highlights.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} mt-4`}>
             {highlights.map((h, i) => (
               <div key={i} className={`rounded-2xl p-3.5 ${HIGHLIGHT_TONES[h.tone] || HIGHLIGHT_TONES.default}`}>
-                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-0.5">{h.label}</p>
-                <p className="text-lg font-black">{h.type === 'text' ? h.value : formatRupiah(h.value)}</p>
+                <p className="text-xs font-bold uppercase tracking-wider opacity-80 mb-0.5">{h.label}</p>
+                <p className="text-lg font-bold">{h.type === 'text' ? h.value : formatRupiah(h.value)}</p>
               </div>
             ))}
           </div>

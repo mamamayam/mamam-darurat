@@ -41,10 +41,10 @@ export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix
     <NominalOverlay z="z-[120]" onClose={onClose}>
       <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
       <div className="bg-black rounded-3xl px-4 pt-[18px] pb-4">
-        <div className="text-[13px] font-bold text-[#8E8E93] uppercase tracking-wider text-center mb-3">Kalkulator</div>
+        <div className="text-sm font-bold text-[#8E8E93] uppercase tracking-wider text-center mb-3">Kalkulator</div>
 
         <div className="text-right px-1 pb-3.5 mb-1 min-h-[50px]">
-          <div className="text-[13px] font-semibold text-[#8E8E93] min-h-4">{calcExpression(s, fmt)}</div>
+          <div className="text-sm font-semibold text-[#8E8E93] min-h-4">{calcExpression(s, fmt)}</div>
           <div
             className={`text-3xl font-medium overflow-x-auto whitespace-nowrap hide-scrollbar ${
               empty ? 'text-[#8E8E93]' : negativeBlocked ? 'text-red-400' : 'text-white'
@@ -81,7 +81,7 @@ export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix
         </div>
 
         {negativeBlocked && (
-          <p className="text-[11px] text-red-400 text-center mb-2">Hasilnya minus — field ini tidak menerima angka minus.</p>
+          <p className="text-xs text-red-400 text-center mb-2">Hasilnya minus — field ini tidak menerima angka minus.</p>
         )}
 
         <div className="flex gap-2.5">

@@ -100,11 +100,11 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
                 <div className="bg-slate-50 dark:bg-slate-950 p-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                   <div>
                     <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm">{vg.name}</h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Pilih maksimal {vg.maxSelection}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Pilih maksimal {vg.maxSelection}</p>
                   </div>
                   {vg.isRequired
-                    ? <span className="text-[10px] font-bold bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-1 rounded-md uppercase tracking-wider">Wajib</span>
-                    : <span className="text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md uppercase tracking-wider">Opsional</span>
+                    ? <span className="text-xs font-bold bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-1 rounded-md uppercase tracking-wider">Wajib</span>
+                    : <span className="text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md uppercase tracking-wider">Opsional</span>
                   }
                 </div>
                 <div className="p-2">

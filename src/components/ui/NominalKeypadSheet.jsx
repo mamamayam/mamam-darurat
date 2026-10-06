@@ -26,7 +26,7 @@ import {
  *                              (mis. Kembalian di PaymentModal)
  *   onClose()
  */
-const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[22px] short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
+const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xl short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
 const ICON_BTN = 'p-2 rounded-[10px] text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800 touch-manipulation';
 
 export default function NominalKeypadSheet({
@@ -83,7 +83,7 @@ export default function NominalKeypadSheet({
           <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-4 pr-2.5 py-3.5 mb-2">
             <div
               data-testid="nominal-display"
-              className={`flex-1 text-[22px] font-extrabold overflow-x-auto whitespace-nowrap hide-scrollbar ${
+              className={`flex-1 text-xl font-extrabold overflow-x-auto whitespace-nowrap hide-scrollbar ${
                 empty ? 'text-slate-300 dark:text-slate-600' : 'text-slate-900 dark:text-slate-50'
               }`}
             >
@@ -91,7 +91,7 @@ export default function NominalKeypadSheet({
             </div>
             {allowNegative && (
               <button type="button" aria-label="Ganti plus/minus" onClick={() => commit(toggleSign(digitsRef.current))} className={ICON_BTN}>
-                <span className="block w-5 text-center text-lg font-black leading-5">±</span>
+                <span className="block w-5 text-center text-lg font-bold leading-5">±</span>
               </button>
             )}
             {calculator && (

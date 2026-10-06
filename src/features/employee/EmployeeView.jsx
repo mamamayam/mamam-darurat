@@ -159,7 +159,7 @@ export default function EmployeeView() {
                   </div>
                   )}
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-accent-500 to-accent-600 dark:from-accent-400 dark:to-accent-600 text-white rounded-2xl shadow-[0_4px_12px_rgba(var(--color-accent-500),0.3)] flex items-center justify-center font-heading font-black text-xl">{emp.name.charAt(0).toUpperCase()}</div>
+                    <div className="w-12 h-12 bg-gradient-to-br from-accent-500 to-accent-600 dark:from-accent-400 dark:to-accent-600 text-white rounded-2xl shadow-[0_4px_12px_rgba(var(--color-accent-500),0.3)] flex items-center justify-center font-heading font-bold text-xl">{emp.name.charAt(0).toUpperCase()}</div>
                     <div>
                       <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-base leading-tight pr-14">{emp.name}</h4>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -201,7 +201,7 @@ export default function EmployeeView() {
             <div>
               <Input label="ID Absensi (opsional)" variant="muted" placeholder="Contoh: EMP-1699999999999" value={form.externalId || ''}
                 onChange={e => setForm({ ...form, externalId: e.target.value })} />
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
             </div>
             <NominalInput label="Upah per Jam (Rp)" variant="muted"
               value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />

@@ -147,7 +147,7 @@ const HomeView = () => {
                 className="block w-full text-left bg-slate-900 dark:bg-black rounded-2xl p-5 mb-4 active:scale-[0.99] transition-transform">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Total Penjualan Hari Ini</p>
                 <div className="flex items-center justify-between gap-3">
-                    <p className="font-heading text-3xl font-black text-white">{loading ? '...' : formatRupiah(totalSalesToday)}</p>
+                    <p className="font-heading text-3xl font-bold text-white">{loading ? '...' : formatRupiah(totalSalesToday)}</p>
                     {!loading && salesDeltaPct !== 0 && (
                         <span className={`shrink-0 flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-full ${salesDeltaPct > 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
                             {salesDeltaPct > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
@@ -155,7 +155,7 @@ const HomeView = () => {
                         </span>
                     )}
                 </div>
-                <p className="mt-3 flex items-center gap-1 text-[11px] font-bold text-slate-500">Lihat riwayat <ChevronRight className="w-3 h-3" /></p>
+                <p className="mt-3 flex items-center gap-1 text-xs font-bold text-slate-500">Lihat riwayat <ChevronRight className="w-3 h-3" /></p>
             </button>
 
             {/* Grid 2x2 Metrik */}
@@ -165,9 +165,9 @@ const HomeView = () => {
                         <div className="w-8 h-8 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 flex items-center justify-center shrink-0">
                             <TrendingDown className="w-4 h-4" />
                         </div>
-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pengeluaran</p>
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pengeluaran</p>
                     </div>
-                    <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(totalExpensesToday)}</p>
+                    <p className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(totalExpensesToday)}</p>
                 </div>
 
                 {can('beranda.laba') && (
@@ -176,9 +176,9 @@ const HomeView = () => {
                         <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0">
                             <DollarSign className="w-4 h-4" />
                         </div>
-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Laba Kotor</p>
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Laba Kotor</p>
                     </div>
-                    <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(netProfitToday)}</p>
+                    <p className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(netProfitToday)}</p>
                 </div>
                 )}
 
@@ -187,9 +187,9 @@ const HomeView = () => {
                         <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 dark:text-blue-400 flex items-center justify-center shrink-0">
                             <Receipt className="w-4 h-4" />
                         </div>
-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Transaksi</p>
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Transaksi</p>
                     </div>
-                    <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : totalTransaksiToday}</p>
+                    <p className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">{loading ? '...' : totalTransaksiToday}</p>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -197,9 +197,9 @@ const HomeView = () => {
                         <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-500 dark:text-purple-400 flex items-center justify-center shrink-0">
                             <Wallet className="w-4 h-4" />
                         </div>
-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Rata-rata</p>
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Rata-rata</p>
                     </div>
-                    <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(avgTransaksi)}</p>
+                    <p className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(avgTransaksi)}</p>
                 </div>
             </div>
 
@@ -217,9 +217,9 @@ const HomeView = () => {
                         <div className="flex justify-between items-start mb-3 border-b border-dashed border-slate-200 dark:border-slate-700 pb-3">
                             <div>
                                 <h3 className="font-bold text-sm text-slate-800 dark:text-slate-100">#{order.display_number}</h3>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400">{new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
                             </div>
-                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold border ${order.payment_method === 'Ojol' ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 border-accent-100 dark:border-accent-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'}`}>
+                            <span className={`px-2 py-1 rounded-md text-xs font-bold border ${order.payment_method === 'Ojol' ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 border-accent-100 dark:border-accent-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'}`}>
                                 {order.payment_method} {order.payment_method === 'Ojol' && order.ojol_platform && `(${order.ojol_platform})`}
                             </span>
                         </div>
@@ -230,7 +230,7 @@ const HomeView = () => {
                         </div>
 
                         <div className="flex justify-between items-center border-t border-slate-50 dark:border-slate-900 pt-3 mt-auto">
-                            <span className="font-black text-slate-800 dark:text-slate-100">{formatRupiah(order.total)}</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-100">{formatRupiah(order.total)}</span>
                             <div className="flex gap-2">
                                 <button onClick={() => setDetailOrder(order)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors active:scale-95" title="Detail">
                                     <Eye className="w-4 h-4" />

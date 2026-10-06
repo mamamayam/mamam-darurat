@@ -38,7 +38,7 @@ export default function PageHeader({
           </span>
         )}
         <div className="min-w-0">
-          <h2 className="font-heading text-xl md:text-2xl font-black tracking-tight leading-tight truncate bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+          <h2 className="font-heading text-xl md:text-2xl font-bold tracking-tight leading-tight truncate bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
             {title}
           </h2>
           {subtitle && (

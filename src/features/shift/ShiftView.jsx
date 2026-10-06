@@ -30,8 +30,8 @@ function ClosedReport({ shift, formatRupiah, onClose }) {
       <div className="bg-white dark:bg-slate-900 p-6 w-full max-w-sm rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800">
         <div className="text-center border-b-2 border-dashed border-slate-300 dark:border-slate-600 pb-4 mb-4">
           <h2 className="text-xl font-bold uppercase tracking-widest text-slate-800 dark:text-slate-100 mb-1">DOMPET</h2>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400">LAPORAN TUTUP DOMPET</p>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2">ID: {shift.code}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">LAPORAN TUTUP DOMPET</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">ID: {shift.code}</p>
         </div>
 
         <div className="space-y-1 text-xs mb-4">
@@ -63,7 +63,7 @@ function ClosedReport({ shift, formatRupiah, onClose }) {
 
         {couriers.length > 0 && (
           <div className="border-t-2 border-dashed border-slate-300 dark:border-slate-600 mt-4 pt-4 text-xs space-y-1.5">
-            <p className="font-bold uppercase tracking-wide text-[10px] text-slate-500 dark:text-slate-400 mb-1">Uang Masih di Kurir (saat tutup)</p>
+            <p className="font-bold uppercase tracking-wide text-xs text-slate-500 dark:text-slate-400 mb-1">Uang Masih di Kurir (saat tutup)</p>
             {couriers.map(c => (
               <div key={c.employeeId} className="flex justify-between text-slate-500 dark:text-slate-400">
                 <span>{c.employeeName}</span>
@@ -74,7 +74,7 @@ function ClosedReport({ shift, formatRupiah, onClose }) {
           </div>
         )}
 
-        <div className="text-center mt-8 text-[10px] text-slate-500 dark:text-slate-400"><p>-- Akhir Laporan --</p></div>
+        <div className="text-center mt-8 text-xs text-slate-500 dark:text-slate-400"><p>-- Akhir Laporan --</p></div>
       </div>
 
       <div className="mt-6 w-full max-w-sm">
@@ -207,7 +207,7 @@ const ShiftView = () => {
           <div className="w-16 h-16 bg-gradient-to-br from-accent-50 to-accent-100 dark:from-accent-500/10 dark:to-accent-500/15 text-accent-500 dark:text-accent-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Clock className="w-8 h-8" />
           </div>
-          <h3 className="font-heading text-2xl font-black bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 mb-2">Dompet Belom Dibuka</h3>
+          <h3 className="font-heading text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 mb-2">Dompet Belom Dibuka</h3>
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Masukkan jumlah uang tunai yang ada di dalam dompet saat ini sebagai modal harian.</p>
 
           <Button size="full" onClick={() => setIsOpenSheet(true)}>Buka Dompet</Button>
@@ -219,14 +219,14 @@ const ShiftView = () => {
 
             <div className="relative z-10">
               <Badge variant="info" className="uppercase tracking-wider">Dompet Terbuka</Badge>
-              <h3 className="font-heading text-2xl font-black text-slate-800 dark:text-slate-100 mt-4 mb-1">{currentShift.code}</h3>
+              <h3 className="font-heading text-2xl font-bold text-slate-800 dark:text-slate-100 mt-4 mb-1">{currentShift.code}</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">Waktu Buka: {new Date(currentShift.opened_at).toLocaleString('id-ID')}</p>
               {currentShift.opened_by_employee_name && (
                 <p className="text-sm font-semibold text-accent-600 dark:text-accent-400 mt-1 flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5" /> {currentShift.opened_by_employee_name}
                 </p>
               )}
-              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase mt-2">Khusus Transaksi Tunai</p>
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase mt-2">Khusus Transaksi Tunai</p>
             </div>
 
             <div className="mt-8 space-y-4 relative z-10">
@@ -254,11 +254,11 @@ const ShiftView = () => {
               )}
               <div className="flex justify-between items-center pt-2">
                 <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Saldo Akhir</span>
-                <span className="font-black text-2xl text-slate-800 dark:text-slate-100">{formatRupiah(saldoAkhir)}</span>
+                <span className="font-bold text-2xl text-slate-800 dark:text-slate-100">{formatRupiah(saldoAkhir)}</span>
               </div>
 
               <div className="mt-2 pt-4 border-t border-dashed border-slate-200 dark:border-slate-800">
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Rincian Posisi Uang</p>
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Rincian Posisi Uang</p>
                 <div className="space-y-1.5">
                   <BreakdownRow label="Kasir (Dompet)" value={stats?.expectedCash ?? 0} colorClass="bg-slate-400" formatRupiah={formatRupiah} />
                   {couriers.map(c => (
@@ -306,20 +306,20 @@ const ShiftView = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card padding="sm" className="flex flex-col justify-center">
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Dompet Dibuka</p>
-              <h4 className="font-heading text-base md:text-lg font-black text-slate-800 dark:text-slate-100">{filtered.length} Kali</h4>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Dompet Dibuka</p>
+              <h4 className="font-heading text-base md:text-lg font-bold text-slate-800 dark:text-slate-100">{filtered.length} Kali</h4>
             </Card>
             <Card padding="sm" className="flex flex-col justify-center">
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Pendapatan Tunai</p>
-              <h4 className="font-heading text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400">{formatRupiah(rekap.sales)}</h4>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Pendapatan Tunai</p>
+              <h4 className="font-heading text-base md:text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatRupiah(rekap.sales)}</h4>
             </Card>
             <Card padding="sm" className="flex flex-col justify-center">
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Kas Seharusnya</p>
-              <h4 className="font-heading text-base md:text-lg font-black text-slate-800 dark:text-slate-100">{formatRupiah(rekap.expected)}</h4>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Kas Seharusnya</p>
+              <h4 className="font-heading text-base md:text-lg font-bold text-slate-800 dark:text-slate-100">{formatRupiah(rekap.expected)}</h4>
             </Card>
             <Card padding="sm" className="flex flex-col justify-center">
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Selisih (Short/Over)</p>
-              <h4 className={`font-heading text-base md:text-lg font-black ${diffColor(rekap.diff)}`}>{formatRupiah(rekap.diff)}</h4>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Selisih (Short/Over)</p>
+              <h4 className={`font-heading text-base md:text-lg font-bold ${diffColor(rekap.diff)}`}>{formatRupiah(rekap.diff)}</h4>
             </Card>
           </div>
 
@@ -338,25 +338,25 @@ const ShiftView = () => {
                   <button key={s.id} onClick={() => setReport(s)} className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-950/50 transition-colors flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-black text-sm text-slate-800 dark:text-slate-100">{s.code}</span>
-                        <Badge variant={badgeVariant}><span className="uppercase tracking-wider text-[10px]">{statusLabel}</span></Badge>
+                        <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{s.code}</span>
+                        <Badge variant={badgeVariant}><span className="uppercase tracking-wider text-xs">{statusLabel}</span></Badge>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                         Buka: {new Date(s.opened_at).toLocaleString('id-ID')} | Tutup: {new Date(s.closed_at).toLocaleString('id-ID')}
                       </p>
-                      {s.opened_by_employee_name && <p className="text-[11px] text-accent-600 dark:text-accent-400 font-semibold">Kasir: {s.opened_by_employee_name}</p>}
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {s.opened_by_employee_name && <p className="text-xs text-accent-600 dark:text-accent-400 font-semibold">Kasir: {s.opened_by_employee_name}</p>}
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         Saldo Awal: {formatRupiah(s.stats_json?.initialCash)} | Penjualan Tunai: {formatRupiah(s.stats_json?.cashSales)} | Target Uang: {formatRupiah(s.expected_cash)}
                       </p>
                     </div>
                     <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-0 pt-2 md:pt-0">
                       <div className="text-left md:text-right">
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Uang Aktual</p>
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Uang Aktual</p>
                         <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{formatRupiah(s.closing_balance)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Selisih</p>
-                        <p className={`font-black text-sm ${diffColor(s.difference)}`}>{s.difference > 0 ? '+' : ''}{formatRupiah(s.difference)}</p>
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Selisih</p>
+                        <p className={`font-bold text-sm ${diffColor(s.difference)}`}>{s.difference > 0 ? '+' : ''}{formatRupiah(s.difference)}</p>
                       </div>
                     </div>
                   </button>
@@ -388,7 +388,7 @@ const ShiftView = () => {
           <p className="text-sm text-slate-500 dark:text-slate-400">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
           <NominalInput label="Saldo aktual yang ada di dompet"
             value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
-            className="text-xl font-black py-4 border-2 focus:border-accent-600" />
+            className="text-xl font-bold py-4 border-2 focus:border-accent-600" />
           <Button size="full" onClick={handleClose} disabled={busy}>{busy ? 'Memproses...' : 'Tutup Dompet'}</Button>
         </div>
       </Modal>
@@ -402,7 +402,7 @@ function BreakdownRow({ label, value, colorClass, isDebt, formatRupiah }) {
     <div className="flex justify-between items-center text-xs">
       <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
         <span className={`w-2 h-2 rounded-full ${colorClass}`} />
-        {label}{isDebt && <span className="text-[10px] text-red-500 dark:text-red-400 font-bold">(bisnis berutang)</span>}
+        {label}{isDebt && <span className="text-xs text-red-500 dark:text-red-400 font-bold">(bisnis berutang)</span>}
       </span>
       <span className={`font-bold ${isDebt ? 'text-red-500 dark:text-red-400' : 'text-slate-800 dark:text-slate-100'}`}>{formatRupiah(value)}</span>
     </div>

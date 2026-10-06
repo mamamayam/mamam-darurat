@@ -33,7 +33,7 @@ const VariantCategorySection = ({ category, groups, onReorder, onEdit, onDelete,
           >
             <GripVertical className="w-5 h-5" />
           </div>
-          <span className="font-heading text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">{category}</span>
+          <span className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">{category}</span>
           <Badge variant="neutral">{groups.length} Grup</Badge>
         </div>
         <button
@@ -76,7 +76,7 @@ const VariantCategorySection = ({ category, groups, onReorder, onEdit, onDelete,
                       <Badge variant={vg.isRequired ? 'danger' : 'neutral'}>{vg.isRequired ? 'Wajib' : 'Opsional'}</Badge>
                       <Badge variant="orange">Max: {vg.maxSelection} Pilihan</Badge>
                     </div>
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                       <span className="font-semibold text-slate-400">Opsi:</span>
                       {vg.options?.map((opt, oIdx) => (
                         <span key={opt.id || oIdx} className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80 px-1.5 py-0.5 rounded font-medium text-slate-600 dark:text-slate-300">
@@ -277,7 +277,7 @@ const VariantListTab = ({ data }) => {
                 <input type="checkbox" className="w-5 h-5 accent-[#ea580c] dark:accent-[#f97316] cursor-pointer" checked={formData.isRequired} onChange={e => setFormData({ ...formData, isRequired: e.target.checked })} />
                 <div>
                   <p className="font-bold text-sm text-slate-800 dark:text-slate-100">Wajib Dipilih</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Pelanggan harus memilih minimal satu opsi.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Pelanggan harus memilih minimal satu opsi.</p>
                 </div>
               </label>
               <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
@@ -290,11 +290,11 @@ const VariantListTab = ({ data }) => {
             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">Opsi Pilihan Varian</h3>
             <div className={`flex gap-2 items-end p-3 rounded-xl border transition-colors ${editingOptionId ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-200 dark:border-accent-500/30' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800'}`}>
               <div className="flex-1 min-w-0">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Opsi</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nama Opsi</label>
                 <input type="text" placeholder="Misal: Mozzarella" className="w-full p-2 text-xs border border-slate-200 rounded-lg" value={newOption.name} onChange={e => setNewOption({ ...newOption, name: e.target.value })} />
               </div>
               <div className="w-28">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Harga + (Rp)</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Harga + (Rp)</label>
                 <NominalInput bare title="Harga Tambahan Opsi" placeholder="0" className="w-full p-2 text-xs border border-slate-200 rounded-lg text-left" value={newOption.extraPrice} onChange={e => setNewOption({ ...newOption, extraPrice: e.target.value })} />
               </div>
               {editingOptionId && (
@@ -320,7 +320,7 @@ const VariantListTab = ({ data }) => {
                         </div>
                         <div className="flex flex-col min-w-0">
                           <span className="text-xs font-bold text-slate-800 truncate">{opt.name}</span>
-                          <span className="text-[10px] text-slate-500">+{formatRupiah(opt.extraPrice)}</span>
+                          <span className="text-xs text-slate-500">+{formatRupiah(opt.extraPrice)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">

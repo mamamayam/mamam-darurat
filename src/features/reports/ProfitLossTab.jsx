@@ -46,7 +46,7 @@ export default function ProfitLossTab() {
   if (cost && cost.kasbonTotal > 0) warnings.push(`Kasbon ${formatRupiah(cost.kasbonTotal)} tidak dihitung sebagai biaya (itu piutang ke karyawan).`);
 
   const Line = ({ k, v, sign, bold, indent, testid }) => (
-    <div className={`flex justify-between gap-3 py-1.5 ${bold ? 'font-black text-slate-900 dark:text-slate-50 border-t border-slate-200 dark:border-slate-700 mt-1 pt-2.5' : 'text-slate-600 dark:text-slate-300'} ${indent ? 'pl-4 text-xs' : 'text-sm'}`}>
+    <div className={`flex justify-between gap-3 py-1.5 ${bold ? 'font-bold text-slate-900 dark:text-slate-50 border-t border-slate-200 dark:border-slate-700 mt-1 pt-2.5' : 'text-slate-600 dark:text-slate-300'} ${indent ? 'pl-4 text-xs' : 'text-sm'}`}>
       <span className="min-w-0">{k}</span>
       <span className="font-bold shrink-0 text-slate-800 dark:text-slate-100" data-testid={testid}>{sign === '-' && v !== 0 ? '−' : ''}{formatRupiah(v)}</span>
     </div>
@@ -58,15 +58,15 @@ export default function ProfitLossTab() {
         <div className="flex items-center justify-between gap-2">
           <button onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Bulan sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
           <div className="text-center">
-            <p className="font-heading font-black text-slate-800 dark:text-slate-100 text-sm" data-testid="pl-month">{MON_FULL[m - 1]} {y}</p>
-            <button onClick={() => setMonth(todayMonth)} className="text-[11px] font-bold text-accent-600 dark:text-accent-400">Ke bulan ini</button>
+            <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm" data-testid="pl-month">{MON_FULL[m - 1]} {y}</p>
+            <button onClick={() => setMonth(todayMonth)} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke bulan ini</button>
           </div>
           <button onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Bulan berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
         </div>
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Dasar HPP</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Dasar HPP</p>
           <SegmentedControl value={hppBasis} onChange={setHppBasis} options={[{ value: 'belanja', label: 'Belanja Bahan Baku' }, { value: 'menu', label: 'HPP Menu' }]} />
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">{hppBasis === 'belanja' ? 'Seperti Balance di mamam-global, tanpa stok opname: HPP = total pengeluaran kategori Belanja bulan ini.' : 'HPP = jumlah (HPP menu × porsi terjual). Belanja bahan baku tidak dikurangkan lagi.'}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">{hppBasis === 'belanja' ? 'Seperti Balance di mamam-global, tanpa stok opname: HPP = total pengeluaran kategori Belanja bulan ini.' : 'HPP = jumlah (HPP menu × porsi terjual). Belanja bahan baku tidak dikurangkan lagi.'}</p>
         </div>
       </Card>
 
@@ -78,9 +78,9 @@ export default function ProfitLossTab() {
       {!waiting && !report.error && (
         <>
           <Card variant="dark" padding="lg" className="space-y-1">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{pl.gajiIncluded ? 'Laba Bersih' : 'Laba Sebelum Gaji'}</p>
-            <p className={`font-heading text-3xl font-black ${pl.labaBersih < 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid="pl-net">{formatRupiah(pl.labaBersih)}</p>
-            {!pl.gajiIncluded && <p className="text-[11px] text-amber-300">Belum dikurangi gaji karyawan.</p>}
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{pl.gajiIncluded ? 'Laba Bersih' : 'Laba Sebelum Gaji'}</p>
+            <p className={`font-heading text-3xl font-bold ${pl.labaBersih < 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid="pl-net">{formatRupiah(pl.labaBersih)}</p>
+            {!pl.gajiIncluded && <p className="text-xs text-amber-300">Belum dikurangi gaji karyawan.</p>}
           </Card>
 
           {warnings.length > 0 && (
@@ -101,10 +101,10 @@ export default function ProfitLossTab() {
           </Card>
 
           <Card className="space-y-1.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Info className="w-3.5 h-3.5" /> Pembanding HPP</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Info className="w-3.5 h-3.5" /> Pembanding HPP</p>
             <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300"><span>Belanja bahan baku bulan ini</span><span className="font-bold">{formatRupiah(pl.belanjaBahanBaku)}</span></div>
             <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300"><span>HPP menurut menu</span><span className="font-bold">{formatRupiah(pl.hppMenu)}</span></div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500">Selisih besar biasanya karena belanja stok yang belum terpakai, atau HPP menu yang belum diisi. Pemasukan non-penjualan tidak dihitung, sama seperti di mamam-global.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Selisih besar biasanya karena belanja stok yang belum terpakai, atau HPP menu yang belum diisi. Pemasukan non-penjualan tidak dihitung, sama seperti di mamam-global.</p>
           </Card>
         </>
       )}

@@ -1,0 +1,1320 @@
+diff --git a/src/app/layout/BottomNav.jsx b/src/app/layout/BottomNav.jsx
+index 02faa4c..969c0af 100644
+--- a/src/app/layout/BottomNav.jsx
++++ b/src/app/layout/BottomNav.jsx
+@@ -12,7 +12,7 @@ import { Home, ShoppingCart, Menu } from "lucide-react";
+ //    tombol tidak ketutup tapi bar tetap mentok di tepi layar
+ // Elemen lain yang melayang di atas bar (FAB keranjang, ExitToast) memakai
+ // offset yang sama: tinggi bar + safe-area.
+-const LABEL = "text-[10px] short:text-[9px] leading-none font-bold transition-colors duration-300";
++const LABEL = "text-xs short:text-xs leading-none font-bold transition-colors duration-300";
+ 
+ export default function BottomNav({
+     currentView,
+diff --git a/src/app/layout/BottomSheetMenu.jsx b/src/app/layout/BottomSheetMenu.jsx
+index a8c8593..4ccccb2 100644
+--- a/src/app/layout/BottomSheetMenu.jsx
++++ b/src/app/layout/BottomSheetMenu.jsx
+@@ -47,7 +47,7 @@ export default function BottomSheetMenu({
+                 >
+                   <item.icon className={`w-[22px] h-[22px] ${isActive ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`} />
+                 </div>
+-                <span className={`text-[11px] font-semibold text-center leading-tight ${isActive ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
++                <span className={`text-xs font-semibold text-center leading-tight ${isActive ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                   {item.label}
+                 </span>
+               </button>
+diff --git a/src/app/layout/Header.jsx b/src/app/layout/Header.jsx
+index 735621e..702499f 100644
+--- a/src/app/layout/Header.jsx
++++ b/src/app/layout/Header.jsx
+@@ -19,7 +19,7 @@ export default function Header({
+     return (
+         <header className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-100/60 dark:border-slate-900 h-16 short:h-12 flex items-center justify-between px-4 short:px-3 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-none shrink-0">
+             <div className="flex items-center gap-3 short:gap-2">
+-                <h2 className="font-heading font-black text-xl short:text-base tracking-tight capitalize bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
++                <h2 className="font-heading font-bold text-xl short:text-base tracking-tight capitalize bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+                     {currentView.replace('-', ' ')}
+                 </h2>
+             </div>
+diff --git a/src/auth/LoginScreen.jsx b/src/auth/LoginScreen.jsx
+index ccecaa0..ffd0bd4 100644
+--- a/src/auth/LoginScreen.jsx
++++ b/src/auth/LoginScreen.jsx
+@@ -59,7 +59,7 @@ export default function LoginScreen() {
+     <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
+       <div className="text-center">
+         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><Lock className="w-6 h-6 text-white" /></div>
+-        <h1 className="font-heading font-black text-2xl">Mamam Darurat</h1>
++        <h1 className="font-heading font-bold text-2xl">Mamam Darurat</h1>
+         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Masukkan PIN</p>
+       </div>
+ 
+diff --git a/src/components/ui/Alert.jsx b/src/components/ui/Alert.jsx
+index ba438bf..d6f086f 100644
+--- a/src/components/ui/Alert.jsx
++++ b/src/components/ui/Alert.jsx
+@@ -27,7 +27,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+  * Bar full-width dengan border-b, konten kiri & kanan (mirip tabel header).
+  * Untuk section summary bar seperti "Total Periode Ini: Rp X".
+  *
+- *   <Alert type="stripe" variant="error" action={<span className="font-black">{formatRupiah(total)}</span>}>
++ *   <Alert type="stripe" variant="error" action={<span className="font-bold">{formatRupiah(total)}</span>}>
+  *     Total Periode Ini
+  *   </Alert>
+  *
+diff --git a/src/components/ui/Badge.jsx b/src/components/ui/Badge.jsx
+index 9fd601a..bb765d0 100644
+--- a/src/components/ui/Badge.jsx
++++ b/src/components/ui/Badge.jsx
+@@ -35,7 +35,7 @@ const DOT_COLORS = {
+ };
+ 
+ const SIZES = {
+-  sm: 'px-2 py-0.5 text-[10px]',
++  sm: 'px-2 py-0.5 text-xs',
+   md: 'px-2.5 py-1 text-xs',
+ };
+ 
+diff --git a/src/components/ui/Button.jsx b/src/components/ui/Button.jsx
+index 299c44f..a204b4c 100644
+--- a/src/components/ui/Button.jsx
++++ b/src/components/ui/Button.jsx
+@@ -23,7 +23,7 @@
+  *   ghost-success  → green-50/10 dengan border     — aksi penambahan yang lebih subtle
+  *
+  * Size:
+- *   xs   → px-3 py-1.5 text-[11px]  — badge/chip action
++ *   xs   → px-3 py-1.5 text-xs  — badge/chip action
+  *   sm   → px-3 py-2   text-xs      — inline action
+  *   md   → px-4 py-2.5 text-sm      — default
+  *   lg   → px-8 py-3.5 text-sm      — modal CTA
+@@ -83,7 +83,7 @@ const VARIANTS = {
+ };
+ 
+ const SIZES = {
+-  xs:   'px-3 py-1.5 text-[11px]',
++  xs:   'px-3 py-1.5 text-xs',
+   sm:   'px-3 py-2 text-xs',
+   md:   'px-4 py-2.5 text-sm',
+   lg:   'px-8 py-3.5 text-sm',
+diff --git a/src/components/ui/Card.jsx b/src/components/ui/Card.jsx
+index af221cf..948f301 100644
+--- a/src/components/ui/Card.jsx
++++ b/src/components/ui/Card.jsx
+@@ -31,7 +31,7 @@
+  *
+  *   <Card variant="dark" padding="lg">
+  *     <p className="text-slate-400 text-xs uppercase">Total Pengeluaran</p>
+- *     <h3 className="text-white text-2xl font-black">Rp 1.000.000</h3>
++ *     <h3 className="text-white text-2xl font-bold">Rp 1.000.000</h3>
+  *   </Card>
+  *
+  *   <Card variant="muted" padding="sm">
+@@ -40,10 +40,10 @@
+  *   </Card>
+  *
+  *   <Card variant="dark-elevated" padding="lg" className="text-white space-y-6">
+- *     <h4 className="font-black border-b border-slate-800 dark:border-slate-100 pb-3">HASIL ANALISA</h4>
++ *     <h4 className="font-bold border-b border-slate-800 dark:border-slate-100 pb-3">HASIL ANALISA</h4>
+  *     <Card variant="dark-muted" padding="lg" className="text-center">
+  *       <span className="block text-xs uppercase text-slate-400">HPP per Unit</span>
+- *       <span className="block text-3xl font-black text-green-400">Rp 12.500</span>
++ *       <span className="block text-3xl font-bold text-green-400">Rp 12.500</span>
+  *     </Card>
+  *   </Card>
+  *
+diff --git a/src/components/ui/DetailModal.jsx b/src/components/ui/DetailModal.jsx
+index ebdf64a..7b9d3b3 100644
+--- a/src/components/ui/DetailModal.jsx
++++ b/src/components/ui/DetailModal.jsx
+@@ -174,7 +174,7 @@ export default function DetailModal({
+         {visibleSections.map((section, i) => (
+           <div key={i} className={i > 0 ? 'mt-4' : ''}>
+             {section.title && (
+-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
++              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
+                 {section.title}
+               </p>
+             )}
+@@ -186,7 +186,7 @@ export default function DetailModal({
+ 
+         {hasItems && (
+           <div className={visibleSections.length > 0 ? 'mt-4' : ''}>
+-            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
++            <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
+               {itemsTitle} ({items.length})
+             </p>
+             <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+@@ -195,9 +195,9 @@ export default function DetailModal({
+                   <div className="min-w-0">
+                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{it.name}</p>
+                     {it.note && (
+-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{it.note}</p>
++                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{it.note}</p>
+                     )}
+-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
++                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                       {it.qty} x {formatRupiah(it.price)}
+                     </p>
+                   </div>
+@@ -227,8 +227,8 @@ export default function DetailModal({
+           <div className={`grid gap-2 ${highlights.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} mt-4`}>
+             {highlights.map((h, i) => (
+               <div key={i} className={`rounded-2xl p-3.5 ${HIGHLIGHT_TONES[h.tone] || HIGHLIGHT_TONES.default}`}>
+-                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-0.5">{h.label}</p>
+-                <p className="text-lg font-black">{h.type === 'text' ? h.value : formatRupiah(h.value)}</p>
++                <p className="text-xs font-bold uppercase tracking-wider opacity-80 mb-0.5">{h.label}</p>
++                <p className="text-lg font-bold">{h.type === 'text' ? h.value : formatRupiah(h.value)}</p>
+               </div>
+             ))}
+           </div>
+diff --git a/src/components/ui/EmptyState.jsx b/src/components/ui/EmptyState.jsx
+index b1a6fef..4b9df53 100644
+--- a/src/components/ui/EmptyState.jsx
++++ b/src/components/ui/EmptyState.jsx
+@@ -26,7 +26,7 @@
+  */
+ 
+ const SIZES = {
+-  sm: { wrapper: 'py-6',  icon: 'w-10 h-10 mb-2', title: 'text-xs', desc: 'text-[11px]' },
++  sm: { wrapper: 'py-6',  icon: 'w-10 h-10 mb-2', title: 'text-xs', desc: 'text-xs' },
+   md: { wrapper: 'py-10', icon: 'w-14 h-14 mb-3', title: 'text-sm', desc: 'text-xs'    },
+   lg: { wrapper: 'py-16', icon: 'w-16 h-16 mb-4', title: 'text-base', desc: 'text-sm'  },
+ };
+diff --git a/src/components/ui/IconButton.jsx b/src/components/ui/IconButton.jsx
+index 6ca0c6f..4cd8b67 100644
+--- a/src/components/ui/IconButton.jsx
++++ b/src/components/ui/IconButton.jsx
+@@ -114,7 +114,7 @@ export default function IconButton({
+     >
+       {children}
+       {label && (
+-        <span className="text-[10px] font-bold leading-none">{label}</span>
++        <span className="text-xs font-bold leading-none">{label}</span>
+       )}
+     </button>
+   );
+diff --git a/src/components/ui/Input.jsx b/src/components/ui/Input.jsx
+index e17c4e5..95d7271 100644
+--- a/src/components/ui/Input.jsx
++++ b/src/components/ui/Input.jsx
+@@ -50,7 +50,7 @@ export function FieldWrapper({ label, error, hint, children }) {
+   return (
+     <div className="flex flex-col gap-1.5">
+       {label && (
+-        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
++        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+           {label}
+         </label>
+       )}
+diff --git a/src/components/ui/NominalCalculator.jsx b/src/components/ui/NominalCalculator.jsx
+index b66fe30..7fa731d 100644
+--- a/src/components/ui/NominalCalculator.jsx
++++ b/src/components/ui/NominalCalculator.jsx
+@@ -41,10 +41,10 @@ export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix
+     <NominalOverlay z="z-[120]" onClose={onClose}>
+       <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+       <div className="bg-black rounded-3xl px-4 pt-[18px] pb-4">
+-        <div className="text-[13px] font-bold text-[#8E8E93] uppercase tracking-wider text-center mb-3">Kalkulator</div>
++        <div className="text-sm font-bold text-[#8E8E93] uppercase tracking-wider text-center mb-3">Kalkulator</div>
+ 
+         <div className="text-right px-1 pb-3.5 mb-1 min-h-[50px]">
+-          <div className="text-[13px] font-semibold text-[#8E8E93] min-h-4">{calcExpression(s, fmt)}</div>
++          <div className="text-sm font-semibold text-[#8E8E93] min-h-4">{calcExpression(s, fmt)}</div>
+           <div
+             className={`text-3xl font-medium overflow-x-auto whitespace-nowrap hide-scrollbar ${
+               empty ? 'text-[#8E8E93]' : negativeBlocked ? 'text-red-400' : 'text-white'
+@@ -81,7 +81,7 @@ export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix
+         </div>
+ 
+         {negativeBlocked && (
+-          <p className="text-[11px] text-red-400 text-center mb-2">Hasilnya minus — field ini tidak menerima angka minus.</p>
++          <p className="text-xs text-red-400 text-center mb-2">Hasilnya minus — field ini tidak menerima angka minus.</p>
+         )}
+ 
+         <div className="flex gap-2.5">
+diff --git a/src/components/ui/NominalKeypadSheet.jsx b/src/components/ui/NominalKeypadSheet.jsx
+index 730c83e..c79cf36 100644
+--- a/src/components/ui/NominalKeypadSheet.jsx
++++ b/src/components/ui/NominalKeypadSheet.jsx
+@@ -26,7 +26,7 @@ import {
+  *                              (mis. Kembalian di PaymentModal)
+  *   onClose()
+  */
+-const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[22px] short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
++const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xl short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
+ const ICON_BTN = 'p-2 rounded-[10px] text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800 touch-manipulation';
+ 
+ export default function NominalKeypadSheet({
+@@ -83,7 +83,7 @@ export default function NominalKeypadSheet({
+           <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-4 pr-2.5 py-3.5 mb-2">
+             <div
+               data-testid="nominal-display"
+-              className={`flex-1 text-[22px] font-extrabold overflow-x-auto whitespace-nowrap hide-scrollbar ${
++              className={`flex-1 text-xl font-extrabold overflow-x-auto whitespace-nowrap hide-scrollbar ${
+                 empty ? 'text-slate-300 dark:text-slate-600' : 'text-slate-900 dark:text-slate-50'
+               }`}
+             >
+@@ -91,7 +91,7 @@ export default function NominalKeypadSheet({
+             </div>
+             {allowNegative && (
+               <button type="button" aria-label="Ganti plus/minus" onClick={() => commit(toggleSign(digitsRef.current))} className={ICON_BTN}>
+-                <span className="block w-5 text-center text-lg font-black leading-5">±</span>
++                <span className="block w-5 text-center text-lg font-bold leading-5">±</span>
+               </button>
+             )}
+             {calculator && (
+diff --git a/src/components/ui/PageHeader.jsx b/src/components/ui/PageHeader.jsx
+index 9f77eca..b97fb2d 100644
+--- a/src/components/ui/PageHeader.jsx
++++ b/src/components/ui/PageHeader.jsx
+@@ -38,7 +38,7 @@ export default function PageHeader({
+           </span>
+         )}
+         <div className="min-w-0">
+-          <h2 className="font-heading text-xl md:text-2xl font-black tracking-tight leading-tight truncate bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
++          <h2 className="font-heading text-xl md:text-2xl font-bold tracking-tight leading-tight truncate bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+             {title}
+           </h2>
+           {subtitle && (
+diff --git a/src/features/attendance/AttendanceView.jsx b/src/features/attendance/AttendanceView.jsx
+index 6254ff9..4466518 100644
+--- a/src/features/attendance/AttendanceView.jsx
++++ b/src/features/attendance/AttendanceView.jsx
+@@ -42,13 +42,13 @@ export default function AttendanceView() {
+           <div className="flex items-center justify-between gap-2">
+             <button onClick={() => setDate(shiftDay(date, -1))} aria-label="Hari sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
+             <div className="text-center min-w-0">
+-              <p className="font-heading font-black text-slate-800 dark:text-slate-100 text-sm" data-testid="att-date">{longDate(date)}</p>
+-              <button onClick={() => setDate(today)} className="text-[11px] font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
++              <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm" data-testid="att-date">{longDate(date)}</p>
++              <button onClick={() => setDate(today)} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
+             </div>
+             <button onClick={() => setDate(shiftDay(date, 1))} aria-label="Hari berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
+           </div>
+           {configured && (
+-            <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
++            <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
+               <span data-testid="att-updated">{updatedAt ? `Diperbarui ${updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Memuat...'}</span>
+               <button onClick={reload} className="flex items-center gap-1 font-bold text-accent-600 dark:text-accent-400"><RefreshCw className="w-3 h-3" /> Perbarui</button>
+             </div>
+@@ -80,7 +80,7 @@ export default function AttendanceView() {
+                 <div className="flex justify-between items-start gap-3">
+                   <div className="min-w-0">
+                     <p className="font-heading font-bold text-slate-800 dark:text-slate-100 truncate">{r.employee.name}</p>
+-                    <p className="text-[11px] text-slate-400 capitalize">{r.employee.role}</p>
++                    <p className="text-xs text-slate-400 capitalize">{r.employee.role}</p>
+                   </div>
+                   <Badge size="sm" variant={STATUS[r.status].variant}>{STATUS[r.status].label}</Badge>
+                 </div>
+@@ -92,7 +92,7 @@ export default function AttendanceView() {
+                     {r.status === 'sudahPulang' && <span className="text-slate-500">· {fmtHM(r.workedMinutes)}{r.overtimeMinutes > 0 && ` · lembur ${r.overtimeMinutes}m`}</span>}
+                   </div>
+                 )}
+-                {r.note && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">{r.note}</p>}
++                {r.note && <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">{r.note}</p>}
+               </div>
+             ))}
+           </>
+diff --git a/src/features/customer/CustomerView.jsx b/src/features/customer/CustomerView.jsx
+index 732a292..ee32d79 100644
+--- a/src/features/customer/CustomerView.jsx
++++ b/src/features/customer/CustomerView.jsx
+@@ -71,7 +71,7 @@ const CustomerView = () => {
+     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col min-h-0 relative animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+       <div className="flex items-center gap-2 mb-6 shrink-0">
+         <Users className="w-6 h-6 text-accent-500 dark:text-accent-400" />
+-        <h2 className="font-heading text-xl font-black text-slate-800 dark:text-slate-100">Pelanggan</h2>
++        <h2 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100">Pelanggan</h2>
+       </div>
+ 
+       <Card padding="none" className="flex flex-col flex-1 min-h-0 max-w-2xl w-full">
+@@ -109,7 +109,7 @@ const CustomerView = () => {
+                 )}
+                 <div>
+                   <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{cust.name}</p>
+-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{cust.phone || 'Tanpa No. HP'}</p>
++                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{cust.phone || 'Tanpa No. HP'}</p>
+                 </div>
+               </div>
+               <div className="flex items-center gap-2">
+diff --git a/src/features/employee/EmployeeView.jsx b/src/features/employee/EmployeeView.jsx
+index ecf2d07..9b00b9e 100644
+--- a/src/features/employee/EmployeeView.jsx
++++ b/src/features/employee/EmployeeView.jsx
+@@ -159,7 +159,7 @@ export default function EmployeeView() {
+                   </div>
+                   )}
+                   <div className="flex items-center gap-3 mb-4">
+-                    <div className="w-12 h-12 bg-gradient-to-br from-accent-500 to-accent-600 dark:from-accent-400 dark:to-accent-600 text-white rounded-2xl shadow-[0_4px_12px_rgba(var(--color-accent-500),0.3)] flex items-center justify-center font-heading font-black text-xl">{emp.name.charAt(0).toUpperCase()}</div>
++                    <div className="w-12 h-12 bg-gradient-to-br from-accent-500 to-accent-600 dark:from-accent-400 dark:to-accent-600 text-white rounded-2xl shadow-[0_4px_12px_rgba(var(--color-accent-500),0.3)] flex items-center justify-center font-heading font-bold text-xl">{emp.name.charAt(0).toUpperCase()}</div>
+                     <div>
+                       <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-base leading-tight pr-14">{emp.name}</h4>
+                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+@@ -201,7 +201,7 @@ export default function EmployeeView() {
+             <div>
+               <Input label="ID Absensi (opsional)" variant="muted" placeholder="Contoh: EMP-1699999999999" value={form.externalId || ''}
+                 onChange={e => setForm({ ...form, externalId: e.target.value })} />
+-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
++              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
+             </div>
+             <NominalInput label="Upah per Jam (Rp)" variant="muted"
+               value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />
+diff --git a/src/features/expense/ExpenseView.jsx b/src/features/expense/ExpenseView.jsx
+index 62b1576..2c4ff32 100644
+--- a/src/features/expense/ExpenseView.jsx
++++ b/src/features/expense/ExpenseView.jsx
+@@ -207,7 +207,7 @@ const ExpenseView = () => {
+ 
+           <div className="p-3 bg-red-50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-500/20 flex justify-between items-center">
+             <span className="text-xs font-bold text-red-700 dark:text-red-300">Total Periode Ini:</span>
+-            <span className="text-sm font-black text-red-700 dark:text-red-300">{formatRupiah(activeTotal)}</span>
++            <span className="text-sm font-bold text-red-700 dark:text-red-300">{formatRupiah(activeTotal)}</span>
+           </div>
+ 
+           {isSelecting && sortedExpenses.length > 0 && (
+@@ -232,12 +232,12 @@ const ExpenseView = () => {
+                       {exp.paymentMethod === 'Non-Tunai' && <Badge variant="info">Bank</Badge>}
+                       {exp.cashHolderName && <Badge variant="warning">💰 {exp.cashHolderName}</Badge>}
+                     </p>
+-                    {exp.supplier && <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mt-1">🏪 {exp.supplier}</p>}
++                    {exp.supplier && <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1">🏪 {exp.supplier}</p>}
+                     {(() => {
+                       const lines = noteLines(exp.note);
+-                      if (lines.length > 1) return <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>;
+-                      if (lines.length === 1) return <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{lines[0]}</p>;
+-                      return exp.supplier ? null : <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Tanpa catatan</p>;
++                      if (lines.length > 1) return <ul className="mt-1 list-disc pl-4 text-xs text-slate-500 dark:text-slate-400 space-y-0.5">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>;
++                      if (lines.length === 1) return <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{lines[0]}</p>;
++                      return exp.supplier ? null : <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tanpa catatan</p>;
+                     })()}
+                   </div>
+                 </div>
+@@ -271,13 +271,13 @@ const ExpenseView = () => {
+ 
+           {paymentMethod === 'Tunai' && couriers.length > 0 && (
+             <div>
+-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibayar Pakai Uang Siapa?</label>
++              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Dibayar Pakai Uang Siapa?</label>
+               <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
+                 <option value="kasir">Kasir / Toko</option>
+                 {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
+               </Select>
+               {cashHolderId !== 'kasir' && (
+-                <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1 italic">
++                <p className="text-xs text-accent-600 dark:text-accent-400 mt-1 italic">
+                   *Dicatat pakai cash yang lagi dipegang kurir ini (belum disetor). Terlihat di rincian posisi uang pada Dompet.
+                 </p>
+               )}
+@@ -330,7 +330,7 @@ function CategoryCombobox({ value, onChange, options, onManage }) {
+   return (
+     <div className="flex flex-col gap-1.5">
+       <div className="flex items-center justify-between">
+-        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
++        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Kategori</label>
+         <button type="button" onClick={onManage} aria-label="Kelola Kategori" title="Kelola Kategori"
+           className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 active:scale-90 transition-all"><Settings2 className="w-3.5 h-3.5" /></button>
+       </div>
+@@ -346,7 +346,7 @@ function CategoryCombobox({ value, onChange, options, onManage }) {
+           ))}
+         </div>
+       )}
+-      {isNew && <p className="text-[10px] text-accent-600 dark:text-accent-400">Kategori baru, dibuat saat disimpan.</p>}
++      {isNew && <p className="text-xs text-accent-600 dark:text-accent-400">Kategori baru, dibuat saat disimpan.</p>}
+     </div>
+   );
+ }
+diff --git a/src/features/history/RiwayatView.jsx b/src/features/history/RiwayatView.jsx
+index 4a9b5aa..8c1ccce 100644
+--- a/src/features/history/RiwayatView.jsx
++++ b/src/features/history/RiwayatView.jsx
+@@ -1,6 +1,6 @@
+ import { useState, useMemo } from 'react';
+-import { Calendar, Filter, ArrowUpDown, Search, X, CreditCard, RefreshCw, Eye, Trash2, Receipt, ShoppingBag } from 'lucide-react';
+-import { Card, EmptyState, DetailModal, Button, Input, BulkSelectBar } from '../../components/ui';
++import { Filter, ArrowUpDown, Search, X, CreditCard, RefreshCw, Eye, Trash2, Receipt, ShoppingBag } from 'lucide-react';
++import { Card, EmptyState, DetailModal, Button, Input, Select, BulkSelectBar } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { useAuth } from '../../auth/AuthContext';
+ import { useReportData } from '../../hook/useReportData';
+@@ -24,7 +24,7 @@ const PERIODS = [
+   { key: 'kemarin', label: 'Kemarin' },
+   { key: 'bulan-ini', label: 'Bulan Ini' },
+   { key: 'semua', label: 'Semua' },
+-  { key: 'tanggal-terpilih', label: 'Pilih Tanggal' },
++  { key: 'tanggal-terpilih', label: 'Tanggal Terpilih' },
+ ];
+ const SORTS = [
+   { key: 'terbaru', label: 'Terbaru Dulu' },
+@@ -140,30 +140,11 @@ export default function RiwayatView() {
+     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+       <div className="max-w-3xl w-full space-y-4 pb-10">
+ 
+-        {canDelete && (
+-          <div>
+-            <button
+-              onClick={toggleSelecting} data-testid="riwayat-pilih"
+-              className={`text-sm font-bold px-4 py-2.5 rounded-full transition-all duration-300 active:scale-95 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
+-            >
+-              {isSelecting ? 'Batal' : 'Pilih'}
+-            </button>
+-          </div>
+-        )}
+-
+         {/* Periode */}
+-        <Card className="space-y-3">
+-          <div className={`flex items-center gap-2.5 overflow-x-auto -mx-1 px-1 py-1 ${NO_SCROLLBAR}`}>
+-            <Calendar className="w-6 h-6 text-slate-500 dark:text-slate-400 shrink-0 mr-1" />
+-            {PERIODS.map(p => (
+-              <button
+-                key={p.key} onClick={() => { setMode(p.key); setMethodFilter('semua'); resetPaging(); }} data-testid={`period-${p.key}`}
+-                className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300 active:scale-95 ${mode === p.key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
+-              >
+-                {p.label}
+-              </button>
+-            ))}
+-          </div>
++        <Card className="space-y-2">
++          <Select aria-label="Periode" data-testid="period-select" value={mode} onChange={e => { setMode(e.target.value); setMethodFilter('semua'); resetPaging(); }}>
++            {PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
++          </Select>
+           {mode === 'tanggal-terpilih' && (
+             <div className="flex items-center gap-2">
+               <Input type="date" value={custom.start} max={custom.end || undefined} onChange={e => { setCustom({ ...custom, start: e.target.value }); resetPaging(); }} />
+@@ -222,8 +203,8 @@ export default function RiwayatView() {
+                   key={c.key} onClick={() => { setMethodFilter(c.key); resetPaging(); }} data-testid={`method-${c.key}`}
+                   className={`shrink-0 text-left rounded-2xl px-5 py-3.5 border transition-all duration-300 active:scale-95 ${activeMethod === c.key ? 'bg-slate-800 dark:bg-white border-slate-800 dark:border-white text-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'}`}
+                 >
+-                  <p className="text-[11px] font-bold tracking-wider opacity-80">{c.label}</p>
+-                  <p className="font-heading font-black text-xl mt-0.5">{formatRupiah(c.total)}</p>
++                  <p className="text-xs font-bold tracking-wider opacity-80">{c.label}</p>
++                  <p className="font-heading font-bold text-xl mt-0.5">{formatRupiah(c.total)}</p>
+                 </button>
+               ))}
+             </div>
+@@ -237,7 +218,17 @@ export default function RiwayatView() {
+             {isSelecting && visible.length > 0 && (
+               <BulkSelectBar count={count} total={visible.length} allSelected={allSelected} onToggleAll={toggleAll} onDeleteSelected={handleBulkDelete} />
+             )}
+-            <p className="text-xs text-slate-500 dark:text-slate-400"><span data-testid="hist-count">{visible.length}</span> transaksi</p>
++            <div className="flex items-center justify-between gap-3">
++              <p className="text-xs text-slate-500 dark:text-slate-400"><span data-testid="hist-count">{visible.length}</span> transaksi</p>
++              {canDelete && visible.length > 0 && (
++                <button
++                  onClick={toggleSelecting} data-testid="riwayat-pilih"
++                  className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-300 active:scale-95 shrink-0 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400'}`}
++                >
++                  {isSelecting ? 'Batal' : 'Pilih Banyak'}
++                </button>
++              )}
++            </div>
+ 
+             {visible.length === 0 ? (
+               <EmptyState icon={<ShoppingBag className="w-12 h-12" />} title="Tidak ada transaksi pada periode ini" />
+@@ -252,7 +243,7 @@ export default function RiwayatView() {
+                           <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleOne(s.id)} className="w-5 h-5 mt-0.5 rounded accent-[#ea580c] cursor-pointer shrink-0" />
+                         )}
+                         <div className="min-w-0">
+-                          <p className="font-heading font-black text-lg text-slate-800 dark:text-slate-100 truncate">#{s.display_number}</p>
++                          <p className="font-heading font-bold text-lg text-slate-800 dark:text-slate-100 truncate">#{s.display_number}</p>
+                           <p className="text-sm text-slate-500 dark:text-slate-400">{new Date(s.paid_at || s.created_at).toLocaleString('id-ID')}</p>
+                         </div>
+                       </div>
+@@ -267,7 +258,7 @@ export default function RiwayatView() {
+                     </div>
+ 
+                     <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+-                      <span className="font-heading font-black text-2xl text-slate-800 dark:text-slate-100 min-w-0 truncate">{formatRupiah(s.total)}</span>
++                      <span className="font-heading font-bold text-2xl text-slate-800 dark:text-slate-100 min-w-0 truncate">{formatRupiah(s.total)}</span>
+                       <div className="flex items-center gap-2 shrink-0">
+                         <button onClick={() => setDetail(s)} title="Detail" className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all">
+                           <Eye className="w-4 h-4" /> Detail
+diff --git a/src/features/home/HomeView.jsx b/src/features/home/HomeView.jsx
+index 632b991..77aa414 100644
+--- a/src/features/home/HomeView.jsx
++++ b/src/features/home/HomeView.jsx
+@@ -147,7 +147,7 @@ const HomeView = () => {
+                 className="block w-full text-left bg-slate-900 dark:bg-black rounded-2xl p-5 mb-4 active:scale-[0.99] transition-transform">
+                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Total Penjualan Hari Ini</p>
+                 <div className="flex items-center justify-between gap-3">
+-                    <p className="font-heading text-3xl font-black text-white">{loading ? '...' : formatRupiah(totalSalesToday)}</p>
++                    <p className="font-heading text-3xl font-bold text-white">{loading ? '...' : formatRupiah(totalSalesToday)}</p>
+                     {!loading && salesDeltaPct !== 0 && (
+                         <span className={`shrink-0 flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-full ${salesDeltaPct > 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                             {salesDeltaPct > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+@@ -155,7 +155,7 @@ const HomeView = () => {
+                         </span>
+                     )}
+                 </div>
+-                <p className="mt-3 flex items-center gap-1 text-[11px] font-bold text-slate-500">Lihat riwayat <ChevronRight className="w-3 h-3" /></p>
++                <p className="mt-3 flex items-center gap-1 text-xs font-bold text-slate-500">Lihat riwayat <ChevronRight className="w-3 h-3" /></p>
+             </button>
+ 
+             {/* Grid 2x2 Metrik */}
+@@ -165,9 +165,9 @@ const HomeView = () => {
+                         <div className="w-8 h-8 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 flex items-center justify-center shrink-0">
+                             <TrendingDown className="w-4 h-4" />
+                         </div>
+-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pengeluaran</p>
++                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pengeluaran</p>
+                     </div>
+-                    <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(totalExpensesToday)}</p>
++                    <p className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(totalExpensesToday)}</p>
+                 </div>
+ 
+                 {can('beranda.laba') && (
+@@ -176,9 +176,9 @@ const HomeView = () => {
+                         <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                             <DollarSign className="w-4 h-4" />
+                         </div>
+-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Laba Kotor</p>
++                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Laba Kotor</p>
+                     </div>
+-                    <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(netProfitToday)}</p>
++                    <p className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(netProfitToday)}</p>
+                 </div>
+                 )}
+ 
+@@ -187,9 +187,9 @@ const HomeView = () => {
+                         <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 dark:text-blue-400 flex items-center justify-center shrink-0">
+                             <Receipt className="w-4 h-4" />
+                         </div>
+-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Transaksi</p>
++                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Transaksi</p>
+                     </div>
+-                    <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : totalTransaksiToday}</p>
++                    <p className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">{loading ? '...' : totalTransaksiToday}</p>
+                 </div>
+ 
+                 <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+@@ -197,9 +197,9 @@ const HomeView = () => {
+                         <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-500 dark:text-purple-400 flex items-center justify-center shrink-0">
+                             <Wallet className="w-4 h-4" />
+                         </div>
+-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Rata-rata</p>
++                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Rata-rata</p>
+                     </div>
+-                    <p className="font-heading text-lg font-black text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(avgTransaksi)}</p>
++                    <p className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">{loading ? '...' : formatRupiah(avgTransaksi)}</p>
+                 </div>
+             </div>
+ 
+@@ -217,9 +217,9 @@ const HomeView = () => {
+                         <div className="flex justify-between items-start mb-3 border-b border-dashed border-slate-200 dark:border-slate-700 pb-3">
+                             <div>
+                                 <h3 className="font-bold text-sm text-slate-800 dark:text-slate-100">#{order.display_number}</h3>
+-                                <p className="text-[10px] text-slate-500 dark:text-slate-400">{new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
++                                <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
+                             </div>
+-                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold border ${order.payment_method === 'Ojol' ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 border-accent-100 dark:border-accent-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'}`}>
++                            <span className={`px-2 py-1 rounded-md text-xs font-bold border ${order.payment_method === 'Ojol' ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 border-accent-100 dark:border-accent-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'}`}>
+                                 {order.payment_method} {order.payment_method === 'Ojol' && order.ojol_platform && `(${order.ojol_platform})`}
+                             </span>
+                         </div>
+@@ -230,7 +230,7 @@ const HomeView = () => {
+                         </div>
+ 
+                         <div className="flex justify-between items-center border-t border-slate-50 dark:border-slate-900 pt-3 mt-auto">
+-                            <span className="font-black text-slate-800 dark:text-slate-100">{formatRupiah(order.total)}</span>
++                            <span className="font-bold text-slate-800 dark:text-slate-100">{formatRupiah(order.total)}</span>
+                             <div className="flex gap-2">
+                                 <button onClick={() => setDetailOrder(order)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors active:scale-95" title="Detail">
+                                     <Eye className="w-4 h-4" />
+diff --git a/src/features/menu/tabs/MenuListTab.jsx b/src/features/menu/tabs/MenuListTab.jsx
+index 8a23c4f..818a9a5 100644
+--- a/src/features/menu/tabs/MenuListTab.jsx
++++ b/src/features/menu/tabs/MenuListTab.jsx
+@@ -45,7 +45,7 @@ const MenuCategorySection = ({
+               <GripVertical className="w-5 h-5" />
+             </div>
+           )}
+-          <span className="font-heading text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">{category}</span>
++          <span className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">{category}</span>
+           <Badge variant="neutral">{menus.length} Item</Badge>
+         </div>
+         <button
+@@ -90,7 +90,7 @@ const MenuCategorySection = ({
+                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate mb-0.5">
+                       {menu.name}
+                     </h3>
+-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
++                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                       <span className="font-medium">HPP: {formatRupiah(menu.hpp || 0)}</span>
+                       {menu.variantGroupIds?.length > 0 && (
+                         <>
+@@ -295,7 +295,7 @@ const MenuListTab = ({ data }) => {
+                     <input type="checkbox" className="w-5 h-5 accent-[#ea580c] dark:accent-[#f97316] cursor-pointer" checked={formData.variantGroupIds.includes(vg.id)} onChange={() => setFormData(prev => ({ ...prev, variantGroupIds: prev.variantGroupIds.includes(vg.id) ? prev.variantGroupIds.filter(id => id !== vg.id) : [...prev.variantGroupIds, vg.id] }))} />
+                     <div className="flex-1">
+                       <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{vg.name}</p>
+-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{vg.options.map(o => o.name).join(', ')}</p>
++                      <p className="text-xs text-slate-500 dark:text-slate-400">{vg.options.map(o => o.name).join(', ')}</p>
+                     </div>
+                   </label>
+                 ))
+diff --git a/src/features/menu/tabs/VariantListTab.jsx b/src/features/menu/tabs/VariantListTab.jsx
+index 40c843a..002002f 100644
+--- a/src/features/menu/tabs/VariantListTab.jsx
++++ b/src/features/menu/tabs/VariantListTab.jsx
+@@ -33,7 +33,7 @@ const VariantCategorySection = ({ category, groups, onReorder, onEdit, onDelete,
+           >
+             <GripVertical className="w-5 h-5" />
+           </div>
+-          <span className="font-heading text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">{category}</span>
++          <span className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">{category}</span>
+           <Badge variant="neutral">{groups.length} Grup</Badge>
+         </div>
+         <button
+@@ -76,7 +76,7 @@ const VariantCategorySection = ({ category, groups, onReorder, onEdit, onDelete,
+                       <Badge variant={vg.isRequired ? 'danger' : 'neutral'}>{vg.isRequired ? 'Wajib' : 'Opsional'}</Badge>
+                       <Badge variant="orange">Max: {vg.maxSelection} Pilihan</Badge>
+                     </div>
+-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
++                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                       <span className="font-semibold text-slate-400">Opsi:</span>
+                       {vg.options?.map((opt, oIdx) => (
+                         <span key={opt.id || oIdx} className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80 px-1.5 py-0.5 rounded font-medium text-slate-600 dark:text-slate-300">
+@@ -277,7 +277,7 @@ const VariantListTab = ({ data }) => {
+                 <input type="checkbox" className="w-5 h-5 accent-[#ea580c] dark:accent-[#f97316] cursor-pointer" checked={formData.isRequired} onChange={e => setFormData({ ...formData, isRequired: e.target.checked })} />
+                 <div>
+                   <p className="font-bold text-sm text-slate-800 dark:text-slate-100">Wajib Dipilih</p>
+-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Pelanggan harus memilih minimal satu opsi.</p>
++                  <p className="text-xs text-slate-500 dark:text-slate-400">Pelanggan harus memilih minimal satu opsi.</p>
+                 </div>
+               </label>
+               <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+@@ -290,11 +290,11 @@ const VariantListTab = ({ data }) => {
+             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">Opsi Pilihan Varian</h3>
+             <div className={`flex gap-2 items-end p-3 rounded-xl border transition-colors ${editingOptionId ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-200 dark:border-accent-500/30' : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800'}`}>
+               <div className="flex-1 min-w-0">
+-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Opsi</label>
++                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nama Opsi</label>
+                 <input type="text" placeholder="Misal: Mozzarella" className="w-full p-2 text-xs border border-slate-200 rounded-lg" value={newOption.name} onChange={e => setNewOption({ ...newOption, name: e.target.value })} />
+               </div>
+               <div className="w-28">
+-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Harga + (Rp)</label>
++                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Harga + (Rp)</label>
+                 <NominalInput bare title="Harga Tambahan Opsi" placeholder="0" className="w-full p-2 text-xs border border-slate-200 rounded-lg text-left" value={newOption.extraPrice} onChange={e => setNewOption({ ...newOption, extraPrice: e.target.value })} />
+               </div>
+               {editingOptionId && (
+@@ -320,7 +320,7 @@ const VariantListTab = ({ data }) => {
+                         </div>
+                         <div className="flex flex-col min-w-0">
+                           <span className="text-xs font-bold text-slate-800 truncate">{opt.name}</span>
+-                          <span className="text-[10px] text-slate-500">+{formatRupiah(opt.extraPrice)}</span>
++                          <span className="text-xs text-slate-500">+{formatRupiah(opt.extraPrice)}</span>
+                         </div>
+                       </div>
+                       <div className="flex items-center gap-1 shrink-0">
+diff --git a/src/features/payroll/AbsensiSetupCard.jsx b/src/features/payroll/AbsensiSetupCard.jsx
+index f435ed1..c124f7f 100644
+--- a/src/features/payroll/AbsensiSetupCard.jsx
++++ b/src/features/payroll/AbsensiSetupCard.jsx
+@@ -12,8 +12,8 @@ export default function AbsensiSetupCard() {
+           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Data absensi dibaca dari sistem absensi (project Supabase lama). Isi dua baris ini di file <span className="font-mono font-bold">.env.local</span> (jangan ditempel di chat), lalu jalankan ulang <span className="font-mono font-bold">npm run dev</span>. Di Vercel, isi di Environment Variables lalu redeploy.</p>
+         </div>
+       </div>
+-      <pre className="text-[11px] leading-relaxed bg-slate-100 dark:bg-slate-900 rounded-xl p-3 overflow-x-auto text-slate-700 dark:text-slate-300">{`VITE_ABSENSI_SUPABASE_URL=https://xxxx.supabase.co\nVITE_ABSENSI_SUPABASE_ANON_KEY=eyJ...`}</pre>
+-      <p className="text-[11px] text-slate-400 dark:text-slate-500">Nilainya dari Project Settings → Data API di project Supabase yang dipakai web absensi. URL tanpa /rest/v1/. Aplikasi ini hanya MEMBACA dari sana.</p>
++      <pre className="text-xs leading-relaxed bg-slate-100 dark:bg-slate-900 rounded-xl p-3 overflow-x-auto text-slate-700 dark:text-slate-300">{`VITE_ABSENSI_SUPABASE_URL=https://xxxx.supabase.co\nVITE_ABSENSI_SUPABASE_ANON_KEY=eyJ...`}</pre>
++      <p className="text-xs text-slate-400 dark:text-slate-500">Nilainya dari Project Settings → Data API di project Supabase yang dipakai web absensi. URL tanpa /rest/v1/. Aplikasi ini hanya MEMBACA dari sana.</p>
+     </Card>
+   );
+ }
+diff --git a/src/features/payroll/PayrollView.jsx b/src/features/payroll/PayrollView.jsx
+index 854eff9..d35d3d2 100644
+--- a/src/features/payroll/PayrollView.jsx
++++ b/src/features/payroll/PayrollView.jsx
+@@ -115,8 +115,8 @@ export default function PayrollView() {
+           <div className="flex items-center justify-between gap-2">
+             <button onClick={goPrev} aria-label="Sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
+             <div className="text-center min-w-0">
+-              <p className="font-heading font-black text-slate-800 dark:text-slate-100 text-sm truncate" data-testid="period-label">{label}</p>
+-              <button onClick={goToday} className="text-[11px] font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
++              <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm truncate" data-testid="period-label">{label}</p>
++              <button onClick={goToday} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
+             </div>
+             <button onClick={goNext} aria-label="Berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
+           </div>
+@@ -135,7 +135,7 @@ export default function PayrollView() {
+           <Card className="text-center space-y-2 border-2 border-red-200 dark:border-red-500/30">
+             <p className="text-sm font-semibold text-red-500">Absensi gagal dibaca</p>
+             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">{attendance.error}</p>
+-            <p className="text-[11px] text-slate-400">Gaji tidak ditampilkan supaya tidak ada angka Rp 0 yang menyesatkan.</p>
++            <p className="text-xs text-slate-400">Gaji tidak ditampilkan supaya tidak ada angka Rp 0 yang menyesatkan.</p>
+             <Button onClick={data.reload} icon={<RefreshCw className="w-4 h-4" />}>Coba Lagi</Button>
+           </Card>
+         )}
+@@ -176,7 +176,7 @@ export default function PayrollView() {
+                         {r.needsClarification.length > 0 && <Badge size="sm" variant="danger">perlu klarifikasi</Badge>}
+                       </div>
+                     </div>
+-                    <p className={`font-heading font-black text-base shrink-0 ${r.payroll.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}`}>{formatRupiah(r.payroll.netPay)}</p>
++                    <p className={`font-heading font-bold text-base shrink-0 ${r.payroll.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}`}>{formatRupiah(r.payroll.netPay)}</p>
+                   </div>
+                 </button>
+               );
+@@ -206,7 +206,7 @@ export default function PayrollView() {
+                 <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
+                 <Row k="Potongan" v={-p.deductionsTotal} f={formatRupiah} />
+                 {period.monthKey && <Row k="Saldo awal" v={-p.openingBalance} f={formatRupiah} />}
+-                <div className="flex justify-between font-black text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
++                <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
+               </div>
+ 
+               {selected.needsClarification.length > 0 && (
+@@ -214,13 +214,13 @@ export default function PayrollView() {
+               )}
+ 
+               <div>
+-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Rincian Harian</p>
++                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Rincian Harian</p>
+                 {a.dayRows.length === 0 ? <p className="text-xs text-slate-400">Tidak ada absensi pada periode ini.</p> : (
+                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                     {a.dayRows.map(d => (
+                       <div key={d.date} className="py-2 flex justify-between items-center gap-2 text-xs" data-testid="day-row">
+                         <div className="min-w-0"><span className="font-bold text-slate-700 dark:text-slate-200">{fmtDay(d.date)}</span> <Badge size="sm" variant={STATUS_VARIANT[d.status]}>{STATUS_LABEL[d.status]}</Badge>
+-                          {d.effectiveFromBolong && <span className="text-[10px] text-amber-600 ml-1">bolong dianggap pulang</span>}</div>
++                          {d.effectiveFromBolong && <span className="text-xs text-amber-600 ml-1">bolong dianggap pulang</span>}</div>
+                         {d.status === 'hadir' && <div className="text-right text-slate-500 dark:text-slate-400 shrink-0">{fmtHM(d.workedMinutes)}{d.overtimeMinutes > 0 && ` · lembur ${d.overtimeMinutes}m`}{d.bolongMinutes > 0 && ` · bolong ${d.bolongMinutes}m`}{d.fullTimeBonus && ' · FT'}</div>}
+                       </div>
+                     ))}
+@@ -229,7 +229,7 @@ export default function PayrollView() {
+               </div>
+ 
+               <div className="space-y-2">
+-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tambahan & Potongan</p>
++                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Tambahan & Potongan</p>
+                 {[...p.additions.map(x => ['tambahan', x]), ...p.deductions.map(x => ['potongan', x])].map(([kind, it]) => (
+                   <div key={kind + it.id} className="flex justify-between items-center gap-2 bg-slate-50 dark:bg-slate-950 rounded-xl p-2.5 text-xs" data-testid="adj-row">
+                     <div className="min-w-0"><Badge size="sm" variant={kind === 'tambahan' ? 'success' : 'danger'}>{it.category}</Badge> <span className="font-semibold">{it.label}</span> <span className="text-slate-400">{fmtDay(it.date)}</span></div>
+@@ -238,7 +238,7 @@ export default function PayrollView() {
+                   </div>
+                 ))}
+                 {isLocked ? (
+-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
++                  <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
+                 ) : (
+                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+                   <SegmentedControl value={form.type} onChange={(v) => setForm({ ...form, type: v, category: v === 'tambahan' ? ADD_CATEGORIES[0] : DED_CATEGORIES[0] })}
+@@ -250,15 +250,15 @@ export default function PayrollView() {
+                   <NominalInput title="Nominal" placeholder="Nominal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                   <Input type="date" value={form.date} min={period.start} max={period.end} onChange={e => setForm({ ...form, date: e.target.value })} />
+                   <Button size="full" onClick={handleAdd} disabled={busy} icon={<Plus className="w-4 h-4" />}>{busy ? 'Menyimpan...' : `Tambah ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}</Button>
+-                  <p className="text-[10px] text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
++                  <p className="text-xs text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
+                 </div>
+                 )}
+               </div>
+ 
+               {period.monthKey && !isLocked && (
+                 <div className="space-y-2">
+-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bulan</p>
+-                  <p className="text-[11px] text-slate-400">Positif = karyawan berutang ke toko (mengurangi gaji). Negatif = toko berutang (menambah gaji). Kosong/0 = tidak ada.</p>
++                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bulan</p>
++                  <p className="text-xs text-slate-400">Positif = karyawan berutang ke toko (mengurangi gaji). Negatif = toko berutang (menambah gaji). Kosong/0 = tidak ada.</p>
+                   <div className="flex gap-2">
+                     <div className="flex-1"><NominalInput title="Saldo Awal Bulan" allowNegative placeholder="0" value={openingInput} onChange={e => setOpeningInput(e.target.value)} /></div>
+                     <Button variant="secondary" onClick={handleSaveOpening} disabled={busy}>Simpan</Button>
+diff --git a/src/features/pos/CartDrawer.jsx b/src/features/pos/CartDrawer.jsx
+index 4f95334..fe10451 100644
+--- a/src/features/pos/CartDrawer.jsx
++++ b/src/features/pos/CartDrawer.jsx
+@@ -134,7 +134,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+                   </button>
+                 )}
+                 {customerName.trim() !== '' && !activeCustomer && (
+-                  <p className="mt-2 text-[10px] font-semibold text-slate-400 dark:text-slate-500 italic">Guest — bayar sebagai "{customerName}".</p>
++                  <p className="mt-2 text-xs font-semibold text-slate-400 dark:text-slate-500 italic">Guest — bayar sebagai "{customerName}".</p>
+                 )}
+               </div>
+ 
+@@ -188,7 +188,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+                       <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm leading-tight">{item.name}</h4>
+                       {item.variantName && (
+                         <div className="flex items-center gap-2 mt-0.5">
+-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">{item.variantName}</p>
++                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">{item.variantName}</p>
+                           <button onClick={() => handleEditVariant(item)} className="p-1 bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 rounded hover:bg-accent-100 dark:hover:bg-accent-500/20 transition-colors" title="Edit Varian"><Edit3 className="w-3 h-3" /></button>
+                         </div>
+                       )}
+@@ -197,7 +197,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+                         <Edit3 className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                         <input type="text" value={item.note || ''} onChange={(e) => updateCartItemNote(item.cartItemId, e.target.value)}
+                           placeholder="Catatan pesanan (opsional)..."
+-                          className="flex-1 text-[11px] bg-transparent border-b border-slate-200 dark:border-slate-700 focus:border-accent-500 dark:focus:border-accent-500 outline-none pb-0.5 text-slate-600 dark:text-slate-300 transition-colors" />
++                          className="flex-1 text-xs bg-transparent border-b border-slate-200 dark:border-slate-700 focus:border-accent-500 dark:focus:border-accent-500 outline-none pb-0.5 text-slate-600 dark:text-slate-300 transition-colors" />
+                       </div>
+                     </div>
+                     <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 rounded-lg p-1 border border-slate-100 dark:border-slate-800">
+@@ -218,17 +218,17 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+               {orderType !== 'Ojol' && (
+                 <div className="flex flex-col space-y-3">
+                   <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between space-y-2">
+-                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1"><Ticket className="w-3.5 h-3.5" /> Kode Voucher</span>
++                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1"><Ticket className="w-3.5 h-3.5" /> Kode Voucher</span>
+                     <div className="flex items-center gap-1.5">
+                       <input type="text" placeholder="VOUCHER" value={voucherInput} onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                         className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none uppercase" />
+-                      <button onClick={handleApplyVoucher} className="px-2.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-lg transition-colors shrink-0">Pasang</button>
++                      <button onClick={handleApplyVoucher} className="px-2.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg transition-colors shrink-0">Pasang</button>
+                     </div>
+-                    {appliedVoucher && <span className="text-[10px] text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5 animate-in fade-in">Aktif: -{appliedVoucher.discount_type === 'percent' ? `${appliedVoucher.discount_value}%` : formatRupiah(appliedVoucher.discount_value)}</span>}
++                    {appliedVoucher && <span className="text-xs text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5 animate-in fade-in">Aktif: -{appliedVoucher.discount_type === 'percent' ? `${appliedVoucher.discount_value}%` : formatRupiah(appliedVoucher.discount_value)}</span>}
+                   </div>
+ 
+                   <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col space-y-2">
+-                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1"><Minus className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" /> Diskon Tambahan Manual</span>
++                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1"><Minus className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" /> Diskon Tambahan Manual</span>
+                     <div className="flex items-center gap-1.5">
+                       <select className="w-20 text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" value={manualDiscount.type} onChange={e => setManualDiscount({ ...manualDiscount, type: e.target.value })}>
+                         <option value="fixed">Rp</option>
+@@ -240,7 +240,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+                         placeholder="Nominal Diskon Tambahan..." value={manualDiscount.value || ''} onChange={(e) => setManualDiscount({ ...manualDiscount, value: Number(e.target.value) || 0 })}
+                         className="w-full text-left truncate text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" />
+                     </div>
+-                    {totals.manualDiscountAmount > 0 && <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold block animate-in fade-in">Potongan: -{formatRupiah(totals.manualDiscountAmount)}</span>}
++                    {totals.manualDiscountAmount > 0 && <span className="text-xs text-blue-600 dark:text-blue-400 font-bold block animate-in fade-in">Potongan: -{formatRupiah(totals.manualDiscountAmount)}</span>}
+                   </div>
+                 </div>
+               )}
+@@ -256,7 +256,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+               {appliedVoucher && <div className="flex justify-between text-green-500 dark:text-green-400"><span className="flex items-center gap-1"><Ticket className="w-3 h-3" /> Diskon ({appliedVoucher.code})</span><span className="font-semibold">-{formatRupiah(totals.voucherDiscount)}</span></div>}
+               {totals.manualDiscountAmount > 0 && <div className="flex justify-between text-blue-500 dark:text-blue-400"><span className="flex items-center gap-1"><Minus className="w-3 h-3" /> Diskon Tambahan</span><span className="font-semibold">-{formatRupiah(totals.manualDiscountAmount)}</span></div>}
+               {orderType === 'Delivery' && <div className="flex justify-between text-accent-600 dark:text-accent-400"><span>Ongkir</span><span className="font-semibold">{formatRupiah(totals.deliveryFee)}</span></div>}
+-              <div className="flex justify-between text-lg font-black text-slate-800 dark:text-slate-100 border-t border-slate-100 dark:border-slate-800 pt-2 mt-2"><span>Total Tagihan</span><span className="text-accent-600 dark:text-accent-400">{formatRupiah(totals.total)}</span></div>
++              <div className="flex justify-between text-lg font-bold text-slate-800 dark:text-slate-100 border-t border-slate-100 dark:border-slate-800 pt-2 mt-2"><span>Total Tagihan</span><span className="text-accent-600 dark:text-accent-400">{formatRupiah(totals.total)}</span></div>
+             </div>
+             <button
+               onClick={() => setPaymentModal({ isOpen: true, isSplitMode: false, splitPayments: [], method: orderType === 'Ojol' ? 'Ojol' : 'Tunai', amountPaid: '', ojolPlatform: '', orderNumber: '' })}
+diff --git a/src/features/pos/CustomerPicker.jsx b/src/features/pos/CustomerPicker.jsx
+index c2833d5..0cfcff0 100644
+--- a/src/features/pos/CustomerPicker.jsx
++++ b/src/features/pos/CustomerPicker.jsx
+@@ -113,7 +113,7 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
+                   }`}>
+                   <div className="flex flex-col min-w-0">
+                     <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{c.name}</span>
+-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">{c.phone || 'Tanpa No. HP'}</span>
++                    <span className="text-xs text-slate-500 dark:text-slate-400">{c.phone || 'Tanpa No. HP'}</span>
+                   </div>
+                 </div>
+               ))}
+@@ -127,7 +127,7 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
+ 
+         {q && matches.length === 0 && (
+           <div className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-blue-50/50 dark:bg-blue-500/5">
+-            <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
++            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
+               <UserPlus className="w-3.5 h-3.5" /> Tambahkan "{query}" sebagai pelanggan baru
+             </p>
+             <div className="flex gap-2">
+diff --git a/src/features/pos/PaymentModal.jsx b/src/features/pos/PaymentModal.jsx
+index 78f4749..c7823a4 100644
+--- a/src/features/pos/PaymentModal.jsx
++++ b/src/features/pos/PaymentModal.jsx
+@@ -96,7 +96,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+         <div className="p-5 border-b flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+           <div>
+             <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Pembayaran</h2>
+-            {isSplitMode && <span className="text-[10px] bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Mode Multi Payment</span>}
++            {isSplitMode && <span className="text-xs bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Mode Multi Payment</span>}
+           </div>
+           <div className="flex items-center gap-2">
+             {orderType !== 'Ojol' && (
+@@ -115,7 +115,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+             <>
+               <div className="text-center mb-6">
+                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Total Tagihan</p>
+-                <h1 className="font-heading text-4xl font-black text-slate-900 dark:text-slate-50">{formatRupiah(total)}</h1>
++                <h1 className="font-heading text-4xl font-bold text-slate-900 dark:text-slate-50">{formatRupiah(total)}</h1>
+               </div>
+ 
+               <div className="flex flex-wrap justify-center gap-3 mb-6">
+@@ -123,7 +123,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+                   <button key={opt.id} onClick={() => setPaymentModal({ ...paymentModal, method: opt.id })}
+                     className={`flex flex-col items-center justify-center p-3 w-24 md:w-28 rounded-2xl border-2 transition-all duration-200 ${method === opt.id ? 'border-orange-600 dark:border-orange-500 bg-accent-600 dark:bg-accent-500 text-white shadow-md -translate-y-1' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-950 hover:border-slate-200 dark:hover:border-slate-700'}`}>
+                     <opt.icon className="w-6 h-6 mb-2" />
+-                    <span className="text-[11px] md:text-xs font-bold text-center leading-tight">{opt.id}</span>
++                    <span className="text-xs md:text-xs font-bold text-center leading-tight">{opt.id}</span>
+                   </button>
+                 ))}
+               </div>
+@@ -162,7 +162,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+                   </div>
+                   <div className={`p-4 rounded-xl border transition-colors duration-300 ${kembalian >= 0 ? 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30' : 'bg-accent-50 dark:bg-accent-500/10 border-red-200 dark:border-red-500/30'}`}>
+                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Kembalian</p>
+-                    <p className={`text-2xl font-black ${kembalian >= 0 ? 'text-green-500 dark:text-green-400' : 'text-accent-500 dark:text-accent-400'}`}>{isReadyToPay ? formatRupiah(kembalian) : 'Uang Kurang'}</p>
++                    <p className={`text-2xl font-bold ${kembalian >= 0 ? 'text-green-500 dark:text-green-400' : 'text-accent-500 dark:text-accent-400'}`}>{isReadyToPay ? formatRupiah(kembalian) : 'Uang Kurang'}</p>
+                   </div>
+                   {orderType === 'Delivery' && couriers.length > 0 && (
+                     <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+@@ -173,7 +173,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+                         {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                       </select>
+                       {deliveryCourierId && (
+-                        <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1.5 italic">*Uang gak masuk laci kasir, dicatat sebagai dipegang kurir ini.</p>
++                        <p className="text-xs text-accent-600 dark:text-accent-400 mt-1.5 italic">*Uang gak masuk laci kasir, dicatat sebagai dipegang kurir ini.</p>
+                       )}
+                     </div>
+                   )}
+@@ -195,7 +195,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+                 </div>
+                 <div className="flex justify-between items-center border-t border-slate-600 dark:border-slate-400 pt-2">
+                   <span className="text-xs font-bold text-slate-300 dark:text-slate-600 uppercase tracking-wider">{split.remaining > 0 ? 'Sisa Pembayaran' : 'Kembalian'}</span>
+-                  <span className={`font-black text-2xl ${split.remaining > 0 ? 'text-accent-400 dark:text-accent-300' : 'text-green-400 dark:text-green-400'}`}>
++                  <span className={`font-bold text-2xl ${split.remaining > 0 ? 'text-accent-400 dark:text-accent-300' : 'text-green-400 dark:text-green-400'}`}>
+                     {split.remaining > 0 ? formatRupiah(split.remaining) : formatRupiah(split.change)}
+                   </span>
+                 </div>
+@@ -243,7 +243,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+                     </div>
+                     <button onClick={handleAddSplitPayment} className="px-4 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors">Tambah</button>
+                   </div>
+-                  <button onClick={() => setPaymentModal({ ...paymentModal, amountPaid: String(split.remaining) })} className="w-full py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Uang Pas Sisa</button>
++                  <button onClick={() => setPaymentModal({ ...paymentModal, amountPaid: String(split.remaining) })} className="w-full py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Uang Pas Sisa</button>
+                 </div>
+               )}
+             </>
+diff --git a/src/features/pos/PosView.jsx b/src/features/pos/PosView.jsx
+index 0733a98..ac3e745 100644
+--- a/src/features/pos/PosView.jsx
++++ b/src/features/pos/PosView.jsx
+@@ -238,9 +238,9 @@ export default function PosView() {
+                 {menu.category === 'Minuman' ? <Coffee className="w-6 h-6 md:w-8 md:h-8 short:!w-4 short:!h-4 text-accent-600 dark:text-accent-400" /> : <UtensilsCrossed className="w-6 h-6 md:w-8 md:h-8 short:!w-4 short:!h-4 text-accent-600 dark:text-accent-400" />}
+               </div>
+               <div className={`min-w-0 flex-1 flex flex-col ${viewMode !== 'list' ? 'short:justify-center' : 'justify-center'}`}>
+-                <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-xs md:text-sm short:!text-[11px] mb-1 short:!mb-0.5 leading-tight short:truncate">{menu.name}</h3>
++                <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-xs md:text-sm short:!text-xs mb-1 short:!mb-0.5 leading-tight short:truncate">{menu.name}</h3>
+                 {isSearching && <Badge variant="neutral" className="mb-1 short:hidden">{menu.category}</Badge>}
+-                <p className="text-accent-600 dark:text-accent-400 font-bold text-xs md:text-sm short:!text-[11px] mt-auto short:!mt-0">{formatRupiah(menu.price)}</p>
++                <p className="text-accent-600 dark:text-accent-400 font-bold text-xs md:text-sm short:!text-xs mt-auto short:!mt-0">{formatRupiah(menu.price)}</p>
+               </div>
+               {menu.variantGroupIds.length > 0 && (
+                 <div className="absolute top-2 right-2 short:!top-1.5 short:!right-1.5"><span className="w-2 h-2 short:!w-1.5 short:!h-1.5 rounded-full bg-amber-400 dark:bg-amber-500 block" /></div>
+@@ -263,7 +263,7 @@ export default function PosView() {
+           <div className="relative">
+             <ShoppingCart className="w-5 h-5" />
+             {cart.length > 0 && (
+-              <span className="absolute -top-2.5 -right-2.5 bg-white text-accent-600 text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center border-2 border-accent-600 animate-in zoom-in duration-300">{cartTotalQty}</span>
++              <span className="absolute -top-2.5 -right-2.5 bg-white text-accent-600 text-xs font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center border-2 border-accent-600 animate-in zoom-in duration-300">{cartTotalQty}</span>
+             )}
+           </div>
+         </button>
+diff --git a/src/features/pos/VariantSelectionModal.jsx b/src/features/pos/VariantSelectionModal.jsx
+index 18194e1..f089af5 100644
+--- a/src/features/pos/VariantSelectionModal.jsx
++++ b/src/features/pos/VariantSelectionModal.jsx
+@@ -100,11 +100,11 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
+                 <div className="bg-slate-50 dark:bg-slate-950 p-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                   <div>
+                     <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm">{vg.name}</h4>
+-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Pilih maksimal {vg.maxSelection}</p>
++                    <p className="text-xs text-slate-500 dark:text-slate-400">Pilih maksimal {vg.maxSelection}</p>
+                   </div>
+                   {vg.isRequired
+-                    ? <span className="text-[10px] font-bold bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-1 rounded-md uppercase tracking-wider">Wajib</span>
+-                    : <span className="text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md uppercase tracking-wider">Opsional</span>
++                    ? <span className="text-xs font-bold bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-1 rounded-md uppercase tracking-wider">Wajib</span>
++                    : <span className="text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md uppercase tracking-wider">Opsional</span>
+                   }
+                 </div>
+                 <div className="p-2">
+diff --git a/src/features/reports/ProfitLossTab.jsx b/src/features/reports/ProfitLossTab.jsx
+index 4ac76fe..23128d5 100644
+--- a/src/features/reports/ProfitLossTab.jsx
++++ b/src/features/reports/ProfitLossTab.jsx
+@@ -46,7 +46,7 @@ export default function ProfitLossTab() {
+   if (cost && cost.kasbonTotal > 0) warnings.push(`Kasbon ${formatRupiah(cost.kasbonTotal)} tidak dihitung sebagai biaya (itu piutang ke karyawan).`);
+ 
+   const Line = ({ k, v, sign, bold, indent, testid }) => (
+-    <div className={`flex justify-between gap-3 py-1.5 ${bold ? 'font-black text-slate-900 dark:text-slate-50 border-t border-slate-200 dark:border-slate-700 mt-1 pt-2.5' : 'text-slate-600 dark:text-slate-300'} ${indent ? 'pl-4 text-xs' : 'text-sm'}`}>
++    <div className={`flex justify-between gap-3 py-1.5 ${bold ? 'font-bold text-slate-900 dark:text-slate-50 border-t border-slate-200 dark:border-slate-700 mt-1 pt-2.5' : 'text-slate-600 dark:text-slate-300'} ${indent ? 'pl-4 text-xs' : 'text-sm'}`}>
+       <span className="min-w-0">{k}</span>
+       <span className="font-bold shrink-0 text-slate-800 dark:text-slate-100" data-testid={testid}>{sign === '-' && v !== 0 ? '−' : ''}{formatRupiah(v)}</span>
+     </div>
+@@ -58,15 +58,15 @@ export default function ProfitLossTab() {
+         <div className="flex items-center justify-between gap-2">
+           <button onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Bulan sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
+           <div className="text-center">
+-            <p className="font-heading font-black text-slate-800 dark:text-slate-100 text-sm" data-testid="pl-month">{MON_FULL[m - 1]} {y}</p>
+-            <button onClick={() => setMonth(todayMonth)} className="text-[11px] font-bold text-accent-600 dark:text-accent-400">Ke bulan ini</button>
++            <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm" data-testid="pl-month">{MON_FULL[m - 1]} {y}</p>
++            <button onClick={() => setMonth(todayMonth)} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke bulan ini</button>
+           </div>
+           <button onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Bulan berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
+         </div>
+         <div>
+-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Dasar HPP</p>
++          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Dasar HPP</p>
+           <SegmentedControl value={hppBasis} onChange={setHppBasis} options={[{ value: 'belanja', label: 'Belanja Bahan Baku' }, { value: 'menu', label: 'HPP Menu' }]} />
+-          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">{hppBasis === 'belanja' ? 'Seperti Balance di mamam-global, tanpa stok opname: HPP = total pengeluaran kategori Belanja bulan ini.' : 'HPP = jumlah (HPP menu × porsi terjual). Belanja bahan baku tidak dikurangkan lagi.'}</p>
++          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">{hppBasis === 'belanja' ? 'Seperti Balance di mamam-global, tanpa stok opname: HPP = total pengeluaran kategori Belanja bulan ini.' : 'HPP = jumlah (HPP menu × porsi terjual). Belanja bahan baku tidak dikurangkan lagi.'}</p>
+         </div>
+       </Card>
+ 
+@@ -78,9 +78,9 @@ export default function ProfitLossTab() {
+       {!waiting && !report.error && (
+         <>
+           <Card variant="dark" padding="lg" className="space-y-1">
+-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{pl.gajiIncluded ? 'Laba Bersih' : 'Laba Sebelum Gaji'}</p>
+-            <p className={`font-heading text-3xl font-black ${pl.labaBersih < 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid="pl-net">{formatRupiah(pl.labaBersih)}</p>
+-            {!pl.gajiIncluded && <p className="text-[11px] text-amber-300">Belum dikurangi gaji karyawan.</p>}
++            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{pl.gajiIncluded ? 'Laba Bersih' : 'Laba Sebelum Gaji'}</p>
++            <p className={`font-heading text-3xl font-bold ${pl.labaBersih < 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid="pl-net">{formatRupiah(pl.labaBersih)}</p>
++            {!pl.gajiIncluded && <p className="text-xs text-amber-300">Belum dikurangi gaji karyawan.</p>}
+           </Card>
+ 
+           {warnings.length > 0 && (
+@@ -101,10 +101,10 @@ export default function ProfitLossTab() {
+           </Card>
+ 
+           <Card className="space-y-1.5">
+-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Info className="w-3.5 h-3.5" /> Pembanding HPP</p>
++            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Info className="w-3.5 h-3.5" /> Pembanding HPP</p>
+             <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300"><span>Belanja bahan baku bulan ini</span><span className="font-bold">{formatRupiah(pl.belanjaBahanBaku)}</span></div>
+             <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300"><span>HPP menurut menu</span><span className="font-bold">{formatRupiah(pl.hppMenu)}</span></div>
+-            <p className="text-[10px] text-slate-400 dark:text-slate-500">Selisih besar biasanya karena belanja stok yang belum terpakai, atau HPP menu yang belum diisi. Pemasukan non-penjualan tidak dihitung, sama seperti di mamam-global.</p>
++            <p className="text-xs text-slate-400 dark:text-slate-500">Selisih besar biasanya karena belanja stok yang belum terpakai, atau HPP menu yang belum diisi. Pemasukan non-penjualan tidak dihitung, sama seperti di mamam-global.</p>
+           </Card>
+         </>
+       )}
+diff --git a/src/features/reports/ReportsView.jsx b/src/features/reports/ReportsView.jsx
+index cf60e9e..ca4a059 100644
+--- a/src/features/reports/ReportsView.jsx
++++ b/src/features/reports/ReportsView.jsx
+@@ -65,24 +65,24 @@ function SalesTabs({ tab }) {
+       {!loading && !error && tab === 'ringkasan' && (
+         <>
+           <Card variant="dark" padding="lg" className="space-y-1">
+-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Penjualan</p>
+-            <p className="font-heading text-3xl font-black text-white" data-testid="sum-total">{formatRupiah(summary.total)}</p>
++            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Penjualan</p>
++            <p className="font-heading text-3xl font-bold text-white" data-testid="sum-total">{formatRupiah(summary.total)}</p>
+             <p className="text-xs text-slate-400">{summary.count} transaksi · rata-rata {formatRupiah(summary.average)}</p>
+           </Card>
+ 
+           <div className="grid grid-cols-2 gap-3">
+             {[['HPP (menu)', summary.hppTotal, 'sum-hpp'], ['Laba Kotor', summary.grossProfit, 'sum-kotor'], ['Pengeluaran', totalExpense, 'sum-exp']].filter(([k]) => canProfit || k === 'Pengeluaran').map(([k, v, id]) => (
+-              <Card key={k} padding="md"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{k}</p><p className="font-heading font-black text-base text-slate-800 dark:text-slate-100" data-testid={id}>{formatRupiah(v)}</p></Card>
++              <Card key={k} padding="md"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">{k}</p><p className="font-heading font-bold text-base text-slate-800 dark:text-slate-100" data-testid={id}>{formatRupiah(v)}</p></Card>
+             ))}
+           </div>
+           {canProfit && summary.itemsWithoutHppQty > 0 && (
+             <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 rounded-xl p-3">{summary.itemsWithoutHppQty} porsi terjual belum punya HPP di menu, jadi Laba Kotor bisa terlalu besar.</p>
+           )}
+-          {canLabaRugi && <p className="text-[11px] text-slate-400 dark:text-slate-500">Laba bersih (setelah biaya operasional dan gaji) ada di tab Laba Rugi.</p>}
++          {canLabaRugi && <p className="text-xs text-slate-400 dark:text-slate-500">Laba bersih (setelah biaya operasional dan gaji) ada di tab Laba Rugi.</p>}
+ 
+           {[['Per Metode Bayar', summary.byPayment], ['Per Tipe Pesanan', summary.byOrderType]].map(([title, rows]) => (
+             <Card key={title} className="space-y-1.5">
+-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{title}</p>
++              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">{title}</p>
+               {rows.length === 0 ? <p className="text-xs text-slate-400">Belum ada data.</p> : rows.map(r => (
+                 <div key={r.key} className="flex justify-between text-sm"><span className="text-slate-600 dark:text-slate-300">{r.key} <span className="text-slate-400 text-xs">({r.count})</span></span><span className="font-bold text-slate-800 dark:text-slate-100">{formatRupiah(r.total)}</span></div>
+               ))}
+@@ -90,7 +90,7 @@ function SalesTabs({ tab }) {
+           ))}
+ 
+           <Card className="space-y-1.5">
+-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Menu Terlaris</p>
++            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Menu Terlaris</p>
+             {menus.length === 0 ? <p className="text-xs text-slate-400">Belum ada data.</p> : menus.map((m, i) => (
+               <div key={m.key} className="flex justify-between text-sm gap-3"><span className="text-slate-600 dark:text-slate-300 min-w-0 truncate"><span className="text-slate-400 mr-1.5">{i + 1}.</span>{m.name}</span><span className="shrink-0"><span className="font-bold text-slate-800 dark:text-slate-100">{m.qty}×</span> <span className="text-xs text-slate-400">{formatRupiah(m.revenue)}</span></span></div>
+             ))}
+diff --git a/src/features/shift/ShiftView.jsx b/src/features/shift/ShiftView.jsx
+index b95bf83..d744218 100644
+--- a/src/features/shift/ShiftView.jsx
++++ b/src/features/shift/ShiftView.jsx
+@@ -30,8 +30,8 @@ function ClosedReport({ shift, formatRupiah, onClose }) {
+       <div className="bg-white dark:bg-slate-900 p-6 w-full max-w-sm rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800">
+         <div className="text-center border-b-2 border-dashed border-slate-300 dark:border-slate-600 pb-4 mb-4">
+           <h2 className="text-xl font-bold uppercase tracking-widest text-slate-800 dark:text-slate-100 mb-1">DOMPET</h2>
+-          <p className="text-[10px] text-slate-500 dark:text-slate-400">LAPORAN TUTUP DOMPET</p>
+-          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2">ID: {shift.code}</p>
++          <p className="text-xs text-slate-500 dark:text-slate-400">LAPORAN TUTUP DOMPET</p>
++          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">ID: {shift.code}</p>
+         </div>
+ 
+         <div className="space-y-1 text-xs mb-4">
+@@ -63,7 +63,7 @@ function ClosedReport({ shift, formatRupiah, onClose }) {
+ 
+         {couriers.length > 0 && (
+           <div className="border-t-2 border-dashed border-slate-300 dark:border-slate-600 mt-4 pt-4 text-xs space-y-1.5">
+-            <p className="font-bold uppercase tracking-wide text-[10px] text-slate-500 dark:text-slate-400 mb-1">Uang Masih di Kurir (saat tutup)</p>
++            <p className="font-bold uppercase tracking-wide text-xs text-slate-500 dark:text-slate-400 mb-1">Uang Masih di Kurir (saat tutup)</p>
+             {couriers.map(c => (
+               <div key={c.employeeId} className="flex justify-between text-slate-500 dark:text-slate-400">
+                 <span>{c.employeeName}</span>
+@@ -74,7 +74,7 @@ function ClosedReport({ shift, formatRupiah, onClose }) {
+           </div>
+         )}
+ 
+-        <div className="text-center mt-8 text-[10px] text-slate-500 dark:text-slate-400"><p>-- Akhir Laporan --</p></div>
++        <div className="text-center mt-8 text-xs text-slate-500 dark:text-slate-400"><p>-- Akhir Laporan --</p></div>
+       </div>
+ 
+       <div className="mt-6 w-full max-w-sm">
+@@ -207,7 +207,7 @@ const ShiftView = () => {
+           <div className="w-16 h-16 bg-gradient-to-br from-accent-50 to-accent-100 dark:from-accent-500/10 dark:to-accent-500/15 text-accent-500 dark:text-accent-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+             <Clock className="w-8 h-8" />
+           </div>
+-          <h3 className="font-heading text-2xl font-black bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 mb-2">Dompet Belom Dibuka</h3>
++          <h3 className="font-heading text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 mb-2">Dompet Belom Dibuka</h3>
+           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Masukkan jumlah uang tunai yang ada di dalam dompet saat ini sebagai modal harian.</p>
+ 
+           <Button size="full" onClick={() => setIsOpenSheet(true)}>Buka Dompet</Button>
+@@ -219,14 +219,14 @@ const ShiftView = () => {
+ 
+             <div className="relative z-10">
+               <Badge variant="info" className="uppercase tracking-wider">Dompet Terbuka</Badge>
+-              <h3 className="font-heading text-2xl font-black text-slate-800 dark:text-slate-100 mt-4 mb-1">{currentShift.code}</h3>
++              <h3 className="font-heading text-2xl font-bold text-slate-800 dark:text-slate-100 mt-4 mb-1">{currentShift.code}</h3>
+               <p className="text-sm text-slate-500 dark:text-slate-400">Waktu Buka: {new Date(currentShift.opened_at).toLocaleString('id-ID')}</p>
+               {currentShift.opened_by_employee_name && (
+                 <p className="text-sm font-semibold text-accent-600 dark:text-accent-400 mt-1 flex items-center gap-1.5">
+                   <Users className="w-3.5 h-3.5" /> {currentShift.opened_by_employee_name}
+                 </p>
+               )}
+-              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase mt-2">Khusus Transaksi Tunai</p>
++              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase mt-2">Khusus Transaksi Tunai</p>
+             </div>
+ 
+             <div className="mt-8 space-y-4 relative z-10">
+@@ -254,11 +254,11 @@ const ShiftView = () => {
+               )}
+               <div className="flex justify-between items-center pt-2">
+                 <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Saldo Akhir</span>
+-                <span className="font-black text-2xl text-slate-800 dark:text-slate-100">{formatRupiah(saldoAkhir)}</span>
++                <span className="font-bold text-2xl text-slate-800 dark:text-slate-100">{formatRupiah(saldoAkhir)}</span>
+               </div>
+ 
+               <div className="mt-2 pt-4 border-t border-dashed border-slate-200 dark:border-slate-800">
+-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Rincian Posisi Uang</p>
++                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Rincian Posisi Uang</p>
+                 <div className="space-y-1.5">
+                   <BreakdownRow label="Kasir (Dompet)" value={stats?.expectedCash ?? 0} colorClass="bg-slate-400" formatRupiah={formatRupiah} />
+                   {couriers.map(c => (
+@@ -306,20 +306,20 @@ const ShiftView = () => {
+ 
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+             <Card padding="sm" className="flex flex-col justify-center">
+-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Dompet Dibuka</p>
+-              <h4 className="font-heading text-base md:text-lg font-black text-slate-800 dark:text-slate-100">{filtered.length} Kali</h4>
++              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Dompet Dibuka</p>
++              <h4 className="font-heading text-base md:text-lg font-bold text-slate-800 dark:text-slate-100">{filtered.length} Kali</h4>
+             </Card>
+             <Card padding="sm" className="flex flex-col justify-center">
+-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Pendapatan Tunai</p>
+-              <h4 className="font-heading text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400">{formatRupiah(rekap.sales)}</h4>
++              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Pendapatan Tunai</p>
++              <h4 className="font-heading text-base md:text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatRupiah(rekap.sales)}</h4>
+             </Card>
+             <Card padding="sm" className="flex flex-col justify-center">
+-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Kas Seharusnya</p>
+-              <h4 className="font-heading text-base md:text-lg font-black text-slate-800 dark:text-slate-100">{formatRupiah(rekap.expected)}</h4>
++              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Kas Seharusnya</p>
++              <h4 className="font-heading text-base md:text-lg font-bold text-slate-800 dark:text-slate-100">{formatRupiah(rekap.expected)}</h4>
+             </Card>
+             <Card padding="sm" className="flex flex-col justify-center">
+-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Selisih (Short/Over)</p>
+-              <h4 className={`font-heading text-base md:text-lg font-black ${diffColor(rekap.diff)}`}>{formatRupiah(rekap.diff)}</h4>
++              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Selisih (Short/Over)</p>
++              <h4 className={`font-heading text-base md:text-lg font-bold ${diffColor(rekap.diff)}`}>{formatRupiah(rekap.diff)}</h4>
+             </Card>
+           </div>
+ 
+@@ -338,25 +338,25 @@ const ShiftView = () => {
+                   <button key={s.id} onClick={() => setReport(s)} className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-950/50 transition-colors flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                     <div className="space-y-1 flex-1">
+                       <div className="flex items-center gap-2 mb-1">
+-                        <span className="font-black text-sm text-slate-800 dark:text-slate-100">{s.code}</span>
+-                        <Badge variant={badgeVariant}><span className="uppercase tracking-wider text-[10px]">{statusLabel}</span></Badge>
++                        <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{s.code}</span>
++                        <Badge variant={badgeVariant}><span className="uppercase tracking-wider text-xs">{statusLabel}</span></Badge>
+                       </div>
+-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
++                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                         Buka: {new Date(s.opened_at).toLocaleString('id-ID')} | Tutup: {new Date(s.closed_at).toLocaleString('id-ID')}
+                       </p>
+-                      {s.opened_by_employee_name && <p className="text-[11px] text-accent-600 dark:text-accent-400 font-semibold">Kasir: {s.opened_by_employee_name}</p>}
+-                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
++                      {s.opened_by_employee_name && <p className="text-xs text-accent-600 dark:text-accent-400 font-semibold">Kasir: {s.opened_by_employee_name}</p>}
++                      <p className="text-xs text-slate-400 dark:text-slate-500">
+                         Saldo Awal: {formatRupiah(s.stats_json?.initialCash)} | Penjualan Tunai: {formatRupiah(s.stats_json?.cashSales)} | Target Uang: {formatRupiah(s.expected_cash)}
+                       </p>
+                     </div>
+                     <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-0 pt-2 md:pt-0">
+                       <div className="text-left md:text-right">
+-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Uang Aktual</p>
++                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Uang Aktual</p>
+                         <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{formatRupiah(s.closing_balance)}</p>
+                       </div>
+                       <div className="text-right">
+-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Selisih</p>
+-                        <p className={`font-black text-sm ${diffColor(s.difference)}`}>{s.difference > 0 ? '+' : ''}{formatRupiah(s.difference)}</p>
++                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Selisih</p>
++                        <p className={`font-bold text-sm ${diffColor(s.difference)}`}>{s.difference > 0 ? '+' : ''}{formatRupiah(s.difference)}</p>
+                       </div>
+                     </div>
+                   </button>
+@@ -388,7 +388,7 @@ const ShiftView = () => {
+           <p className="text-sm text-slate-500 dark:text-slate-400">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
+           <NominalInput label="Saldo aktual yang ada di dompet"
+             value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
+-            className="text-xl font-black py-4 border-2 focus:border-accent-600" />
++            className="text-xl font-bold py-4 border-2 focus:border-accent-600" />
+           <Button size="full" onClick={handleClose} disabled={busy}>{busy ? 'Memproses...' : 'Tutup Dompet'}</Button>
+         </div>
+       </Modal>
+@@ -402,7 +402,7 @@ function BreakdownRow({ label, value, colorClass, isDebt, formatRupiah }) {
+     <div className="flex justify-between items-center text-xs">
+       <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+         <span className={`w-2 h-2 rounded-full ${colorClass}`} />
+-        {label}{isDebt && <span className="text-[10px] text-red-500 dark:text-red-400 font-bold">(bisnis berutang)</span>}
++        {label}{isDebt && <span className="text-xs text-red-500 dark:text-red-400 font-bold">(bisnis berutang)</span>}
+       </span>
+       <span className={`font-bold ${isDebt ? 'text-red-500 dark:text-red-400' : 'text-slate-800 dark:text-slate-100'}`}>{formatRupiah(value)}</span>
+     </div>
+diff --git a/src/index.css b/src/index.css
+index 223b041..6e161ca 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -1,13 +1,36 @@
+ @import "tailwindcss";
+-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Paytone+One&display=swap');
++@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Paytone+One&display=swap');
+ @config "../tailwind.config.js";
+ @custom-variant dark (&:where(.dark, .dark *));
++
++/* Skala font SATU APP — dikecilkan, acuan: form Pengeluaran (isi & label ~13px).
++   Semua text-xs/sm/base/lg/... di seluruh app otomatis ikut skala ini. */
++@theme {
++  --text-xs: 0.6875rem;   --text-xs--line-height: 1rem;      /* 11px */
++  --text-sm: 0.8125rem;   --text-sm--line-height: 1.25rem;   /* 13px */
++  --text-base: 0.8125rem; --text-base--line-height: 1.25rem; /* 13px (sama dgn sm) */
++  --text-lg: 0.9375rem;   --text-lg--line-height: 1.375rem;  /* 15px */
++  --text-xl: 1.0625rem;   --text-xl--line-height: 1.5rem;    /* 17px */
++  --text-2xl: 1.1875rem;  --text-2xl--line-height: 1.625rem; /* 19px */
++  --text-3xl: 1.375rem;   --text-3xl--line-height: 1.75rem;  /* 22px */
++  --text-4xl: 1.625rem;   --text-4xl--line-height: 2rem;     /* 26px */
++}
+ /* Custom variant "short:" — target layar dengan tinggi terbatas (khas HP
+    landscape: lebar bisa >768px tapi tinggi cuma ~360-420px). Breakpoint
+    bawaan Tailwind (md/lg) cuma baca lebar, jadi HP landscape sering kena
+    treat kayak tablet/desktop dan sidebar/bottom-nav jadi permanen di layar
+    yang sebenarnya sempit. "short:" mengisi celah itu. */
+ @custom-variant short (@media (max-height: 480px) and (orientation: landscape));
++/* Ukuran dasar: elemen yang TIDAK punya class text-* (tombol, input, select,
++   teks polos) ikut 13px, bukan 16px bawaan browser. */
++@layer base {
++  body {
++    font-size: var(--text-sm);
++    line-height: var(--text-sm--line-height);
++    -webkit-font-smoothing: antialiased;
++    -moz-osx-font-smoothing: grayscale;
++  }
++}
+ /* App-shell: dokumen TIDAK boleh ikut scroll. Header & navbar nempel (flex di
+    dalam root `fixed inset-0`), cuma area konten di antaranya yang scroll.
+    overscroll none = scroll mentok di konten tidak "tembus" menggeser seluruh

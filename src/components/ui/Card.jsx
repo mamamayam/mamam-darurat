@@ -31,7 +31,7 @@
  *
  *   <Card variant="dark" padding="lg">
  *     <p className="text-slate-400 text-xs uppercase">Total Pengeluaran</p>
- *     <h3 className="text-white text-2xl font-black">Rp 1.000.000</h3>
+ *     <h3 className="text-white text-2xl font-bold">Rp 1.000.000</h3>
  *   </Card>
  *
  *   <Card variant="muted" padding="sm">
@@ -40,10 +40,10 @@
  *   </Card>
  *
  *   <Card variant="dark-elevated" padding="lg" className="text-white space-y-6">
- *     <h4 className="font-black border-b border-slate-800 dark:border-slate-100 pb-3">HASIL ANALISA</h4>
+ *     <h4 className="font-bold border-b border-slate-800 dark:border-slate-100 pb-3">HASIL ANALISA</h4>
  *     <Card variant="dark-muted" padding="lg" className="text-center">
  *       <span className="block text-xs uppercase text-slate-400">HPP per Unit</span>
- *       <span className="block text-3xl font-black text-green-400">Rp 12.500</span>
+ *       <span className="block text-3xl font-bold text-green-400">Rp 12.500</span>
  *     </Card>
  *   </Card>
  *

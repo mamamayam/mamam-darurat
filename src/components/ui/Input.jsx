@@ -50,7 +50,7 @@ export function FieldWrapper({ label, error, hint, children }) {
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
-        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
           {label}
         </label>
       )}

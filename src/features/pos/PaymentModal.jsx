@@ -96,7 +96,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
         <div className="p-5 border-b flex justify-between items-center bg-slate-50 dark:bg-slate-950">
           <div>
             <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Pembayaran</h2>
-            {isSplitMode && <span className="text-[10px] bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Mode Multi Payment</span>}
+            {isSplitMode && <span className="text-xs bg-accent-100 dark:bg-accent-500/15 text-accent-600 dark:text-accent-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Mode Multi Payment</span>}
           </div>
           <div className="flex items-center gap-2">
             {orderType !== 'Ojol' && (
@@ -115,7 +115,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
             <>
               <div className="text-center mb-6">
                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Total Tagihan</p>
-                <h1 className="font-heading text-4xl font-black text-slate-900 dark:text-slate-50">{formatRupiah(total)}</h1>
+                <h1 className="font-heading text-4xl font-bold text-slate-900 dark:text-slate-50">{formatRupiah(total)}</h1>
               </div>
 
               <div className="flex flex-wrap justify-center gap-3 mb-6">
@@ -123,7 +123,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                   <button key={opt.id} onClick={() => setPaymentModal({ ...paymentModal, method: opt.id })}
                     className={`flex flex-col items-center justify-center p-3 w-24 md:w-28 rounded-2xl border-2 transition-all duration-200 ${method === opt.id ? 'border-orange-600 dark:border-orange-500 bg-accent-600 dark:bg-accent-500 text-white shadow-md -translate-y-1' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-950 hover:border-slate-200 dark:hover:border-slate-700'}`}>
                     <opt.icon className="w-6 h-6 mb-2" />
-                    <span className="text-[11px] md:text-xs font-bold text-center leading-tight">{opt.id}</span>
+                    <span className="text-xs md:text-xs font-bold text-center leading-tight">{opt.id}</span>
                   </button>
                 ))}
               </div>
@@ -162,7 +162,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                   </div>
                   <div className={`p-4 rounded-xl border transition-colors duration-300 ${kembalian >= 0 ? 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30' : 'bg-accent-50 dark:bg-accent-500/10 border-red-200 dark:border-red-500/30'}`}>
                     <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Kembalian</p>
-                    <p className={`text-2xl font-black ${kembalian >= 0 ? 'text-green-500 dark:text-green-400' : 'text-accent-500 dark:text-accent-400'}`}>{isReadyToPay ? formatRupiah(kembalian) : 'Uang Kurang'}</p>
+                    <p className={`text-2xl font-bold ${kembalian >= 0 ? 'text-green-500 dark:text-green-400' : 'text-accent-500 dark:text-accent-400'}`}>{isReadyToPay ? formatRupiah(kembalian) : 'Uang Kurang'}</p>
                   </div>
                   {orderType === 'Delivery' && couriers.length > 0 && (
                     <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
@@ -173,7 +173,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                         {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                       {deliveryCourierId && (
-                        <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1.5 italic">*Uang gak masuk laci kasir, dicatat sebagai dipegang kurir ini.</p>
+                        <p className="text-xs text-accent-600 dark:text-accent-400 mt-1.5 italic">*Uang gak masuk laci kasir, dicatat sebagai dipegang kurir ini.</p>
                       )}
                     </div>
                   )}
@@ -195,7 +195,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                 </div>
                 <div className="flex justify-between items-center border-t border-slate-600 dark:border-slate-400 pt-2">
                   <span className="text-xs font-bold text-slate-300 dark:text-slate-600 uppercase tracking-wider">{split.remaining > 0 ? 'Sisa Pembayaran' : 'Kembalian'}</span>
-                  <span className={`font-black text-2xl ${split.remaining > 0 ? 'text-accent-400 dark:text-accent-300' : 'text-green-400 dark:text-green-400'}`}>
+                  <span className={`font-bold text-2xl ${split.remaining > 0 ? 'text-accent-400 dark:text-accent-300' : 'text-green-400 dark:text-green-400'}`}>
                     {split.remaining > 0 ? formatRupiah(split.remaining) : formatRupiah(split.change)}
                   </span>
                 </div>
@@ -243,7 +243,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                     </div>
                     <button onClick={handleAddSplitPayment} className="px-4 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors">Tambah</button>
                   </div>
-                  <button onClick={() => setPaymentModal({ ...paymentModal, amountPaid: String(split.remaining) })} className="w-full py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Uang Pas Sisa</button>
+                  <button onClick={() => setPaymentModal({ ...paymentModal, amountPaid: String(split.remaining) })} className="w-full py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Uang Pas Sisa</button>
                 </div>
               )}
             </>

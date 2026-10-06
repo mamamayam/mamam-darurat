@@ -207,7 +207,7 @@ const ExpenseView = () => {
 
           <div className="p-3 bg-red-50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-500/20 flex justify-between items-center">
             <span className="text-xs font-bold text-red-700 dark:text-red-300">Total Periode Ini:</span>
-            <span className="text-sm font-black text-red-700 dark:text-red-300">{formatRupiah(activeTotal)}</span>
+            <span className="text-sm font-bold text-red-700 dark:text-red-300">{formatRupiah(activeTotal)}</span>
           </div>
 
           {isSelecting && sortedExpenses.length > 0 && (
@@ -232,12 +232,12 @@ const ExpenseView = () => {
                       {exp.paymentMethod === 'Non-Tunai' && <Badge variant="info">Bank</Badge>}
                       {exp.cashHolderName && <Badge variant="warning">💰 {exp.cashHolderName}</Badge>}
                     </p>
-                    {exp.supplier && <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mt-1">🏪 {exp.supplier}</p>}
+                    {exp.supplier && <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1">🏪 {exp.supplier}</p>}
                     {(() => {
                       const lines = noteLines(exp.note);
-                      if (lines.length > 1) return <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>;
-                      if (lines.length === 1) return <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{lines[0]}</p>;
-                      return exp.supplier ? null : <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Tanpa catatan</p>;
+                      if (lines.length > 1) return <ul className="mt-1 list-disc pl-4 text-xs text-slate-500 dark:text-slate-400 space-y-0.5">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>;
+                      if (lines.length === 1) return <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{lines[0]}</p>;
+                      return exp.supplier ? null : <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tanpa catatan</p>;
                     })()}
                   </div>
                 </div>
@@ -271,13 +271,13 @@ const ExpenseView = () => {
 
           {paymentMethod === 'Tunai' && couriers.length > 0 && (
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibayar Pakai Uang Siapa?</label>
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Dibayar Pakai Uang Siapa?</label>
               <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
                 <option value="kasir">Kasir / Toko</option>
                 {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
               </Select>
               {cashHolderId !== 'kasir' && (
-                <p className="text-[10px] text-accent-600 dark:text-accent-400 mt-1 italic">
+                <p className="text-xs text-accent-600 dark:text-accent-400 mt-1 italic">
                   *Dicatat pakai cash yang lagi dipegang kurir ini (belum disetor). Terlihat di rincian posisi uang pada Dompet.
                 </p>
               )}
@@ -330,7 +330,7 @@ function CategoryCombobox({ value, onChange, options, onManage }) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
+        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Kategori</label>
         <button type="button" onClick={onManage} aria-label="Kelola Kategori" title="Kelola Kategori"
           className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 active:scale-90 transition-all"><Settings2 className="w-3.5 h-3.5" /></button>
       </div>
@@ -346,7 +346,7 @@ function CategoryCombobox({ value, onChange, options, onManage }) {
           ))}
         </div>
       )}
-      {isNew && <p className="text-[10px] text-accent-600 dark:text-accent-400">Kategori baru, dibuat saat disimpan.</p>}
+      {isNew && <p className="text-xs text-accent-600 dark:text-accent-400">Kategori baru, dibuat saat disimpan.</p>}
     </div>
   );
 }

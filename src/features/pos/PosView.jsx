@@ -238,9 +238,9 @@ export default function PosView() {
                 {menu.category === 'Minuman' ? <Coffee className="w-6 h-6 md:w-8 md:h-8 short:!w-4 short:!h-4 text-accent-600 dark:text-accent-400" /> : <UtensilsCrossed className="w-6 h-6 md:w-8 md:h-8 short:!w-4 short:!h-4 text-accent-600 dark:text-accent-400" />}
               </div>
               <div className={`min-w-0 flex-1 flex flex-col ${viewMode !== 'list' ? 'short:justify-center' : 'justify-center'}`}>
-                <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-xs md:text-sm short:!text-[11px] mb-1 short:!mb-0.5 leading-tight short:truncate">{menu.name}</h3>
+                <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-xs md:text-sm short:!text-xs mb-1 short:!mb-0.5 leading-tight short:truncate">{menu.name}</h3>
                 {isSearching && <Badge variant="neutral" className="mb-1 short:hidden">{menu.category}</Badge>}
-                <p className="text-accent-600 dark:text-accent-400 font-bold text-xs md:text-sm short:!text-[11px] mt-auto short:!mt-0">{formatRupiah(menu.price)}</p>
+                <p className="text-accent-600 dark:text-accent-400 font-bold text-xs md:text-sm short:!text-xs mt-auto short:!mt-0">{formatRupiah(menu.price)}</p>
               </div>
               {menu.variantGroupIds.length > 0 && (
                 <div className="absolute top-2 right-2 short:!top-1.5 short:!right-1.5"><span className="w-2 h-2 short:!w-1.5 short:!h-1.5 rounded-full bg-amber-400 dark:bg-amber-500 block" /></div>
@@ -263,7 +263,7 @@ export default function PosView() {
           <div className="relative">
             <ShoppingCart className="w-5 h-5" />
             {cart.length > 0 && (
-              <span className="absolute -top-2.5 -right-2.5 bg-white text-accent-600 text-[10px] font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center border-2 border-accent-600 animate-in zoom-in duration-300">{cartTotalQty}</span>
+              <span className="absolute -top-2.5 -right-2.5 bg-white text-accent-600 text-xs font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center border-2 border-accent-600 animate-in zoom-in duration-300">{cartTotalQty}</span>
             )}
           </div>
         </button>

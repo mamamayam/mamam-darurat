@@ -71,7 +71,7 @@ const CustomerView = () => {
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col min-h-0 relative animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       <div className="flex items-center gap-2 mb-6 shrink-0">
         <Users className="w-6 h-6 text-accent-500 dark:text-accent-400" />
-        <h2 className="font-heading text-xl font-black text-slate-800 dark:text-slate-100">Pelanggan</h2>
+        <h2 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100">Pelanggan</h2>
       </div>
 
       <Card padding="none" className="flex flex-col flex-1 min-h-0 max-w-2xl w-full">
@@ -109,7 +109,7 @@ const CustomerView = () => {
                 )}
                 <div>
                   <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{cust.name}</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{cust.phone || 'Tanpa No. HP'}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{cust.phone || 'Tanpa No. HP'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

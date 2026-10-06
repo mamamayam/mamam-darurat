@@ -115,8 +115,8 @@ export default function PayrollView() {
           <div className="flex items-center justify-between gap-2">
             <button onClick={goPrev} aria-label="Sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
             <div className="text-center min-w-0">
-              <p className="font-heading font-black text-slate-800 dark:text-slate-100 text-sm truncate" data-testid="period-label">{label}</p>
-              <button onClick={goToday} className="text-[11px] font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
+              <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm truncate" data-testid="period-label">{label}</p>
+              <button onClick={goToday} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
             </div>
             <button onClick={goNext} aria-label="Berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
           </div>
@@ -135,7 +135,7 @@ export default function PayrollView() {
           <Card className="text-center space-y-2 border-2 border-red-200 dark:border-red-500/30">
             <p className="text-sm font-semibold text-red-500">Absensi gagal dibaca</p>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">{attendance.error}</p>
-            <p className="text-[11px] text-slate-400">Gaji tidak ditampilkan supaya tidak ada angka Rp 0 yang menyesatkan.</p>
+            <p className="text-xs text-slate-400">Gaji tidak ditampilkan supaya tidak ada angka Rp 0 yang menyesatkan.</p>
             <Button onClick={data.reload} icon={<RefreshCw className="w-4 h-4" />}>Coba Lagi</Button>
           </Card>
         )}
@@ -176,7 +176,7 @@ export default function PayrollView() {
                         {r.needsClarification.length > 0 && <Badge size="sm" variant="danger">perlu klarifikasi</Badge>}
                       </div>
                     </div>
-                    <p className={`font-heading font-black text-base shrink-0 ${r.payroll.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}`}>{formatRupiah(r.payroll.netPay)}</p>
+                    <p className={`font-heading font-bold text-base shrink-0 ${r.payroll.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}`}>{formatRupiah(r.payroll.netPay)}</p>
                   </div>
                 </button>
               );
@@ -206,7 +206,7 @@ export default function PayrollView() {
                 <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
                 <Row k="Potongan" v={-p.deductionsTotal} f={formatRupiah} />
                 {period.monthKey && <Row k="Saldo awal" v={-p.openingBalance} f={formatRupiah} />}
-                <div className="flex justify-between font-black text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
+                <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
               </div>
 
               {selected.needsClarification.length > 0 && (
@@ -214,13 +214,13 @@ export default function PayrollView() {
               )}
 
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Rincian Harian</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Rincian Harian</p>
                 {a.dayRows.length === 0 ? <p className="text-xs text-slate-400">Tidak ada absensi pada periode ini.</p> : (
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {a.dayRows.map(d => (
                       <div key={d.date} className="py-2 flex justify-between items-center gap-2 text-xs" data-testid="day-row">
                         <div className="min-w-0"><span className="font-bold text-slate-700 dark:text-slate-200">{fmtDay(d.date)}</span> <Badge size="sm" variant={STATUS_VARIANT[d.status]}>{STATUS_LABEL[d.status]}</Badge>
-                          {d.effectiveFromBolong && <span className="text-[10px] text-amber-600 ml-1">bolong dianggap pulang</span>}</div>
+                          {d.effectiveFromBolong && <span className="text-xs text-amber-600 ml-1">bolong dianggap pulang</span>}</div>
                         {d.status === 'hadir' && <div className="text-right text-slate-500 dark:text-slate-400 shrink-0">{fmtHM(d.workedMinutes)}{d.overtimeMinutes > 0 && ` · lembur ${d.overtimeMinutes}m`}{d.bolongMinutes > 0 && ` · bolong ${d.bolongMinutes}m`}{d.fullTimeBonus && ' · FT'}</div>}
                       </div>
                     ))}
@@ -229,7 +229,7 @@ export default function PayrollView() {
               </div>
 
               <div className="space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tambahan & Potongan</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Tambahan & Potongan</p>
                 {[...p.additions.map(x => ['tambahan', x]), ...p.deductions.map(x => ['potongan', x])].map(([kind, it]) => (
                   <div key={kind + it.id} className="flex justify-between items-center gap-2 bg-slate-50 dark:bg-slate-950 rounded-xl p-2.5 text-xs" data-testid="adj-row">
                     <div className="min-w-0"><Badge size="sm" variant={kind === 'tambahan' ? 'success' : 'danger'}>{it.category}</Badge> <span className="font-semibold">{it.label}</span> <span className="text-slate-400">{fmtDay(it.date)}</span></div>
@@ -238,7 +238,7 @@ export default function PayrollView() {
                   </div>
                 ))}
                 {isLocked ? (
-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
                 ) : (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
                   <SegmentedControl value={form.type} onChange={(v) => setForm({ ...form, type: v, category: v === 'tambahan' ? ADD_CATEGORIES[0] : DED_CATEGORIES[0] })}
@@ -250,15 +250,15 @@ export default function PayrollView() {
                   <NominalInput title="Nominal" placeholder="Nominal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
                   <Input type="date" value={form.date} min={period.start} max={period.end} onChange={e => setForm({ ...form, date: e.target.value })} />
                   <Button size="full" onClick={handleAdd} disabled={busy} icon={<Plus className="w-4 h-4" />}>{busy ? 'Menyimpan...' : `Tambah ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}</Button>
-                  <p className="text-[10px] text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
+                  <p className="text-xs text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
                 </div>
                 )}
               </div>
 
               {period.monthKey && !isLocked && (
                 <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bulan</p>
-                  <p className="text-[11px] text-slate-400">Positif = karyawan berutang ke toko (mengurangi gaji). Negatif = toko berutang (menambah gaji). Kosong/0 = tidak ada.</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bulan</p>
+                  <p className="text-xs text-slate-400">Positif = karyawan berutang ke toko (mengurangi gaji). Negatif = toko berutang (menambah gaji). Kosong/0 = tidak ada.</p>
                   <div className="flex gap-2">
                     <div className="flex-1"><NominalInput title="Saldo Awal Bulan" allowNegative placeholder="0" value={openingInput} onChange={e => setOpeningInput(e.target.value)} /></div>
                     <Button variant="secondary" onClick={handleSaveOpening} disabled={busy}>Simpan</Button>

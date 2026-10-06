@@ -12,7 +12,7 @@ import { Home, ShoppingCart, Menu } from "lucide-react";
 //    tombol tidak ketutup tapi bar tetap mentok di tepi layar
 // Elemen lain yang melayang di atas bar (FAB keranjang, ExitToast) memakai
 // offset yang sama: tinggi bar + safe-area.
-const LABEL = "text-[10px] short:text-[9px] leading-none font-bold transition-colors duration-300";
+const LABEL = "text-xs short:text-xs leading-none font-bold transition-colors duration-300";
 
 export default function BottomNav({
     currentView,

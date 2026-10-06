@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Calendar, Filter, ArrowUpDown, Search, X, CreditCard, RefreshCw, Eye, Trash2, Receipt, ShoppingBag } from 'lucide-react';
-import { Card, EmptyState, DetailModal, Button, Input, BulkSelectBar } from '../../components/ui';
+import { Filter, ArrowUpDown, Search, X, CreditCard, RefreshCw, Eye, Trash2, Receipt, ShoppingBag } from 'lucide-react';
+import { Card, EmptyState, DetailModal, Button, Input, Select, BulkSelectBar } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useReportData } from '../../hook/useReportData';
@@ -24,7 +24,7 @@ const PERIODS = [
   { key: 'kemarin', label: 'Kemarin' },
   { key: 'bulan-ini', label: 'Bulan Ini' },
   { key: 'semua', label: 'Semua' },
-  { key: 'tanggal-terpilih', label: 'Pilih Tanggal' },
+  { key: 'tanggal-terpilih', label: 'Tanggal Terpilih' },
 ];
 const SORTS = [
   { key: 'terbaru', label: 'Terbaru Dulu' },
@@ -140,30 +140,11 @@ export default function RiwayatView() {
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       <div className="max-w-3xl w-full space-y-4 pb-10">
 
-        {canDelete && (
-          <div>
-            <button
-              onClick={toggleSelecting} data-testid="riwayat-pilih"
-              className={`text-sm font-bold px-4 py-2.5 rounded-full transition-all duration-300 active:scale-95 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
-            >
-              {isSelecting ? 'Batal' : 'Pilih'}
-            </button>
-          </div>
-        )}
-
         {/* Periode */}
-        <Card className="space-y-3">
-          <div className={`flex items-center gap-2.5 overflow-x-auto -mx-1 px-1 py-1 ${NO_SCROLLBAR}`}>
-            <Calendar className="w-6 h-6 text-slate-500 dark:text-slate-400 shrink-0 mr-1" />
-            {PERIODS.map(p => (
-              <button
-                key={p.key} onClick={() => { setMode(p.key); setMethodFilter('semua'); resetPaging(); }} data-testid={`period-${p.key}`}
-                className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300 active:scale-95 ${mode === p.key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+        <Card className="space-y-2">
+          <Select aria-label="Periode" data-testid="period-select" value={mode} onChange={e => { setMode(e.target.value); setMethodFilter('semua'); resetPaging(); }}>
+            {PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </Select>
           {mode === 'tanggal-terpilih' && (
             <div className="flex items-center gap-2">
               <Input type="date" value={custom.start} max={custom.end || undefined} onChange={e => { setCustom({ ...custom, start: e.target.value }); resetPaging(); }} />
@@ -222,8 +203,8 @@ export default function RiwayatView() {
                   key={c.key} onClick={() => { setMethodFilter(c.key); resetPaging(); }} data-testid={`method-${c.key}`}
                   className={`shrink-0 text-left rounded-2xl px-5 py-3.5 border transition-all duration-300 active:scale-95 ${activeMethod === c.key ? 'bg-slate-800 dark:bg-white border-slate-800 dark:border-white text-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'}`}
                 >
-                  <p className="text-[11px] font-bold tracking-wider opacity-80">{c.label}</p>
-                  <p className="font-heading font-black text-xl mt-0.5">{formatRupiah(c.total)}</p>
+                  <p className="text-xs font-bold tracking-wider opacity-80">{c.label}</p>
+                  <p className="font-heading font-bold text-xl mt-0.5">{formatRupiah(c.total)}</p>
                 </button>
               ))}
             </div>
@@ -237,7 +218,17 @@ export default function RiwayatView() {
             {isSelecting && visible.length > 0 && (
               <BulkSelectBar count={count} total={visible.length} allSelected={allSelected} onToggleAll={toggleAll} onDeleteSelected={handleBulkDelete} />
             )}
-            <p className="text-xs text-slate-500 dark:text-slate-400"><span data-testid="hist-count">{visible.length}</span> transaksi</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400"><span data-testid="hist-count">{visible.length}</span> transaksi</p>
+              {canDelete && visible.length > 0 && (
+                <button
+                  onClick={toggleSelecting} data-testid="riwayat-pilih"
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-300 active:scale-95 shrink-0 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400'}`}
+                >
+                  {isSelecting ? 'Batal' : 'Pilih Banyak'}
+                </button>
+              )}
+            </div>
 
             {visible.length === 0 ? (
               <EmptyState icon={<ShoppingBag className="w-12 h-12" />} title="Tidak ada transaksi pada periode ini" />
@@ -252,7 +243,7 @@ export default function RiwayatView() {
                           <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleOne(s.id)} className="w-5 h-5 mt-0.5 rounded accent-[#ea580c] cursor-pointer shrink-0" />
                         )}
                         <div className="min-w-0">
-                          <p className="font-heading font-black text-lg text-slate-800 dark:text-slate-100 truncate">#{s.display_number}</p>
+                          <p className="font-heading font-bold text-lg text-slate-800 dark:text-slate-100 truncate">#{s.display_number}</p>
                           <p className="text-sm text-slate-500 dark:text-slate-400">{new Date(s.paid_at || s.created_at).toLocaleString('id-ID')}</p>
                         </div>
                       </div>
@@ -267,7 +258,7 @@ export default function RiwayatView() {
                     </div>
 
                     <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <span className="font-heading font-black text-2xl text-slate-800 dark:text-slate-100 min-w-0 truncate">{formatRupiah(s.total)}</span>
+                      <span className="font-heading font-bold text-2xl text-slate-800 dark:text-slate-100 min-w-0 truncate">{formatRupiah(s.total)}</span>
                       <div className="flex items-center gap-2 shrink-0">
                         <button onClick={() => setDetail(s)} title="Detail" className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all">
                           <Eye className="w-4 h-4" /> Detail

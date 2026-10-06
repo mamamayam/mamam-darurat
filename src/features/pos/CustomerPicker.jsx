@@ -113,7 +113,7 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
                   }`}>
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{c.name}</span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">{c.phone || 'Tanpa No. HP'}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{c.phone || 'Tanpa No. HP'}</span>
                   </div>
                 </div>
               ))}
@@ -127,7 +127,7 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
 
         {q && matches.length === 0 && (
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-blue-50/50 dark:bg-blue-500/5">
-            <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
+            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
               <UserPlus className="w-3.5 h-3.5" /> Tambahkan "{query}" sebagai pelanggan baru
             </p>
             <div className="flex gap-2">

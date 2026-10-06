@@ -27,7 +27,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
  * Bar full-width dengan border-b, konten kiri & kanan (mirip tabel header).
  * Untuk section summary bar seperti "Total Periode Ini: Rp X".
  *
- *   <Alert type="stripe" variant="error" action={<span className="font-black">{formatRupiah(total)}</span>}>
+ *   <Alert type="stripe" variant="error" action={<span className="font-bold">{formatRupiah(total)}</span>}>
  *     Total Periode Ini
  *   </Alert>
  *

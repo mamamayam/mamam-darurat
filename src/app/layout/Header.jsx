@@ -19,7 +19,7 @@ export default function Header({
     return (
         <header className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-100/60 dark:border-slate-900 h-16 short:h-12 flex items-center justify-between px-4 short:px-3 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-none shrink-0">
             <div className="flex items-center gap-3 short:gap-2">
-                <h2 className="font-heading font-black text-xl short:text-base tracking-tight capitalize bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+                <h2 className="font-heading font-bold text-xl short:text-base tracking-tight capitalize bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
                     {currentView.replace('-', ' ')}
                 </h2>
             </div>

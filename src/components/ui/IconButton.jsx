@@ -114,7 +114,7 @@ export default function IconButton({
     >
       {children}
       {label && (
-        <span className="text-[10px] font-bold leading-none">{label}</span>
+        <span className="text-xs font-bold leading-none">{label}</span>
       )}
     </button>
   );

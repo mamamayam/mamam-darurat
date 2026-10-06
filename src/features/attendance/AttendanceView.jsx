@@ -42,13 +42,13 @@ export default function AttendanceView() {
           <div className="flex items-center justify-between gap-2">
             <button onClick={() => setDate(shiftDay(date, -1))} aria-label="Hari sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
             <div className="text-center min-w-0">
-              <p className="font-heading font-black text-slate-800 dark:text-slate-100 text-sm" data-testid="att-date">{longDate(date)}</p>
-              <button onClick={() => setDate(today)} className="text-[11px] font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
+              <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm" data-testid="att-date">{longDate(date)}</p>
+              <button onClick={() => setDate(today)} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
             </div>
             <button onClick={() => setDate(shiftDay(date, 1))} aria-label="Hari berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
           </div>
           {configured && (
-            <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
+            <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
               <span data-testid="att-updated">{updatedAt ? `Diperbarui ${updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Memuat...'}</span>
               <button onClick={reload} className="flex items-center gap-1 font-bold text-accent-600 dark:text-accent-400"><RefreshCw className="w-3 h-3" /> Perbarui</button>
             </div>
@@ -80,7 +80,7 @@ export default function AttendanceView() {
                 <div className="flex justify-between items-start gap-3">
                   <div className="min-w-0">
                     <p className="font-heading font-bold text-slate-800 dark:text-slate-100 truncate">{r.employee.name}</p>
-                    <p className="text-[11px] text-slate-400 capitalize">{r.employee.role}</p>
+                    <p className="text-xs text-slate-400 capitalize">{r.employee.role}</p>
                   </div>
                   <Badge size="sm" variant={STATUS[r.status].variant}>{STATUS[r.status].label}</Badge>
                 </div>
@@ -92,7 +92,7 @@ export default function AttendanceView() {
                     {r.status === 'sudahPulang' && <span className="text-slate-500">· {fmtHM(r.workedMinutes)}{r.overtimeMinutes > 0 && ` · lembur ${r.overtimeMinutes}m`}</span>}
                   </div>
                 )}
-                {r.note && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">{r.note}</p>}
+                {r.note && <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">{r.note}</p>}
               </div>
             ))}
           </>
