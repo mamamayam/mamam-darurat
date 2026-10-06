@@ -6,6 +6,7 @@ import { usePosStore } from '../../store/usePosStore';
 import { computeOrderTotals } from './posMath';
 import useBackLayer from '../../hook/useBackLayer';
 import CustomerPickerModal from './CustomerPicker';
+import NominalInput from '../../components/ui/NominalInput';
 
 /**
  * CartDrawer — di-port dari mamam-global, DIPANGKAS sesuai scope
@@ -171,7 +172,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
                     ))}
                     <div className="snap-center shrink-0 flex items-center gap-2 border rounded-xl px-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 min-w-[140px]">
                       <span className="text-slate-400 dark:text-slate-500 text-xs font-bold pl-2">Rp</span>
-                      <input type="number" placeholder="Custom" className="w-full py-2 bg-transparent outline-none text-sm font-bold text-slate-700 dark:text-slate-200"
+                      <NominalInput bare title="Biaya Pengiriman Custom" placeholder="Custom" className="w-full py-2 bg-transparent outline-none text-sm font-bold text-slate-700 dark:text-slate-200 text-left"
                         value={customDeliveryFee} onChange={(e) => { setCustomDeliveryFee(e.target.value); setDeliveryFee(Number(e.target.value) || 0); }} />
                     </div>
                   </div>
@@ -201,10 +202,10 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
                     </div>
                     <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 rounded-lg p-1 border border-slate-100 dark:border-slate-800">
                       <button onClick={() => updateCartQty(item.cartItemId, item.qty - 1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-slate-900 rounded shadow-sm text-slate-600 dark:text-slate-300 hover:text-accent-600 dark:hover:text-accent-400 transition-colors shrink-0"><Minus className="w-3 h-3" /></button>
-                      <input type="text" inputMode="numeric" value={item.qty}
+                      <NominalInput bare title={`Jumlah — ${item.name}`} prefix={null} calculator={false} maxDigits={3} value={item.qty}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '');
-                          updateCartQty(item.cartItemId, val === '' ? 1 : parseInt(val, 10));
+                          const n = parseInt(e.target.value, 10);
+                          updateCartQty(item.cartItemId, n >= 1 ? n : 1);
                         }}
                         className="w-8 text-center font-bold text-sm bg-transparent outline-none focus:ring-2 focus:ring-accent-500/20 rounded transition-colors" />
                       <button onClick={() => updateCartQty(item.cartItemId, item.qty + 1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-slate-900 rounded shadow-sm text-slate-600 dark:text-slate-300 hover:text-green-500 dark:hover:text-green-400 transition-colors shrink-0"><Plus className="w-3 h-3" /></button>
@@ -233,8 +234,11 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
                         <option value="fixed">Rp</option>
                         <option value="percent">%</option>
                       </select>
-                      <input type="number" min="0" placeholder="Nominal Diskon Tambahan..." value={manualDiscount.value || ''} onChange={(e) => setManualDiscount({ ...manualDiscount, value: Number(e.target.value) || 0 })}
-                        className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" />
+                      <NominalInput bare title="Diskon Tambahan Manual"
+                        prefix={manualDiscount.type === 'percent' ? null : 'Rp'} suffix={manualDiscount.type === 'percent' ? '%' : ''}
+                        max={manualDiscount.type === 'percent' ? 100 : null} calculator={manualDiscount.type !== 'percent'}
+                        placeholder="Nominal Diskon Tambahan..." value={manualDiscount.value || ''} onChange={(e) => setManualDiscount({ ...manualDiscount, value: Number(e.target.value) || 0 })}
+                        className="w-full text-left truncate text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" />
                     </div>
                     {totals.manualDiscountAmount > 0 && <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold block animate-in fade-in">Potongan: -{formatRupiah(totals.manualDiscountAmount)}</span>}
                   </div>

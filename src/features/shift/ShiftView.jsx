@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Clock, FileText, History, AlertTriangle, Users } from 'lucide-react';
-import { Button, Card, Input, Select, PageHeader, EmptyState, Badge } from '../../components/ui';
+import { Button, Card, Input, NominalInput, Select, PageHeader, EmptyState, Badge } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useShiftData } from '../../hook/useShiftData';
 import { toLocalDateString } from '../../utils/formatters';
@@ -207,7 +207,7 @@ const ShiftView = () => {
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Masukkan jumlah uang tunai yang ada di dalam dompet saat ini sebagai modal harian.</p>
 
           <div className="text-left mb-6">
-            <Input type="number" label="Saldo Awal" icon={<span className="font-bold">Rp</span>} value={initialCashInput}
+            <NominalInput label="Saldo Awal" value={initialCashInput}
               onChange={e => setInitialCashInput(e.target.value)} placeholder="0" className="text-lg font-bold" />
           </div>
 
@@ -282,7 +282,7 @@ const ShiftView = () => {
             <h3 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 text-center">Saldo Aktual</h3>
             <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
             <div className="mb-6">
-              <Input type="number" label="Saldo aktual yang ada di dompet" icon={<span className="font-bold">Rp</span>}
+              <NominalInput label="Saldo aktual yang ada di dompet"
                 value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
                 className="text-xl font-black py-4 border-2 focus:border-accent-600" />
             </div>

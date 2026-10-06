@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info, Lock } from 'lucide-react';
-import { Card, Button, Input, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
+import { Card, Button, Input, NominalInput, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { usePayrollData } from '../../hook/usePayrollData';
 import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
@@ -259,7 +259,7 @@ export default function PayrollView() {
                     {(form.type === 'tambahan' ? ADD_CATEGORIES : DED_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
                   </Select>
                   <Input placeholder="Keterangan" value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} />
-                  <Input type="number" placeholder="Nominal" icon={<span className="font-bold">Rp</span>} value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                  <NominalInput title="Nominal" placeholder="Nominal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
                   <Input type="date" value={form.date} min={period.start} max={period.end} onChange={e => setForm({ ...form, date: e.target.value })} />
                   <Button size="full" onClick={handleAdd} disabled={busy} icon={<Plus className="w-4 h-4" />}>{busy ? 'Menyimpan...' : `Tambah ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}</Button>
                   <p className="text-[10px] text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
@@ -272,7 +272,7 @@ export default function PayrollView() {
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bulan</p>
                   <p className="text-[11px] text-slate-400">Positif = karyawan berutang ke toko (mengurangi gaji). Negatif = toko berutang (menambah gaji). Kosong/0 = tidak ada.</p>
                   <div className="flex gap-2">
-                    <div className="flex-1"><Input type="number" placeholder="0" icon={<span className="font-bold">Rp</span>} value={openingInput} onChange={e => setOpeningInput(e.target.value)} /></div>
+                    <div className="flex-1"><NominalInput title="Saldo Awal Bulan" allowNegative placeholder="0" value={openingInput} onChange={e => setOpeningInput(e.target.value)} /></div>
                     <Button variant="secondary" onClick={handleSaveOpening} disabled={busy}>Simpan</Button>
                   </div>
                 </div>

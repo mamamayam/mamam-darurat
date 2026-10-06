@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { TrendingDown, Save, X, Pencil, Trash2, Settings2, History, ArrowUpDown } from 'lucide-react';
-import { Card, Input, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar } from '../../components/ui';
+import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar } from '../../components/ui';
 import CategoryModal from '../../components/CategoryModal';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -183,7 +183,7 @@ const ExpenseView = () => {
             </Select>
           </div>
 
-          <Input type="number" label="Nominal" icon={<span className="font-bold">Rp</span>} value={amount}
+          <NominalInput label="Nominal" value={amount}
             onChange={e => setAmount(e.target.value)} placeholder="0" className="text-lg font-bold" />
 
           <Input label="Catatan Tambahan" value={note} onChange={e => setNote(e.target.value)} placeholder="Contoh: Saos BBQ Delmonte" />

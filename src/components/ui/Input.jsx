@@ -46,7 +46,7 @@
  */
 
 // ── Shared label + error wrapper ────────────────────────────────────────────
-function FieldWrapper({ label, error, hint, children }) {
+export function FieldWrapper({ label, error, hint, children }) {
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
@@ -67,7 +67,7 @@ const FIELD_VARIANTS = {
   muted:   'bg-slate-50 dark:bg-slate-950 font-semibold',
 };
 
-const base = (variant) => `
+export const base = (variant) => `
   w-full p-3 text-sm
   ${FIELD_VARIANTS[variant] ?? FIELD_VARIANTS.default}
   border border-slate-200 dark:border-slate-700
@@ -79,7 +79,7 @@ const base = (variant) => `
   disabled:opacity-50 disabled:cursor-not-allowed
 `;
 
-const ERROR_BORDER = 'border-red-400 dark:border-red-500 focus:border-red-400 dark:focus:border-red-500';
+export const ERROR_BORDER = 'border-red-400 dark:border-red-500 focus:border-red-400 dark:focus:border-red-500';
 
 // ── Input ────────────────────────────────────────────────────────────────────
 export function Input({

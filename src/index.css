@@ -119,3 +119,19 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ======================================================
+   BOTTOM SHEET KEYPAD NOMINAL (components/ui/Nominal*.jsx)
+   Proyek ini tidak memasang plugin animate-in, jadi animasi
+   masuknya ditulis langsung di sini.
+   ====================================================== */
+@keyframes nominal-sheet-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.nominal-sheet-up {
+  animation: nominal-sheet-up 0.18s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nominal-sheet-up { animation: none; }
+}

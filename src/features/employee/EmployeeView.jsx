@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown, ChevronLeft, Upload } from 'lucide-react';
-import { Card, Button, Input, Select, IconButton, Badge, SortModal, EmptyState } from '../../components/ui';
+import { Card, Button, Input, NominalInput, Select, IconButton, Badge, SortModal, EmptyState } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useEmployeeData } from '../../hook/useEmployeeData';
@@ -136,11 +136,11 @@ export default function EmployeeView() {
                 onChange={e => setForm({ ...form, externalId: e.target.value })} />
               <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
             </div>
-            <Input type="number" label="Upah per Jam (Rp)" variant="muted" icon={<span className="font-bold">Rp</span>}
+            <NominalInput label="Upah per Jam (Rp)" variant="muted"
               value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />
-            <Input type="number" label="Bonus Full Time (Rp)" variant="muted" icon={<span className="font-bold">Rp</span>}
+            <NominalInput label="Bonus Full Time (Rp)" variant="muted"
               value={form.fullTimeBonus || ''} onChange={e => setForm({ ...form, fullTimeBonus: e.target.value ? Number(e.target.value) : '' })} />
-            <Input type="number" label="Tarif Lembur per 30 Menit (Rp)" variant="muted" icon={<span className="font-bold">Rp</span>}
+            <NominalInput label="Tarif Lembur per 30 Menit (Rp)" variant="muted"
               value={form.overtimeRate30 ?? OVERTIME_RATE_PER_30MIN} onChange={e => setForm({ ...form, overtimeRate30: e.target.value ? Number(e.target.value) : '' })} />
             <Input type="date" label="Mulai Kerja" variant="muted" value={form.startDate || ''} onChange={e => setForm({ ...form, startDate: e.target.value })} />
           </div>

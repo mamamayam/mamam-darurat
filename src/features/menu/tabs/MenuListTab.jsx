@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useAppContext } from "../../../context/AppContext";
 import { ChevronLeft, Plus, Edit3, Trash2, Settings2, Search, X, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import CategoryModal from "../../../components/CategoryModal";
-import { Card, Button, IconButton, Input, Select, EmptyState, Badge } from "../../../components/ui";
+import { Card, Button, IconButton, Input, NominalInput, Select, EmptyState, Badge } from "../../../components/ui";
 import { useDragReorder, getDragRowClass } from "../../../hook/useDragReorder";
 
 // ─── Komponen Kelompok Kategori Menu ───
@@ -232,8 +232,8 @@ const MenuListTab = ({ data }) => {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input id="menuPrice" label="Harga Jual" type="number" icon={<span className="font-bold">Rp</span>} value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
-              <Input id="menuHpp" label="HPP / Modal" type="number" icon={<span className="font-bold">Rp</span>} value={formData.hpp} onChange={e => setFormData({ ...formData, hpp: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
+              <NominalInput id="menuPrice" label="Harga Jual" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
+              <NominalInput id="menuHpp" label="HPP / Modal" value={formData.hpp} onChange={e => setFormData({ ...formData, hpp: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
             </div>
           </div>
           <div className="space-y-4">

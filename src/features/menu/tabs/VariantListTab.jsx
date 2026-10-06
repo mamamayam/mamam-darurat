@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useAppContext } from "../../../context/AppContext";
 import { ChevronLeft, Plus, Edit3, Trash2, Settings2, Trash, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import CategoryModal from "../../../components/CategoryModal";
-import { Button, IconButton, Input, Select, EmptyState, Badge } from "../../../components/ui";
+import { Button, IconButton, Input, NominalInput, Select, EmptyState, Badge } from "../../../components/ui";
 import { useDragReorder, getDragRowClass } from "../../../hook/useDragReorder";
 
 // ─── Komponen Kelompok Kategori Varian ───
@@ -267,7 +267,7 @@ const VariantListTab = ({ data }) => {
               </label>
               <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
                 <label htmlFor="maxSel" className="block text-xs font-bold text-slate-500 uppercase mb-1">Maksimal Jumlah Pilihan Opsi</label>
-                <input id="maxSel" type="number" min="1" className="w-24 p-2 border border-slate-200 bg-white text-slate-800 rounded-lg text-sm font-bold" value={formData.maxSelection} onChange={e => setFormData({ ...formData, maxSelection: Number(e.target.value) || 1 })} />
+                <NominalInput bare id="maxSel" title="Maksimal Jumlah Pilihan Opsi" prefix={null} calculator={false} className="w-24 p-2 border border-slate-200 bg-white text-slate-800 rounded-lg text-sm font-bold text-left" value={formData.maxSelection} onChange={e => setFormData({ ...formData, maxSelection: Number(e.target.value) || 1 })} />
               </div>
             </div>
           </div>
@@ -280,7 +280,7 @@ const VariantListTab = ({ data }) => {
               </div>
               <div className="w-28">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Harga + (Rp)</label>
-                <input type="number" placeholder="0" className="w-full p-2 text-xs border border-slate-200 rounded-lg" value={newOption.extraPrice} onChange={e => setNewOption({ ...newOption, extraPrice: e.target.value })} />
+                <NominalInput bare title="Harga Tambahan Opsi" placeholder="0" className="w-full p-2 text-xs border border-slate-200 rounded-lg text-left" value={newOption.extraPrice} onChange={e => setNewOption({ ...newOption, extraPrice: e.target.value })} />
               </div>
               {editingOptionId && (
                 <Button size="sm" variant="secondary" onClick={handleCancelEditOption} className="shrink-0 h-9">Batal</Button>

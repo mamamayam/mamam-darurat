@@ -6,6 +6,7 @@ import { usePosStore } from '../../store/usePosStore';
 import { computeOrderTotals, cashChange, splitStatus } from './posMath';
 import { checkout } from './useCheckout';
 import useBackLayer from '../../hook/useBackLayer';
+import NominalInput from '../../components/ui/NominalInput';
 
 /**
  * PaymentModal — di-port dari mamam-global. Bagian bayar-tunai/QRIS/
@@ -147,7 +148,9 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Uang Diterima</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500">Rp</span>
-                      <input type="number" className="w-full pl-12 pr-4 py-3 text-lg font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder="0" />
+                      <NominalInput bare title="Uang Diterima"
+                        sheetHint={(n) => (n >= total ? `Kembalian ${formatRupiah(n - total)}` : `Kurang ${formatRupiah(total - n)}`)}
+                        className="w-full text-left pl-12 pr-4 py-3 text-lg font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder="0" />
                     </div>
                   </div>
                   <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
@@ -234,7 +237,9 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500 text-sm">Rp</span>
-                      <input type="number" className="w-full pl-9 pr-3 py-2.5 text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder={String(split.remaining)} />
+                      <NominalInput bare title="Nominal Pembayaran"
+                        sheetHint={(n) => `Sisa ${formatRupiah(Math.max(split.remaining - n, 0))}`}
+                        className="w-full text-left pl-9 pr-3 py-2.5 text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder={String(split.remaining)} />
                     </div>
                     <button onClick={handleAddSplitPayment} className="px-4 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors">Tambah</button>
                   </div>

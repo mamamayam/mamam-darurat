@@ -1,0 +1,1093 @@
+diff --git a/src/components/ui/Input.jsx b/src/components/ui/Input.jsx
+index bcb6398..e17c4e5 100644
+--- a/src/components/ui/Input.jsx
++++ b/src/components/ui/Input.jsx
+@@ -46,7 +46,7 @@
+  */
+ 
+ // ── Shared label + error wrapper ────────────────────────────────────────────
+-function FieldWrapper({ label, error, hint, children }) {
++export function FieldWrapper({ label, error, hint, children }) {
+   return (
+     <div className="flex flex-col gap-1.5">
+       {label && (
+@@ -67,7 +67,7 @@ const FIELD_VARIANTS = {
+   muted:   'bg-slate-50 dark:bg-slate-950 font-semibold',
+ };
+ 
+-const base = (variant) => `
++export const base = (variant) => `
+   w-full p-3 text-sm
+   ${FIELD_VARIANTS[variant] ?? FIELD_VARIANTS.default}
+   border border-slate-200 dark:border-slate-700
+@@ -79,7 +79,7 @@ const base = (variant) => `
+   disabled:opacity-50 disabled:cursor-not-allowed
+ `;
+ 
+-const ERROR_BORDER = 'border-red-400 dark:border-red-500 focus:border-red-400 dark:focus:border-red-500';
++export const ERROR_BORDER = 'border-red-400 dark:border-red-500 focus:border-red-400 dark:focus:border-red-500';
+ 
+ // ── Input ────────────────────────────────────────────────────────────────────
+ export function Input({
+diff --git a/src/components/ui/NominalCalculator.jsx b/src/components/ui/NominalCalculator.jsx
+new file mode 100644
+index 0000000..b66fe30
+--- /dev/null
++++ b/src/components/ui/NominalCalculator.jsx
+@@ -0,0 +1,102 @@
++import { useState } from 'react';
++import NominalOverlay from './NominalOverlay';
++import {
++  calcInit, calcDigit, calcBackspace, calcOperator, calcEquals, calcPercent,
++  calcClear, calcValue, calcIsEmpty, calcResult, calcExpression, formatNominal,
++  parseNominal,
++} from './nominalMath';
++
++/**
++ * NominalCalculator — popup kalkulator (4 operasi + %), dibuka dari ikon
++ * kalkulator di keypad nominal. Palet gelap/oranye SENGAJA tetap (tidak ikut
++ * tema aplikasi) supaya terasa sama dengan kalkulator bawaan HP — sesuai preview.
++ *
++ * Props:
++ *   initialDigits  string   — nilai field saat ini; hitungan mulai dari sini
++ *   prefix         string   — mis. 'Rp'
++ *   suffix         string
++ *   allowNegative  boolean  — kalau false, hasil minus tidak bisa dimasukkan
++ *   onApply(digits)         — dipanggil dengan string digit hasil akhir
++ *   onClose()
++ */
++const KEY = 'h-14 rounded-2xl text-xl font-medium bg-[#262626] text-[#ECECEC] active:bg-[#3A3A3C] select-none';
++const OP = 'h-14 rounded-2xl text-xl font-semibold bg-[#262626] text-[#FF9F0A] active:bg-[#3A3A3C] select-none';
++
++export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix = '', allowNegative = false, onApply, onClose }) {
++  const [s, setS] = useState(() => calcInit(initialDigits));
++
++  const fmt = (n) => formatNominal(n, { prefix, suffix });
++  const empty = calcIsEmpty(s);
++  const value = calcValue(s);
++
++  // Yang akan dimasukkan = hasil setelah operasi menggantung dihitung.
++  const resultDigits = calcResult(s);
++  const resultNumber = parseNominal(resultDigits);
++  const negativeBlocked = !allowNegative && resultNumber < 0;
++
++  const digit = (k) => () => setS((cur) => calcDigit(cur, k));
++  const op = (o) => () => setS((cur) => calcOperator(cur, o));
++
++  return (
++    <NominalOverlay z="z-[120]" onClose={onClose}>
++      <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
++      <div className="bg-black rounded-3xl px-4 pt-[18px] pb-4">
++        <div className="text-[13px] font-bold text-[#8E8E93] uppercase tracking-wider text-center mb-3">Kalkulator</div>
++
++        <div className="text-right px-1 pb-3.5 mb-1 min-h-[50px]">
++          <div className="text-[13px] font-semibold text-[#8E8E93] min-h-4">{calcExpression(s, fmt)}</div>
++          <div
++            className={`text-3xl font-medium overflow-x-auto whitespace-nowrap hide-scrollbar ${
++              empty ? 'text-[#8E8E93]' : negativeBlocked ? 'text-red-400' : 'text-white'
++            }`}
++          >
++            {empty ? fmt(0) : fmt(value)}
++          </div>
++        </div>
++
++        <div className="grid grid-cols-4 gap-2 mb-3.5">
++          <button type="button" className={`${OP} col-span-2 !text-base tracking-wide`} onClick={() => setS(calcClear())}>AC</button>
++          <button type="button" className={OP} onClick={() => setS((cur) => calcPercent(cur))}>%</button>
++          <button type="button" className={OP} onClick={op('÷')}>÷</button>
++
++          <button type="button" className={KEY} onClick={digit('7')}>7</button>
++          <button type="button" className={KEY} onClick={digit('8')}>8</button>
++          <button type="button" className={KEY} onClick={digit('9')}>9</button>
++          <button type="button" className={OP} onClick={op('×')}>×</button>
++
++          <button type="button" className={KEY} onClick={digit('4')}>4</button>
++          <button type="button" className={KEY} onClick={digit('5')}>5</button>
++          <button type="button" className={KEY} onClick={digit('6')}>6</button>
++          <button type="button" className={OP} onClick={op('−')}>−</button>
++
++          <button type="button" className={KEY} onClick={digit('1')}>1</button>
++          <button type="button" className={KEY} onClick={digit('2')}>2</button>
++          <button type="button" className={KEY} onClick={digit('3')}>3</button>
++          <button type="button" className={OP} onClick={op('+')}>+</button>
++
++          <button type="button" className={KEY} onClick={digit('00')}>00</button>
++          <button type="button" className={KEY} onClick={digit('0')}>0</button>
++          <button type="button" className={KEY} aria-label="Hapus" onClick={() => setS((cur) => calcBackspace(cur))}>⌫</button>
++          <button type="button" className="h-14 rounded-2xl text-xl font-medium bg-[#FF9F0A] text-white active:bg-[#E08F09] select-none" onClick={() => setS((cur) => calcEquals(cur))}>=</button>
++        </div>
++
++        {negativeBlocked && (
++          <p className="text-[11px] text-red-400 text-center mb-2">Hasilnya minus — field ini tidak menerima angka minus.</p>
++        )}
++
++        <div className="flex gap-2.5">
++          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-[14px] bg-[#1C1C1E] text-[#8E8E93] text-sm font-bold">Batal</button>
++          <button
++            type="button"
++            disabled={negativeBlocked}
++            onClick={() => onApply(resultDigits)}
++            className="flex-1 h-12 rounded-[14px] bg-accent-600 dark:bg-accent-500 text-white text-sm font-bold disabled:opacity-40"
++          >
++            Masukkan
++          </button>
++        </div>
++      </div>
++      </div>
++    </NominalOverlay>
++  );
++}
+diff --git a/src/components/ui/NominalInput.jsx b/src/components/ui/NominalInput.jsx
+new file mode 100644
+index 0000000..0397132
+--- /dev/null
++++ b/src/components/ui/NominalInput.jsx
+@@ -0,0 +1,114 @@
++import { useState } from 'react';
++import { FieldWrapper, base, ERROR_BORDER } from './Input';
++import NominalKeypadSheet from './NominalKeypadSheet';
++import { toDigits, parseNominal, formatGrouped } from './nominalMath';
++
++/**
++ * NominalInput — field angka yang membuka keypad khusus (bukan keyboard HP).
++ * Pengganti drop-in untuk <Input type="number">: props & kontrak onChange sama,
++ * jadi handler di pemanggil tidak perlu diubah.
++ *
++ *   <NominalInput label="Harga Jual" value={price} onChange={e => setPrice(e.target.value)} />
++ *
++ * Kontrak:
++ *   value      string | number | ''   — '' = kosong
++ *   onChange   (e) => void            — dipanggil dengan { target: { value } };
++ *                                       value selalu string digit ('' | '0' | '12000' | '-500'),
++ *                                       persis seperti e.target.value dari <input type="number">
++ *
++ * Props tampilan (sama dengan Input): label, error, hint, icon, variant, className, disabled, placeholder.
++ *
++ * Props khusus:
++ *   prefix         string    — default 'Rp' (jadi ikon kiri + awalan di layar keypad); null untuk tanpa
++ *   suffix         string    — mis. '%'
++ *   title          string    — judul di atas layar keypad (default: label)
++ *   allowNegative  boolean   — tombol ± di keypad (default false; angka minus ditolak)
++ *   calculator     boolean   — ikon kalkulator di keypad (default true; matikan untuk qty / persen)
++ *   max            number    — batas nilai (mis. 100 untuk persen)
++ *   maxDigits      number    — default 12
++ *   sheetHint      (n) => ReactNode — teks bantu di keypad, mis. Kembalian saat bayar
++ *   bare           boolean   — hanya tombol pemicu + keypad, TANPA label/wrapper/styling
++ *                              bawaan; tampilan 100% dari `className` pemanggil. Untuk
++ *                              field yang desainnya sudah khusus (qty di keranjang,
++ *                              input kecil di dalam baris, dll). Prefix tidak ditampilkan
++ *                              di tombol (pemanggil yang menaruh "Rp"-nya sendiri);
++ *                              suffix tetap ikut.
++ */
++export default function NominalInput({
++  label, error, hint, icon, variant = 'default', className = '',
++  value, onChange, placeholder = '0', disabled = false, readOnly = false,
++  prefix = 'Rp', suffix = '', title, allowNegative = false, calculator = true,
++  max = null, maxDigits, sheetHint, bare = false, ...rest
++}) {
++  const [open, setOpen] = useState(false);
++
++  const digits = toDigits(value);
++  const lead = icon ?? (prefix ? <span className="font-bold">{prefix}</span> : null);
++
++  const shown = digits === ''
++    ? <span className="text-slate-300 dark:text-slate-600">{placeholder}</span>
++    : `${formatGrouped(parseNominal(digits))}${suffix}`;
++
++  const sheet = open && (
++    <NominalKeypadSheet
++      value={digits}
++      onChange={(next) => onChange?.({ target: { value: next } })}
++      title={title ?? label}
++      prefix={prefix ?? ''}
++      suffix={suffix}
++      allowNegative={allowNegative}
++      calculator={calculator}
++      max={max}
++      maxDigits={maxDigits}
++      hint={sheetHint}
++      onClose={() => setOpen(false)}
++    />
++  );
++
++  if (bare) {
++    return (
++      <>
++        <button
++          type="button"
++          disabled={disabled}
++          aria-haspopup="dialog"
++          onClick={() => { if (!readOnly) setOpen(true); }}
++          className={className}
++          {...rest}
++        >
++          {shown}
++        </button>
++        {sheet}
++      </>
++    );
++  }
++
++  return (
++    <FieldWrapper label={label} error={error} hint={hint}>
++      <div className="relative">
++        {lead && (
++          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none">
++            {lead}
++          </span>
++        )}
++        <button
++          type="button"
++          disabled={disabled}
++          aria-haspopup="dialog"
++          onClick={() => { if (!readOnly) setOpen(true); }}
++          className={`
++            ${base(variant)}
++            text-left truncate cursor-pointer
++            ${lead ? 'pl-9' : ''}
++            ${error ? ERROR_BORDER : ''}
++            ${className}
++          `}
++          {...rest}
++        >
++          {shown}
++        </button>
++      </div>
++      {sheet}
++    </FieldWrapper>
++  );
++}
+diff --git a/src/components/ui/NominalKeypadSheet.jsx b/src/components/ui/NominalKeypadSheet.jsx
+new file mode 100644
+index 0000000..bfd323b
+--- /dev/null
++++ b/src/components/ui/NominalKeypadSheet.jsx
+@@ -0,0 +1,145 @@
++import { useEffect, useRef, useState } from 'react';
++import { Calculator } from 'lucide-react';
++import NominalOverlay from './NominalOverlay';
++import NominalCalculator from './NominalCalculator';
++import {
++  appendKey, backspaceDigits, toggleSign, parseNominal, toDigits, formatNominal,
++} from './nominalMath';
++
++/**
++ * NominalKeypadSheet — bottom sheet keypad nominal (pengganti keyboard HP).
++ * Layout dari "Preview: Nominal Keypad + Kalkulator Popup": layar angka +
++ * ikon kalkulator, lalu 1-9 / 00 0 ⌫.
++ *
++ * Nilai di-commit LIVE ke pemanggil tiap tombol ditekan (seperti mengetik di
++ * field biasa); tombol "Selesai", ketuk area gelap, atau Back HP cuma menutup.
++ *
++ * Props:
++ *   value, onChange(digits)  — string digit ('' | '0' | '12000' | '-500')
++ *   title          string    — judul kecil di atas layar angka
++ *   prefix/suffix  string    — 'Rp' / '%'
++ *   allowNegative  boolean   — munculin tombol ± di sebelah ikon kalkulator
++ *   calculator     boolean   — munculin ikon kalkulator (default true)
++ *   max            number    — batas nilai (mis. 100 untuk persen)
++ *   maxDigits      number
++ *   hint(number)   function  — teks/elemen bantu di bawah layar angka
++ *                              (mis. Kembalian di PaymentModal)
++ *   onClose()
++ */
++const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[22px] short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation transition-colors';
++const ICON_BTN = 'p-2 rounded-[10px] text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800 touch-manipulation';
++
++export default function NominalKeypadSheet({
++  value, onChange, title, prefix = 'Rp', suffix = '', allowNegative = false,
++  calculator = true, max = null, maxDigits, hint, onClose,
++}) {
++  const digitsRef = useRef(toDigits(value));
++  const [digits, setDigits] = useState(digitsRef.current);
++  const [calcOpen, setCalcOpen] = useState(false);
++
++  const onChangeRef = useRef(onChange);
++  useEffect(() => { onChangeRef.current = onChange; });
++
++  const opts = { max, ...(maxDigits ? { maxDigits } : {}) };
++
++  const commit = (next) => {
++    if (next === digitsRef.current) return;
++    digitsRef.current = next;
++    setDigits(next);
++    onChangeRef.current?.(next);
++  };
++
++  const press = (key) => commit(appendKey(digitsRef.current, key, opts));
++  const backspace = () => commit(backspaceDigits(digitsRef.current));
++
++  // Keyboard fisik (laptop/tablet): angka, Backspace, Enter = Selesai.
++  // Mati selama kalkulator terbuka supaya ketikan tidak masuk dua tempat.
++  useEffect(() => {
++    if (calcOpen) return undefined;
++    const onKey = (e) => {
++      if (e.ctrlKey || e.metaKey || e.altKey) return;
++      if (/^[0-9]$/.test(e.key)) { e.preventDefault(); commit(appendKey(digitsRef.current, e.key, opts)); }
++      else if (e.key === 'Backspace') { e.preventDefault(); commit(backspaceDigits(digitsRef.current)); }
++      else if (e.key === 'Enter') { e.preventDefault(); onClose(); }
++    };
++    window.addEventListener('keydown', onKey);
++    return () => window.removeEventListener('keydown', onKey);
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [calcOpen, max, maxDigits, onClose]);
++
++  const number = parseNominal(digits);
++  const empty = digits === '';
++
++  return (
++    <>
++      <NominalOverlay onClose={onClose}>
++        <div className="bg-slate-50 dark:bg-slate-950 rounded-t-3xl px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-2xl max-h-[100dvh] overflow-y-auto">
++          <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-3" />
++
++          {title && (
++            <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 truncate">{title}</div>
++          )}
++
++          <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-4 pr-2.5 py-3.5 mb-2">
++            <div
++              data-testid="nominal-display"
++              className={`flex-1 text-[22px] font-extrabold overflow-x-auto whitespace-nowrap hide-scrollbar ${
++                empty ? 'text-slate-300 dark:text-slate-600' : 'text-slate-900 dark:text-slate-50'
++              }`}
++            >
++              {formatNominal(number, { prefix, suffix })}
++            </div>
++            {allowNegative && (
++              <button type="button" aria-label="Ganti plus/minus" onClick={() => commit(toggleSign(digitsRef.current))} className={ICON_BTN}>
++                <span className="block w-5 text-center text-lg font-black leading-5">±</span>
++              </button>
++            )}
++            {calculator && (
++              <button type="button" aria-label="Buka kalkulator" onClick={() => setCalcOpen(true)} className={ICON_BTN}>
++                <Calculator className="w-5 h-5" />
++              </button>
++            )}
++          </div>
++
++          {hint && (
++            <div className="px-1 mb-1 text-xs font-bold text-slate-500 dark:text-slate-400">{hint(number)}</div>
++          )}
++
++          <div className="mt-4 short:mt-2 space-y-2.5 short:space-y-1.5">
++            {[['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']].map((row) => (
++              <div key={row[0]} className="flex gap-2.5">
++                {row.map((k) => (
++                  <button key={k} type="button" className={KEY} onClick={() => press(k)}>{k}</button>
++                ))}
++              </div>
++            ))}
++            <div className="flex gap-2.5">
++              <button type="button" className={KEY} onClick={() => press('00')}>00</button>
++              <button type="button" className={KEY} onClick={() => press('0')}>0</button>
++              <button type="button" className={KEY} aria-label="Hapus" onClick={backspace}>⌫</button>
++            </div>
++          </div>
++
++          <button
++            type="button"
++            onClick={onClose}
++            className="w-full h-[52px] short:h-10 mt-3 rounded-2xl bg-accent-600 dark:bg-accent-500 text-white font-bold active:bg-accent-700 dark:active:bg-accent-600 touch-manipulation transition-colors"
++          >
++            Selesai
++          </button>
++        </div>
++      </NominalOverlay>
++
++      {calcOpen && (
++        <NominalCalculator
++          initialDigits={digits}
++          prefix={prefix}
++          suffix={suffix}
++          allowNegative={allowNegative}
++          onClose={() => setCalcOpen(false)}
++          onApply={(result) => { commit(result); setCalcOpen(false); }}
++        />
++      )}
++    </>
++  );
++}
+diff --git a/src/components/ui/NominalOverlay.jsx b/src/components/ui/NominalOverlay.jsx
+new file mode 100644
+index 0000000..2421f30
+--- /dev/null
++++ b/src/components/ui/NominalOverlay.jsx
+@@ -0,0 +1,35 @@
++import { createPortal } from 'react-dom';
++import useBackLayer from '../../hook/useBackLayer';
++
++/**
++ * NominalOverlay — dasar bottom sheet untuk keypad nominal & kalkulator.
++ *
++ * Kenapa portal ke <body>: field angka dipakai di dalam Modal / CartDrawer /
++ * PaymentModal. Kalau ada leluhur yang punya transform (laci geser, animasi
++ * zoom), `position: fixed` anaknya jadi relatif ke leluhur itu, bukan layar —
++ * sheet bisa kepotong atau salah posisi. Portal menghindari itu.
++ *
++ * Tombol Back HP menutup sheet ini dulu (useBackLayer), bukan layar di belakangnya.
++ * Klik di dalam sheet di-stopPropagation karena event React tetap merambat ke
++ * leluhur di pohon React walau DOM-nya di <body>.
++ *
++ * z-index: di atas PaymentModal (z-70) dan Modal 'top' (z-100), di bawah PIN (z-300).
++ */
++export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
++  useBackLayer(true, onClose);
++
++  return createPortal(
++    <div
++      className={`fixed inset-0 ${z} flex items-end justify-center bg-black/45`}
++      onClick={(e) => { e.stopPropagation(); onClose(); }}
++    >
++      <div
++        onClick={(e) => e.stopPropagation()}
++        className="nominal-sheet-up w-full max-w-md"
++      >
++        {children}
++      </div>
++    </div>,
++    document.body,
++  );
++}
+diff --git a/src/components/ui/index.js b/src/components/ui/index.js
+index 28c4470..57c0630 100644
+--- a/src/components/ui/index.js
++++ b/src/components/ui/index.js
+@@ -2,7 +2,7 @@
+  * UI Component Library — barrel export
+  *
+  * Import semua komponen dari satu tempat:
+- *   import { Modal, Button, Input, Select, Textarea, IconButton, Card, PageHeader, EmptyState, Badge, SegmentedControl } from '../../components/ui';
++ *   import { Modal, Button, Input, NominalInput, Select, Textarea, IconButton, Card, PageHeader, EmptyState, Badge, SegmentedControl } from '../../components/ui';
+  *
+  * Atau individual:
+  *   import Modal from '../../components/ui/Modal';
+@@ -13,6 +13,7 @@ export { default as DetailModal }      from './DetailModal';
+ export { default as SortModal }        from './SortModal';
+ export { default as Button }           from './Button';
+ export { default as Input, Select, Textarea } from './Input';
++export { default as NominalInput }      from './NominalInput';
+ export { default as IconButton }       from './IconButton';
+ export { default as Card }             from './Card';
+ export { default as PageHeader }       from './PageHeader';
+diff --git a/src/components/ui/nominalMath.js b/src/components/ui/nominalMath.js
+new file mode 100644
+index 0000000..d79fa20
+--- /dev/null
++++ b/src/components/ui/nominalMath.js
+@@ -0,0 +1,149 @@
++/**
++ * nominalMath — logika murni keypad nominal + kalkulator popup (tanpa React).
++ * Di-port dari "Preview: Nominal Keypad + Kalkulator Popup", dipisah dari UI
++ * supaya bisa dites.
++ *
++ * Nilai disimpan sebagai STRING digit ('' = kosong, '0' = nol yang diketik
++ * sengaja, '-5000' = negatif) — sama seperti nilai <input type="number">
++ * yang dipakai form-form lama, jadi state di pemanggil gak perlu berubah.
++ *
++ * Beda dari preview (disengaja):
++ *  - '0' di field kosong sekarang jadi '0' (bukan diabaikan), karena beberapa
++ *    form (Saldo Aktual, Saldo Awal) membedakan "kosong" dari "0".
++ *  - Tombol Masukkan menghitung dulu operasi yang belum ditekan "=".
++ *  - % untuk × dan ÷ dibenerin (preview: 200 × 10% = 4.000, seharusnya 20).
++ *  - Dukungan angka negatif (toggleSign) buat field yang memang boleh minus.
++ */
++
++export const MAX_DIGITS = 12;
++export const MAX_VALUE = 10 ** MAX_DIGITS - 1;
++
++const splitSign = (s) => (s.startsWith('-') ? ['-', s.slice(1)] : ['', s]);
++const withinRange = (n) => Math.abs(n) <= MAX_VALUE;
++
++// ── Digit entry ──────────────────────────────────────────────────────────────
++
++/**
++ * Tambah satu tombol ('0'-'9' atau '00') ke nilai sekarang.
++ * opts.maxDigits — batas panjang digit; opts.max — batas nilai (mis. 100 untuk %).
++ */
++export function appendKey(current, key, { maxDigits = MAX_DIGITS, max = null } = {}) {
++  const [sign, body] = splitSign(current);
++  if (key === '00' && (body === '' || body === '0')) return current;
++  const next = body === '0' ? key : body + key;
++  if (next.length > maxDigits) return current;
++  if (max !== null && Number(next) > max) return current;
++  return (next === '0' ? '' : sign) + next;
++}
++
++export function backspaceDigits(current) {
++  if (current === '') return current;
++  const next = current.slice(0, -1);
++  return next === '-' ? '' : next;
++}
++
++/** Balik tanda +/−. Kosong dan nol dibiarkan (nol gak punya tanda). */
++export function toggleSign(current) {
++  if (current === '' || current === '0') return current;
++  return current.startsWith('-') ? current.slice(1) : `-${current}`;
++}
++
++// ── Parsing & formatting ─────────────────────────────────────────────────────
++
++export function parseNominal(s) {
++  if (s === '' || s === '-' || s == null) return 0;
++  const n = parseInt(s, 10);
++  return Number.isNaN(n) ? 0 : n;
++}
++
++/** Normalisasi nilai dari luar (string/number/null) jadi string digit. */
++export function toDigits(value) {
++  if (value === '' || value == null) return '';
++  const n = Math.trunc(Number(value));
++  return Number.isFinite(n) ? String(n) : '';
++}
++
++const groupFmt = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
++
++/** 12000 → "12.000", -5000 → "-5.000" (tanda di depan, bukan di antara prefix & angka). */
++export function formatGrouped(n) {
++  return `${n < 0 ? '-' : ''}${groupFmt.format(Math.abs(n))}`;
++}
++
++/** formatNominal(-5000, { prefix: 'Rp' }) → "-Rp5.000" */
++export function formatNominal(n, { prefix = '', suffix = '' } = {}) {
++  return `${n < 0 ? '-' : ''}${prefix}${groupFmt.format(Math.abs(n))}${suffix}`;
++}
++
++// ── Kalkulator ───────────────────────────────────────────────────────────────
++
++export function applyOp(op, a, b) {
++  let r;
++  switch (op) {
++    case '+': r = a + b; break;
++    case '−': r = a - b; break;
++    case '×': r = a * b; break;
++    case '÷': r = b === 0 ? a : Math.trunc(a / b); break;
++    default: r = b;
++  }
++  return withinRange(r) ? r : a; // overflow → abaikan, nilai lama dipertahankan
++}
++
++export const calcInit = (digits = '') => ({ input: digits, acc: null, op: null, done: false });
++
++export const calcIsEmpty = (s) => s.input === '' && s.acc === null;
++
++export const calcValue = (s) => (s.input !== '' ? parseNominal(s.input) : (s.acc ?? 0));
++
++export function calcDigit(s, key, opts) {
++  const base = s.done ? calcInit() : s;
++  return { ...base, input: appendKey(base.input, key, opts) };
++}
++
++export const calcBackspace = (s) => ({ ...s, input: backspaceDigits(s.input) });
++
++export const calcClear = () => calcInit();
++
++export function calcOperator(s, op) {
++  const value = calcValue(s);
++  let acc = s.acc;
++  if (acc === null) acc = value;
++  else if (s.input !== '') acc = applyOp(s.op, acc, value);
++  return { input: '', acc, op, done: false };
++}
++
++export function calcEquals(s) {
++  if (s.op === null) return s;
++  const acc = applyOp(s.op, s.acc ?? 0, calcValue(s));
++  return { input: '', acc, op: null, done: true };
++}
++
++export function calcPercent(s) {
++  if (s.op !== null && s.input !== '') {
++    // "50000 − 10%" → 10% DARI 50000, langsung dihitung seperti "="
++    const base = s.acc ?? 0;
++    const pct = parseNominal(s.input);
++    let result;
++    if (s.op === '+' || s.op === '−') result = applyOp(s.op, base, Math.round((base * pct) / 100));
++    else if (s.op === '×') result = Math.round((base * pct) / 100);
++    else result = pct === 0 ? base : Math.trunc((base * 100) / pct);
++    return { input: '', acc: withinRange(result) ? result : base, op: null, done: true };
++  }
++  // Berdiri sendiri: ubah angka jadi per-100-nya
++  return { input: String(Math.round(calcValue(s) / 100)), acc: null, op: null, done: false };
++}
++
++/** Teks baris ekspresi kecil di atas angka, mis. "Rp50.000 −". */
++export function calcExpression(s, fmt) {
++  return s.op !== null ? `${fmt(s.acc ?? 0)} ${s.op}` : '';
++}
++
++/**
++ * Hasil akhir yang dimasukkan ke field saat tekan "Masukkan":
++ * operasi yang menggantung dihitung dulu; kalau belum ada yang diketik → ''.
++ */
++export function calcResult(s) {
++  if (calcIsEmpty(s)) return '';
++  const settled = s.op !== null && s.input !== '' ? calcEquals(s) : s;
++  return String(calcValue(settled));
++}
+diff --git a/src/components/ui/nominalMath.test.js b/src/components/ui/nominalMath.test.js
+new file mode 100644
+index 0000000..d28a9c2
+--- /dev/null
++++ b/src/components/ui/nominalMath.test.js
+@@ -0,0 +1,190 @@
++import { describe, it, expect } from 'vitest';
++import {
++  appendKey, backspaceDigits, toggleSign, parseNominal, toDigits,
++  formatGrouped, formatNominal, applyOp, MAX_DIGITS,
++  calcInit, calcDigit, calcBackspace, calcOperator, calcEquals, calcPercent,
++  calcResult, calcValue, calcIsEmpty, calcExpression,
++} from './nominalMath';
++
++const type = (keys, start = '') => keys.reduce((cur, k) => appendKey(cur, k), start);
++
++describe('appendKey', () => {
++  it('mengetik digit biasa', () => {
++    expect(type(['1', '2', '5'])).toBe('125');
++  });
++  it('"00" diabaikan di field kosong atau "0", normal setelah ada angka', () => {
++    expect(appendKey('', '00')).toBe('');
++    expect(appendKey('0', '00')).toBe('0');
++    expect(appendKey('5', '00')).toBe('500');
++  });
++  it('"0" di field kosong jadi "0" (nol eksplisit), lalu digit berikutnya menggantikan', () => {
++    expect(appendKey('', '0')).toBe('0');
++    expect(appendKey('0', '7')).toBe('7');
++    expect(appendKey('0', '0')).toBe('0');
++  });
++  it('berhenti di batas digit', () => {
++    const full = '9'.repeat(MAX_DIGITS);
++    expect(appendKey(full, '1')).toBe(full);
++    expect(appendKey('9'.repeat(MAX_DIGITS - 1), '00')).toBe('9'.repeat(MAX_DIGITS - 1));
++  });
++  it('menghormati batas nilai max (mis. persen ≤ 100)', () => {
++    expect(appendKey('10', '0', { max: 100 })).toBe('100');
++    expect(appendKey('100', '0', { max: 100 })).toBe('100');
++    expect(appendKey('9', '9', { max: 100 })).toBe('99');
++    expect(appendKey('99', '9', { max: 100 })).toBe('99');
++  });
++  it('menjaga tanda minus', () => {
++    expect(appendKey('-5', '0')).toBe('-50');
++    expect(appendKey('-5', '00')).toBe('-500');
++  });
++});
++
++describe('backspaceDigits / toggleSign', () => {
++  it('hapus satu digit; kosong tetap kosong', () => {
++    expect(backspaceDigits('125')).toBe('12');
++    expect(backspaceDigits('')).toBe('');
++    expect(backspaceDigits('5')).toBe('');
++  });
++  it('minus sisa tanda doang dibersihkan', () => {
++    expect(backspaceDigits('-5')).toBe('');
++    expect(backspaceDigits('-52')).toBe('-5');
++  });
++  it('toggleSign balik tanda, nol & kosong dibiarkan', () => {
++    expect(toggleSign('5000')).toBe('-5000');
++    expect(toggleSign('-5000')).toBe('5000');
++    expect(toggleSign('')).toBe('');
++    expect(toggleSign('0')).toBe('0');
++  });
++});
++
++describe('parse & format', () => {
++  it('parseNominal', () => {
++    expect(parseNominal('')).toBe(0);
++    expect(parseNominal('-')).toBe(0);
++    expect(parseNominal('-5000')).toBe(-5000);
++    expect(parseNominal('12000')).toBe(12000);
++  });
++  it('toDigits menormalkan nilai dari luar', () => {
++    expect(toDigits('')).toBe('');
++    expect(toDigits(null)).toBe('');
++    expect(toDigits(undefined)).toBe('');
++    expect(toDigits(0)).toBe('0');
++    expect(toDigits('15000')).toBe('15000');
++    expect(toDigits(15000)).toBe('15000');
++    expect(toDigits('abc')).toBe('');
++  });
++  it('format titik ribuan id-ID, tanda minus di depan prefix', () => {
++    expect(formatGrouped(12000)).toBe('12.000');
++    expect(formatGrouped(-5000)).toBe('-5.000');
++    expect(formatNominal(12000, { prefix: 'Rp' })).toBe('Rp12.000');
++    expect(formatNominal(-5000, { prefix: 'Rp' })).toBe('-Rp5.000');
++    expect(formatNominal(10, { suffix: '%' })).toBe('10%');
++  });
++});
++
++describe('applyOp', () => {
++  it('empat operasi dasar', () => {
++    expect(applyOp('+', 2, 3)).toBe(5);
++    expect(applyOp('−', 2, 3)).toBe(-1);
++    expect(applyOp('×', 4, 3)).toBe(12);
++    expect(applyOp('÷', 10, 3)).toBe(3);
++  });
++  it('bagi nol mempertahankan nilai lama', () => {
++    expect(applyOp('÷', 10, 0)).toBe(10);
++  });
++  it('overflow mempertahankan nilai lama', () => {
++    expect(applyOp('×', 999999999999, 999999999999)).toBe(999999999999);
++  });
++});
++
++describe('kalkulator', () => {
++  const press = (state, seq) => seq.reduce((s, step) => {
++    if (step === '=') return calcEquals(s);
++    if (step === '%') return calcPercent(s);
++    if (step === '⌫') return calcBackspace(s);
++    if (['+', '−', '×', '÷'].includes(step)) return calcOperator(s, step);
++    return calcDigit(s, step);
++  }, state);
++
++  it('mulai dari nominal yang sudah ada di form', () => {
++    const s = calcInit('50000');
++    expect(calcValue(s)).toBe(50000);
++    expect(calcIsEmpty(s)).toBe(false);
++    expect(calcIsEmpty(calcInit(''))).toBe(true);
++  });
++  it('tambah dari nilai awal: 50000 + 2500 =', () => {
++    const s = press(calcInit('50000'), ['+', '2', '5', '00', '=']);
++    expect(calcValue(s)).toBe(52500);
++    expect(s.done).toBe(true);
++  });
++  it('chaining tanpa "=": 5 + 3 × 2 =  (kiri ke kanan, kayak kalkulator HP)', () => {
++    const s = press(calcInit(), ['5', '+', '3', '×', '2', '=']);
++    expect(calcValue(s)).toBe(16);
++  });
++  it('ganti operator sebelum ngetik angka kedua', () => {
++    const s = press(calcInit(), ['5', '+', '−', '2', '=']);
++    expect(calcValue(s)).toBe(3);
++  });
++  it('mengetik angka setelah "=" mulai hitungan baru; operator melanjutkan hasil', () => {
++    const done = press(calcInit(), ['5', '+', '3', '=']);
++    expect(calcValue(press(done, ['9']))).toBe(9);
++    expect(calcValue(press(done, ['×', '2', '=']))).toBe(16);
++  });
++  it('hasil negatif didukung', () => {
++    const s = press(calcInit(), ['3', '−', '5', '=']);
++    expect(calcValue(s)).toBe(-2);
++  });
++  it('% setelah operator: 50000 − 10% = 45000', () => {
++    const s = press(calcInit('50000'), ['−', '1', '0', '%']);
++    expect(calcValue(s)).toBe(45000);
++  });
++  it('% setelah +: 50000 + 10% = 55000', () => {
++    const s = press(calcInit('50000'), ['+', '1', '0', '%']);
++    expect(calcValue(s)).toBe(55000);
++  });
++  it('% setelah ×: 200 × 10% = 20 (dibenerin dari preview)', () => {
++    const s = press(calcInit('200'), ['×', '1', '0', '%']);
++    expect(calcValue(s)).toBe(20);
++  });
++  it('% setelah ÷: 200 ÷ 10% = 2000', () => {
++    const s = press(calcInit('200'), ['÷', '1', '0', '%']);
++    expect(calcValue(s)).toBe(2000);
++  });
++  it('% berdiri sendiri: per-100-nya', () => {
++    const s = press(calcInit('5000'), ['%']);
++    expect(s.input).toBe('50');
++  });
++  it('backspace hanya menghapus yang lagi diketik', () => {
++    const s = press(calcInit(), ['1', '2', '3', '⌫']);
++    expect(s.input).toBe('12');
++  });
++  it('expression line', () => {
++    const s = press(calcInit('50000'), ['−']);
++    expect(calcExpression(s, (n) => `Rp${n}`)).toBe('Rp50000 −');
++    expect(calcExpression(calcInit('5'), (n) => `Rp${n}`)).toBe('');
++  });
++});
++
++describe('calcResult (tombol Masukkan)', () => {
++  it('belum ngetik apa-apa → string kosong', () => {
++    expect(calcResult(calcInit())).toBe('');
++  });
++  it('hanya angka → angka itu', () => {
++    expect(calcResult(calcInit('12000'))).toBe('12000');
++  });
++  it('operasi menggantung dihitung dulu: 50000 + 2000 (tanpa "=") → 52000', () => {
++    const s = calcDigit(calcOperator(calcInit('50000'), '+'), '2');
++    const s2 = calcDigit(calcDigit(calcDigit(s, '0'), '0'), '0');
++    expect(calcResult(s2)).toBe('52000');
++  });
++  it('operator tanpa angka kedua → nilai sebelum operator', () => {
++    expect(calcResult(calcOperator(calcInit('5000'), '+'))).toBe('5000');
++  });
++  it('nol eksplisit tetap "0"', () => {
++    expect(calcResult(calcInit('0'))).toBe('0');
++  });
++  it('hasil negatif dikembalikan apa adanya (pemanggil yang memutuskan boleh/tidak)', () => {
++    const s = calcEquals(calcDigit(calcOperator(calcInit('3'), '−'), '5'));
++    expect(calcResult(s)).toBe('-2');
++  });
++});
+diff --git a/src/features/employee/EmployeeView.jsx b/src/features/employee/EmployeeView.jsx
+index d1042e1..40ebaf9 100644
+--- a/src/features/employee/EmployeeView.jsx
++++ b/src/features/employee/EmployeeView.jsx
+@@ -1,6 +1,6 @@
+ import { useState, useMemo, useRef } from 'react';
+ import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown, ChevronLeft, Upload } from 'lucide-react';
+-import { Card, Button, Input, Select, IconButton, Badge, SortModal, EmptyState } from '../../components/ui';
++import { Card, Button, Input, NominalInput, Select, IconButton, Badge, SortModal, EmptyState } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { useAuth } from '../../auth/AuthContext';
+ import { useEmployeeData } from '../../hook/useEmployeeData';
+@@ -136,11 +136,11 @@ export default function EmployeeView() {
+                 onChange={e => setForm({ ...form, externalId: e.target.value })} />
+               <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Dipakai untuk mencocokkan absensi dari sistem absensi. Terisi otomatis kalau karyawan diimpor dari mamam-global. Kosongkan untuk karyawan baru yang belum punya.</p>
+             </div>
+-            <Input type="number" label="Upah per Jam (Rp)" variant="muted" icon={<span className="font-bold">Rp</span>}
++            <NominalInput label="Upah per Jam (Rp)" variant="muted"
+               value={form.hourlyRate || ''} onChange={e => setForm({ ...form, hourlyRate: e.target.value ? Number(e.target.value) : '' })} />
+-            <Input type="number" label="Bonus Full Time (Rp)" variant="muted" icon={<span className="font-bold">Rp</span>}
++            <NominalInput label="Bonus Full Time (Rp)" variant="muted"
+               value={form.fullTimeBonus || ''} onChange={e => setForm({ ...form, fullTimeBonus: e.target.value ? Number(e.target.value) : '' })} />
+-            <Input type="number" label="Tarif Lembur per 30 Menit (Rp)" variant="muted" icon={<span className="font-bold">Rp</span>}
++            <NominalInput label="Tarif Lembur per 30 Menit (Rp)" variant="muted"
+               value={form.overtimeRate30 ?? OVERTIME_RATE_PER_30MIN} onChange={e => setForm({ ...form, overtimeRate30: e.target.value ? Number(e.target.value) : '' })} />
+             <Input type="date" label="Mulai Kerja" variant="muted" value={form.startDate || ''} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+           </div>
+diff --git a/src/features/expense/ExpenseView.jsx b/src/features/expense/ExpenseView.jsx
+index 70f32d5..6438ff7 100644
+--- a/src/features/expense/ExpenseView.jsx
++++ b/src/features/expense/ExpenseView.jsx
+@@ -1,6 +1,6 @@
+ import { useState, useMemo, useEffect } from 'react';
+ import { TrendingDown, Save, X, Pencil, Trash2, Settings2, History, ArrowUpDown } from 'lucide-react';
+-import { Card, Input, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar } from '../../components/ui';
++import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar } from '../../components/ui';
+ import CategoryModal from '../../components/CategoryModal';
+ import { useAppContext } from '../../context/AppContext';
+ import { useAuth } from '../../auth/AuthContext';
+@@ -183,7 +183,7 @@ const ExpenseView = () => {
+             </Select>
+           </div>
+ 
+-          <Input type="number" label="Nominal" icon={<span className="font-bold">Rp</span>} value={amount}
++          <NominalInput label="Nominal" value={amount}
+             onChange={e => setAmount(e.target.value)} placeholder="0" className="text-lg font-bold" />
+ 
+           <Input label="Catatan Tambahan" value={note} onChange={e => setNote(e.target.value)} placeholder="Contoh: Saos BBQ Delmonte" />
+diff --git a/src/features/menu/tabs/MenuListTab.jsx b/src/features/menu/tabs/MenuListTab.jsx
+index f9f8064..693db90 100644
+--- a/src/features/menu/tabs/MenuListTab.jsx
++++ b/src/features/menu/tabs/MenuListTab.jsx
+@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
+ import { useAppContext } from "../../../context/AppContext";
+ import { ChevronLeft, Plus, Edit3, Trash2, Settings2, Search, X, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+ import CategoryModal from "../../../components/CategoryModal";
+-import { Card, Button, IconButton, Input, Select, EmptyState, Badge } from "../../../components/ui";
++import { Card, Button, IconButton, Input, NominalInput, Select, EmptyState, Badge } from "../../../components/ui";
+ import { useDragReorder, getDragRowClass } from "../../../hook/useDragReorder";
+ 
+ // ─── Komponen Kelompok Kategori Menu ───
+@@ -232,8 +232,8 @@ const MenuListTab = ({ data }) => {
+               </Select>
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+-              <Input id="menuPrice" label="Harga Jual" type="number" icon={<span className="font-bold">Rp</span>} value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
+-              <Input id="menuHpp" label="HPP / Modal" type="number" icon={<span className="font-bold">Rp</span>} value={formData.hpp} onChange={e => setFormData({ ...formData, hpp: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
++              <NominalInput id="menuPrice" label="Harga Jual" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
++              <NominalInput id="menuHpp" label="HPP / Modal" value={formData.hpp} onChange={e => setFormData({ ...formData, hpp: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="0" />
+             </div>
+           </div>
+           <div className="space-y-4">
+diff --git a/src/features/menu/tabs/VariantListTab.jsx b/src/features/menu/tabs/VariantListTab.jsx
+index 223dbf3..f4e2bb8 100644
+--- a/src/features/menu/tabs/VariantListTab.jsx
++++ b/src/features/menu/tabs/VariantListTab.jsx
+@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
+ import { useAppContext } from "../../../context/AppContext";
+ import { ChevronLeft, Plus, Edit3, Trash2, Settings2, Trash, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+ import CategoryModal from "../../../components/CategoryModal";
+-import { Button, IconButton, Input, Select, EmptyState, Badge } from "../../../components/ui";
++import { Button, IconButton, Input, NominalInput, Select, EmptyState, Badge } from "../../../components/ui";
+ import { useDragReorder, getDragRowClass } from "../../../hook/useDragReorder";
+ 
+ // ─── Komponen Kelompok Kategori Varian ───
+@@ -267,7 +267,7 @@ const VariantListTab = ({ data }) => {
+               </label>
+               <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                 <label htmlFor="maxSel" className="block text-xs font-bold text-slate-500 uppercase mb-1">Maksimal Jumlah Pilihan Opsi</label>
+-                <input id="maxSel" type="number" min="1" className="w-24 p-2 border border-slate-200 bg-white text-slate-800 rounded-lg text-sm font-bold" value={formData.maxSelection} onChange={e => setFormData({ ...formData, maxSelection: Number(e.target.value) || 1 })} />
++                <NominalInput bare id="maxSel" title="Maksimal Jumlah Pilihan Opsi" prefix={null} calculator={false} className="w-24 p-2 border border-slate-200 bg-white text-slate-800 rounded-lg text-sm font-bold text-left" value={formData.maxSelection} onChange={e => setFormData({ ...formData, maxSelection: Number(e.target.value) || 1 })} />
+               </div>
+             </div>
+           </div>
+@@ -280,7 +280,7 @@ const VariantListTab = ({ data }) => {
+               </div>
+               <div className="w-28">
+                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Harga + (Rp)</label>
+-                <input type="number" placeholder="0" className="w-full p-2 text-xs border border-slate-200 rounded-lg" value={newOption.extraPrice} onChange={e => setNewOption({ ...newOption, extraPrice: e.target.value })} />
++                <NominalInput bare title="Harga Tambahan Opsi" placeholder="0" className="w-full p-2 text-xs border border-slate-200 rounded-lg text-left" value={newOption.extraPrice} onChange={e => setNewOption({ ...newOption, extraPrice: e.target.value })} />
+               </div>
+               {editingOptionId && (
+                 <Button size="sm" variant="secondary" onClick={handleCancelEditOption} className="shrink-0 h-9">Batal</Button>
+diff --git a/src/features/payroll/PayrollView.jsx b/src/features/payroll/PayrollView.jsx
+index bd758a7..18cc155 100644
+--- a/src/features/payroll/PayrollView.jsx
++++ b/src/features/payroll/PayrollView.jsx
+@@ -1,6 +1,6 @@
+ import { useState, useMemo } from 'react';
+ import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info, Lock } from 'lucide-react';
+-import { Card, Button, Input, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
++import { Card, Button, Input, NominalInput, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { usePayrollData } from '../../hook/usePayrollData';
+ import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
+@@ -259,7 +259,7 @@ export default function PayrollView() {
+                     {(form.type === 'tambahan' ? ADD_CATEGORIES : DED_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
+                   </Select>
+                   <Input placeholder="Keterangan" value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} />
+-                  <Input type="number" placeholder="Nominal" icon={<span className="font-bold">Rp</span>} value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
++                  <NominalInput title="Nominal" placeholder="Nominal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                   <Input type="date" value={form.date} min={period.start} max={period.end} onChange={e => setForm({ ...form, date: e.target.value })} />
+                   <Button size="full" onClick={handleAdd} disabled={busy} icon={<Plus className="w-4 h-4" />}>{busy ? 'Menyimpan...' : `Tambah ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}</Button>
+                   <p className="text-[10px] text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
+@@ -272,7 +272,7 @@ export default function PayrollView() {
+                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bulan</p>
+                   <p className="text-[11px] text-slate-400">Positif = karyawan berutang ke toko (mengurangi gaji). Negatif = toko berutang (menambah gaji). Kosong/0 = tidak ada.</p>
+                   <div className="flex gap-2">
+-                    <div className="flex-1"><Input type="number" placeholder="0" icon={<span className="font-bold">Rp</span>} value={openingInput} onChange={e => setOpeningInput(e.target.value)} /></div>
++                    <div className="flex-1"><NominalInput title="Saldo Awal Bulan" allowNegative placeholder="0" value={openingInput} onChange={e => setOpeningInput(e.target.value)} /></div>
+                     <Button variant="secondary" onClick={handleSaveOpening} disabled={busy}>Simpan</Button>
+                   </div>
+                 </div>
+diff --git a/src/features/pos/CartDrawer.jsx b/src/features/pos/CartDrawer.jsx
+index c11147b..4f95334 100644
+--- a/src/features/pos/CartDrawer.jsx
++++ b/src/features/pos/CartDrawer.jsx
+@@ -6,6 +6,7 @@ import { usePosStore } from '../../store/usePosStore';
+ import { computeOrderTotals } from './posMath';
+ import useBackLayer from '../../hook/useBackLayer';
+ import CustomerPickerModal from './CustomerPicker';
++import NominalInput from '../../components/ui/NominalInput';
+ 
+ /**
+  * CartDrawer — di-port dari mamam-global, DIPANGKAS sesuai scope
+@@ -171,7 +172,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+                     ))}
+                     <div className="snap-center shrink-0 flex items-center gap-2 border rounded-xl px-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 min-w-[140px]">
+                       <span className="text-slate-400 dark:text-slate-500 text-xs font-bold pl-2">Rp</span>
+-                      <input type="number" placeholder="Custom" className="w-full py-2 bg-transparent outline-none text-sm font-bold text-slate-700 dark:text-slate-200"
++                      <NominalInput bare title="Biaya Pengiriman Custom" placeholder="Custom" className="w-full py-2 bg-transparent outline-none text-sm font-bold text-slate-700 dark:text-slate-200 text-left"
+                         value={customDeliveryFee} onChange={(e) => { setCustomDeliveryFee(e.target.value); setDeliveryFee(Number(e.target.value) || 0); }} />
+                     </div>
+                   </div>
+@@ -201,10 +202,10 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+                     </div>
+                     <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 rounded-lg p-1 border border-slate-100 dark:border-slate-800">
+                       <button onClick={() => updateCartQty(item.cartItemId, item.qty - 1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-slate-900 rounded shadow-sm text-slate-600 dark:text-slate-300 hover:text-accent-600 dark:hover:text-accent-400 transition-colors shrink-0"><Minus className="w-3 h-3" /></button>
+-                      <input type="text" inputMode="numeric" value={item.qty}
++                      <NominalInput bare title={`Jumlah — ${item.name}`} prefix={null} calculator={false} maxDigits={3} value={item.qty}
+                         onChange={(e) => {
+-                          const val = e.target.value.replace(/\D/g, '');
+-                          updateCartQty(item.cartItemId, val === '' ? 1 : parseInt(val, 10));
++                          const n = parseInt(e.target.value, 10);
++                          updateCartQty(item.cartItemId, n >= 1 ? n : 1);
+                         }}
+                         className="w-8 text-center font-bold text-sm bg-transparent outline-none focus:ring-2 focus:ring-accent-500/20 rounded transition-colors" />
+                       <button onClick={() => updateCartQty(item.cartItemId, item.qty + 1)} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-slate-900 rounded shadow-sm text-slate-600 dark:text-slate-300 hover:text-green-500 dark:hover:text-green-400 transition-colors shrink-0"><Plus className="w-3 h-3" /></button>
+@@ -233,8 +234,11 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+                         <option value="fixed">Rp</option>
+                         <option value="percent">%</option>
+                       </select>
+-                      <input type="number" min="0" placeholder="Nominal Diskon Tambahan..." value={manualDiscount.value || ''} onChange={(e) => setManualDiscount({ ...manualDiscount, value: Number(e.target.value) || 0 })}
+-                        className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" />
++                      <NominalInput bare title="Diskon Tambahan Manual"
++                        prefix={manualDiscount.type === 'percent' ? null : 'Rp'} suffix={manualDiscount.type === 'percent' ? '%' : ''}
++                        max={manualDiscount.type === 'percent' ? 100 : null} calculator={manualDiscount.type !== 'percent'}
++                        placeholder="Nominal Diskon Tambahan..." value={manualDiscount.value || ''} onChange={(e) => setManualDiscount({ ...manualDiscount, value: Number(e.target.value) || 0 })}
++                        className="w-full text-left truncate text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" />
+                     </div>
+                     {totals.manualDiscountAmount > 0 && <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold block animate-in fade-in">Potongan: -{formatRupiah(totals.manualDiscountAmount)}</span>}
+                   </div>
+diff --git a/src/features/pos/PaymentModal.jsx b/src/features/pos/PaymentModal.jsx
+index f9bd855..78f4749 100644
+--- a/src/features/pos/PaymentModal.jsx
++++ b/src/features/pos/PaymentModal.jsx
+@@ -6,6 +6,7 @@ import { usePosStore } from '../../store/usePosStore';
+ import { computeOrderTotals, cashChange, splitStatus } from './posMath';
+ import { checkout } from './useCheckout';
+ import useBackLayer from '../../hook/useBackLayer';
++import NominalInput from '../../components/ui/NominalInput';
+ 
+ /**
+  * PaymentModal — di-port dari mamam-global. Bagian bayar-tunai/QRIS/
+@@ -147,7 +148,9 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Uang Diterima</label>
+                     <div className="relative">
+                       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500">Rp</span>
+-                      <input type="number" className="w-full pl-12 pr-4 py-3 text-lg font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder="0" />
++                      <NominalInput bare title="Uang Diterima"
++                        sheetHint={(n) => (n >= total ? `Kembalian ${formatRupiah(n - total)}` : `Kurang ${formatRupiah(total - n)}`)}
++                        className="w-full text-left pl-12 pr-4 py-3 text-lg font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder="0" />
+                     </div>
+                   </div>
+                   <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+@@ -234,7 +237,9 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+                   <div className="flex gap-2">
+                     <div className="relative flex-1">
+                       <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500 text-sm">Rp</span>
+-                      <input type="number" className="w-full pl-9 pr-3 py-2.5 text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder={String(split.remaining)} />
++                      <NominalInput bare title="Nominal Pembayaran"
++                        sheetHint={(n) => `Sisa ${formatRupiah(Math.max(split.remaining - n, 0))}`}
++                        className="w-full text-left pl-9 pr-3 py-2.5 text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder={String(split.remaining)} />
+                     </div>
+                     <button onClick={handleAddSplitPayment} className="px-4 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors">Tambah</button>
+                   </div>
+diff --git a/src/features/shift/ShiftView.jsx b/src/features/shift/ShiftView.jsx
+index 545f367..9640376 100644
+--- a/src/features/shift/ShiftView.jsx
++++ b/src/features/shift/ShiftView.jsx
+@@ -1,6 +1,6 @@
+ import { useState, useMemo } from 'react';
+ import { Clock, FileText, History, AlertTriangle, Users } from 'lucide-react';
+-import { Button, Card, Input, Select, PageHeader, EmptyState, Badge } from '../../components/ui';
++import { Button, Card, Input, NominalInput, Select, PageHeader, EmptyState, Badge } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { useShiftData } from '../../hook/useShiftData';
+ import { toLocalDateString } from '../../utils/formatters';
+@@ -207,7 +207,7 @@ const ShiftView = () => {
+           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Masukkan jumlah uang tunai yang ada di dalam dompet saat ini sebagai modal harian.</p>
+ 
+           <div className="text-left mb-6">
+-            <Input type="number" label="Saldo Awal" icon={<span className="font-bold">Rp</span>} value={initialCashInput}
++            <NominalInput label="Saldo Awal" value={initialCashInput}
+               onChange={e => setInitialCashInput(e.target.value)} placeholder="0" className="text-lg font-bold" />
+           </div>
+ 
+@@ -282,7 +282,7 @@ const ShiftView = () => {
+             <h3 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 text-center">Saldo Aktual</h3>
+             <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
+             <div className="mb-6">
+-              <Input type="number" label="Saldo aktual yang ada di dompet" icon={<span className="font-bold">Rp</span>}
++              <NominalInput label="Saldo aktual yang ada di dompet"
+                 value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
+                 className="text-xl font-black py-4 border-2 focus:border-accent-600" />
+             </div>
+diff --git a/src/index.css b/src/index.css
+index fb9d88f..c1c1d66 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -119,3 +119,19 @@
+ .scrollbar-hide::-webkit-scrollbar {
+   display: none;
+ }
++
++/* ======================================================
++   BOTTOM SHEET KEYPAD NOMINAL (components/ui/Nominal*.jsx)
++   Proyek ini tidak memasang plugin animate-in, jadi animasi
++   masuknya ditulis langsung di sini.
++   ====================================================== */
++@keyframes nominal-sheet-up {
++  from { transform: translateY(24px); opacity: 0; }
++  to   { transform: translateY(0);    opacity: 1; }
++}
++.nominal-sheet-up {
++  animation: nominal-sheet-up 0.18s ease-out;
++}
++@media (prefers-reduced-motion: reduce) {
++  .nominal-sheet-up { animation: none; }
++}
