@@ -1,7 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useSyncExternalStore } from 'react';
 import { FieldWrapper, base, ERROR_BORDER } from './Input';
 import NominalKeypadSheet from './NominalKeypadSheet';
 import { toDigits, parseNominal, formatGrouped } from './nominalMath';
+
+// Hanya SATU keypad yang boleh terbuka (dock tanpa latar gelap: kolom angka lain di
+// layar tetap bisa diketuk -> keypad pindah ke kolom itu, seperti keyboard HP).
+let activeId = null;
+const subs = new Set();
+const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn); };
+const getActive = () => activeId;
+const setActive = (id) => { if (activeId === id) return; activeId = id; subs.forEach((fn) => fn()); };
 
 /**
  * NominalInput — field angka yang membuka keypad khusus (bukan keyboard HP).
@@ -40,7 +48,19 @@ export default function NominalInput({
   prefix = 'Rp', suffix = '', title, allowNegative = false, calculator = true,
   max = null, maxDigits, sheetHint, bare = false, ...rest
 }) {
-  const [open, setOpen] = useState(false);
+  const id = useId();
+  const open = useSyncExternalStore(subscribe, getActive) === id;
+  const setOpen = (v) => { if (v) setActive(id); else if (activeId === id) setActive(null); };
+  const triggerRef = useRef(null);
+
+  useEffect(() => () => { if (activeId === id) setActive(null); }, [id]);
+
+  // Keypad membuat area halaman memendek; pastikan kolom yang sedang diisi tetap kelihatan.
+  useEffect(() => {
+    if (!open) return undefined;
+    const t = setTimeout(() => triggerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const digits = toDigits(value);
   const lead = icon ?? (prefix ? <span className="font-bold">{prefix}</span> : null);
@@ -69,6 +89,7 @@ export default function NominalInput({
     return (
       <>
         <button
+          ref={triggerRef}
           type="button"
           disabled={disabled}
           aria-haspopup="dialog"
@@ -92,6 +113,7 @@ export default function NominalInput({
           </span>
         )}
         <button
+          ref={triggerRef}
           type="button"
           disabled={disabled}
           aria-haspopup="dialog"

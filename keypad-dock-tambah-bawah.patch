@@ -1,0 +1,293 @@
+diff --git a/src/app/layout/BottomNav.jsx b/src/app/layout/BottomNav.jsx
+index 969c0af..bee57cf 100644
+--- a/src/app/layout/BottomNav.jsx
++++ b/src/app/layout/BottomNav.jsx
+@@ -28,6 +28,7 @@ export default function BottomNav({
+ 
+     return (
+         <nav
++            data-bottom-nav
+             aria-label="Navigasi utama"
+             className="shrink-0 z-30 print:hidden bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100/60 dark:border-slate-900 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] dark:shadow-none pb-[env(safe-area-inset-bottom,0px)]"
+         >
+diff --git a/src/components/ui/NominalDock.jsx b/src/components/ui/NominalDock.jsx
+new file mode 100644
+index 0000000..93bc249
+--- /dev/null
++++ b/src/components/ui/NominalDock.jsx
+@@ -0,0 +1,65 @@
++import { useEffect, useLayoutEffect, useRef } from 'react';
++import { createPortal } from 'react-dom';
++import useBackLayer from '../../hook/useBackLayer';
++import { useNominalOpenClass } from './NominalOverlay';
++
++/**
++ * NominalDock — dasar keypad nominal yang muncul seperti keyboard HP biasa:
++ * menempel di dasar layar, tanpa latar gelap, tanpa animasi geser, tanpa kartu
++ * melayang. Halaman di belakangnya tetap kelihatan dan TIDAK tertutup: tinggi dock
++ * diukur lalu dipasang ke CSS var `--kb-h`, dan aturan di index.css
++ * (`html.nominal-dock`) memendekkan semua lapisan `fixed inset-0` (shell app, modal,
++ * laci) sebesar itu + menyembunyikan navbar bawah — sama seperti keyboard HP
++ * mendorong isi layar ke atas.
++ *
++ * Dock ditutup lewat tombol Selesai, tombol Back HP, atau saat kolom teks lain
++ * difokuskan (supaya tidak bentrok dengan keyboard HP). Tidak ada tutup-lewat-ketuk-luar,
++ * karena layar di belakang tetap harus bisa diketuk (mis. pindah ke kolom angka lain).
++ *
++ * `hidden` = disembunyikan sementara (mis. kalkulator sedang terbuka di atasnya),
++ * state keypad tetap utuh.
++ */
++export default function NominalDock({ z = 'z-[110]', onClose, hidden = false, children }) {
++  const ref = useRef(null);
++  useBackLayer(true, onClose);
++  useNominalOpenClass();
++
++  useLayoutEffect(() => {
++    const el = ref.current;
++    const root = document.documentElement;
++    if (!el || hidden) return undefined;
++    const apply = () => root.style.setProperty('--kb-h', `${Math.ceil(el.getBoundingClientRect().height)}px`);
++    apply();
++    root.classList.add('nominal-dock');
++    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
++    ro?.observe(el);
++    return () => {
++      ro?.disconnect();
++      root.classList.remove('nominal-dock');
++      root.style.removeProperty('--kb-h');
++    };
++  }, [hidden]);
++
++  useEffect(() => {
++    const onFocusIn = (e) => {
++      const t = e.target;
++      if (ref.current?.contains(t)) return;
++      if (t?.matches?.('input, textarea, select, [contenteditable="true"]')) onClose();
++    };
++    document.addEventListener('focusin', onFocusIn);
++    return () => document.removeEventListener('focusin', onFocusIn);
++  }, [onClose]);
++
++  return createPortal(
++    <div
++      ref={ref}
++      style={hidden ? { display: 'none' } : undefined}
++      // Event React tetap merambat ke leluhur di pohon React (mis. backdrop Modal) walau DOM-nya di <body>.
++      onClick={(e) => e.stopPropagation()}
++      className={`fixed bottom-0 left-0 right-0 ${z}`}
++    >
++      {children}
++    </div>,
++    document.body,
++  );
++}
+diff --git a/src/components/ui/NominalInput.jsx b/src/components/ui/NominalInput.jsx
+index 0397132..7b23f90 100644
+--- a/src/components/ui/NominalInput.jsx
++++ b/src/components/ui/NominalInput.jsx
+@@ -1,8 +1,16 @@
+-import { useState } from 'react';
++import { useEffect, useId, useRef, useSyncExternalStore } from 'react';
+ import { FieldWrapper, base, ERROR_BORDER } from './Input';
+ import NominalKeypadSheet from './NominalKeypadSheet';
+ import { toDigits, parseNominal, formatGrouped } from './nominalMath';
+ 
++// Hanya SATU keypad yang boleh terbuka (dock tanpa latar gelap: kolom angka lain di
++// layar tetap bisa diketuk -> keypad pindah ke kolom itu, seperti keyboard HP).
++let activeId = null;
++const subs = new Set();
++const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn); };
++const getActive = () => activeId;
++const setActive = (id) => { if (activeId === id) return; activeId = id; subs.forEach((fn) => fn()); };
++
+ /**
+  * NominalInput — field angka yang membuka keypad khusus (bukan keyboard HP).
+  * Pengganti drop-in untuk <Input type="number">: props & kontrak onChange sama,
+@@ -40,7 +48,19 @@ export default function NominalInput({
+   prefix = 'Rp', suffix = '', title, allowNegative = false, calculator = true,
+   max = null, maxDigits, sheetHint, bare = false, ...rest
+ }) {
+-  const [open, setOpen] = useState(false);
++  const id = useId();
++  const open = useSyncExternalStore(subscribe, getActive) === id;
++  const setOpen = (v) => { if (v) setActive(id); else if (activeId === id) setActive(null); };
++  const triggerRef = useRef(null);
++
++  useEffect(() => () => { if (activeId === id) setActive(null); }, [id]);
++
++  // Keypad membuat area halaman memendek; pastikan kolom yang sedang diisi tetap kelihatan.
++  useEffect(() => {
++    if (!open) return undefined;
++    const t = setTimeout(() => triggerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
++    return () => clearTimeout(t);
++  }, [open]);
+ 
+   const digits = toDigits(value);
+   const lead = icon ?? (prefix ? <span className="font-bold">{prefix}</span> : null);
+@@ -69,6 +89,7 @@ export default function NominalInput({
+     return (
+       <>
+         <button
++          ref={triggerRef}
+           type="button"
+           disabled={disabled}
+           aria-haspopup="dialog"
+@@ -92,6 +113,7 @@ export default function NominalInput({
+           </span>
+         )}
+         <button
++          ref={triggerRef}
+           type="button"
+           disabled={disabled}
+           aria-haspopup="dialog"
+diff --git a/src/components/ui/NominalKeypadSheet.jsx b/src/components/ui/NominalKeypadSheet.jsx
+index c79cf36..5c95a82 100644
+--- a/src/components/ui/NominalKeypadSheet.jsx
++++ b/src/components/ui/NominalKeypadSheet.jsx
+@@ -1,18 +1,19 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { Calculator } from 'lucide-react';
+-import NominalOverlay from './NominalOverlay';
++import NominalDock from './NominalDock';
+ import NominalCalculator from './NominalCalculator';
+ import {
+   appendKey, backspaceDigits, toggleSign, parseNominal, toDigits, formatNominal,
+ } from './nominalMath';
+ 
+ /**
+- * NominalKeypadSheet — bottom sheet keypad nominal (pengganti keyboard HP).
++ * NominalKeypadSheet — keypad nominal (pengganti keyboard HP). Muncul menempel di
++ * dasar layar seperti keyboard biasa (lihat NominalDock), bukan pop-up geser.
+  * Layout dari "Preview: Nominal Keypad + Kalkulator Popup": layar angka +
+  * ikon kalkulator, lalu 1-9 / 00 0 ⌫.
+  *
+  * Nilai di-commit LIVE ke pemanggil tiap tombol ditekan (seperti mengetik di
+- * field biasa); tombol "Selesai", ketuk area gelap, atau Back HP cuma menutup.
++ * field biasa); tombol "Selesai" atau Back HP cuma menutup.
+  *
+  * Props:
+  *   value, onChange(digits)  — string digit ('' | '0' | '12000' | '-500')
+@@ -26,7 +27,7 @@ import {
+  *                              (mis. Kembalian di PaymentModal)
+  *   onClose()
+  */
+-const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xl short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
++const KEY = 'flex-1 h-14 short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xl short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
+ const ICON_BTN = 'p-2 rounded-[10px] text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800 touch-manipulation';
+ 
+ export default function NominalKeypadSheet({
+@@ -72,9 +73,9 @@ export default function NominalKeypadSheet({
+ 
+   return (
+     <>
+-      <NominalOverlay onClose={onClose}>
+-        <div className="bg-slate-50 dark:bg-slate-950 rounded-t-3xl px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-2xl max-h-[100dvh] overflow-y-auto">
+-          <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-3" />
++      <NominalDock onClose={onClose} hidden={calcOpen}>
++        <div className="bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] max-h-[100dvh] overflow-y-auto">
++         <div className="w-full max-w-md mx-auto">
+ 
+           {title && (
+             <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 truncate">{title}</div>
+@@ -105,7 +106,7 @@ export default function NominalKeypadSheet({
+             <div className="px-1 mb-1 text-xs font-bold text-slate-500 dark:text-slate-400">{hint(number)}</div>
+           )}
+ 
+-          <div className="mt-4 short:mt-2 space-y-2.5 short:space-y-1.5">
++          <div className="mt-3 short:mt-2 space-y-2 short:space-y-1.5">
+             {[['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']].map((row) => (
+               <div key={row[0]} className="flex gap-2.5">
+                 {row.map((k) => (
+@@ -123,12 +124,13 @@ export default function NominalKeypadSheet({
+           <button
+             type="button"
+             onClick={onClose}
+-            className="w-full h-[52px] short:h-10 mt-3 rounded-2xl bg-accent-600 dark:bg-accent-500 text-white font-bold active:bg-accent-700 dark:active:bg-accent-600 touch-manipulation transition-colors"
++            className="w-full h-12 short:h-10 mt-3 rounded-2xl bg-accent-600 dark:bg-accent-500 text-white font-bold active:bg-accent-700 dark:active:bg-accent-600 touch-manipulation transition-colors"
+           >
+             Selesai
+           </button>
++         </div>
+         </div>
+-      </NominalOverlay>
++      </NominalDock>
+ 
+       {calcOpen && (
+         <NominalCalculator
+diff --git a/src/components/ui/NominalOverlay.jsx b/src/components/ui/NominalOverlay.jsx
+index 398d406..363115e 100644
+--- a/src/components/ui/NominalOverlay.jsx
++++ b/src/components/ui/NominalOverlay.jsx
+@@ -24,9 +24,8 @@ import useBackLayer from '../../hook/useBackLayer';
+ // Hitung overlay yang terbuka supaya keypad + kalkulator bertumpuk tidak saling cabut.
+ let openOverlays = 0;
+ 
+-export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
+-  useBackLayer(true, onClose);
+-
++/** Tandai <html> sebagai "nominal-open" selama komponen ini terpasang (dipakai Overlay & Dock). */
++export function useNominalOpenClass() {
+   useEffect(() => {
+     openOverlays += 1;
+     document.documentElement.classList.add('nominal-open');
+@@ -38,6 +37,11 @@ export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
+       }
+     };
+   }, []);
++}
++
++export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
++  useBackLayer(true, onClose);
++  useNominalOpenClass();
+ 
+   return createPortal(
+     <div
+diff --git a/src/features/expense/ExpenseView.jsx b/src/features/expense/ExpenseView.jsx
+index 2c4ff32..f461079 100644
+--- a/src/features/expense/ExpenseView.jsx
++++ b/src/features/expense/ExpenseView.jsx
+@@ -166,12 +166,8 @@ const ExpenseView = () => {
+ 
+   return (
+     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+-      <div className="flex flex-col gap-4 w-full min-w-0">
+-        <Button onClick={openNew} variant="danger" icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
+-          Tambah Pengeluaran
+-        </Button>
+-
+-        <Card padding="none" className="flex flex-col h-[600px] w-full min-w-0">
++      <div className="flex flex-col gap-4 w-full min-w-0 flex-1">
++        <Card padding="none" className="flex flex-col flex-1 min-h-[360px] w-full min-w-0">
+           <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap gap-2 justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-2xl">
+             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 shrink-0"><History className="w-4 h-4" /> Riwayat Pengeluaran</h3>
+             <div className="flex flex-wrap items-center gap-2 min-w-0">
+@@ -254,6 +250,10 @@ const ExpenseView = () => {
+             ))}
+           </div>
+         </Card>
++
++        <Button onClick={openNew} variant="danger" icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
++          Tambah Pengeluaran
++        </Button>
+       </div>
+ 
+       <Modal isOpen={isFormOpen} onClose={closeForm} sheet size="lg" maxHeight title={editingId ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}>
+diff --git a/src/index.css b/src/index.css
+index 6e161ca..ff85246 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -172,3 +172,14 @@ html.nominal-open * {
+   -webkit-backdrop-filter: none !important;
+   backdrop-filter: none !important;
+ }
++
++/* Keypad nominal terpasang di dasar layar seperti keyboard HP (NominalDock.jsx):
++   semua lapisan `fixed inset-0` (shell app, modal, laci) dipendekkan setinggi keypad
++   (--kb-h, diukur NominalDock) dan navbar bawah disembunyikan, jadi isi halaman
++   "terdorong" ke atas dan kolom yang diisi tetap kelihatan. */
++html.nominal-dock .fixed.inset-0 {
++  bottom: var(--kb-h, 0px);
++}
++html.nominal-dock [data-bottom-nav] {
++  display: none;
++}

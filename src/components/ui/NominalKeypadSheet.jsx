@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Calculator } from 'lucide-react';
-import NominalOverlay from './NominalOverlay';
+import NominalDock from './NominalDock';
 import NominalCalculator from './NominalCalculator';
 import {
   appendKey, backspaceDigits, toggleSign, parseNominal, toDigits, formatNominal,
 } from './nominalMath';
 
 /**
- * NominalKeypadSheet — bottom sheet keypad nominal (pengganti keyboard HP).
+ * NominalKeypadSheet — keypad nominal (pengganti keyboard HP). Muncul menempel di
+ * dasar layar seperti keyboard biasa (lihat NominalDock), bukan pop-up geser.
  * Layout dari "Preview: Nominal Keypad + Kalkulator Popup": layar angka +
  * ikon kalkulator, lalu 1-9 / 00 0 ⌫.
  *
  * Nilai di-commit LIVE ke pemanggil tiap tombol ditekan (seperti mengetik di
- * field biasa); tombol "Selesai", ketuk area gelap, atau Back HP cuma menutup.
+ * field biasa); tombol "Selesai" atau Back HP cuma menutup.
  *
  * Props:
  *   value, onChange(digits)  — string digit ('' | '0' | '12000' | '-500')
@@ -26,7 +27,7 @@ import {
  *                              (mis. Kembalian di PaymentModal)
  *   onClose()
  */
-const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xl short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
+const KEY = 'flex-1 h-14 short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xl short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
 const ICON_BTN = 'p-2 rounded-[10px] text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800 touch-manipulation';
 
 export default function NominalKeypadSheet({
@@ -72,9 +73,9 @@ export default function NominalKeypadSheet({
 
   return (
     <>
-      <NominalOverlay onClose={onClose}>
-        <div className="bg-slate-50 dark:bg-slate-950 rounded-t-3xl px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-2xl max-h-[100dvh] overflow-y-auto">
-          <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-3" />
+      <NominalDock onClose={onClose} hidden={calcOpen}>
+        <div className="bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] max-h-[100dvh] overflow-y-auto">
+         <div className="w-full max-w-md mx-auto">
 
           {title && (
             <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 truncate">{title}</div>
@@ -105,7 +106,7 @@ export default function NominalKeypadSheet({
             <div className="px-1 mb-1 text-xs font-bold text-slate-500 dark:text-slate-400">{hint(number)}</div>
           )}
 
-          <div className="mt-4 short:mt-2 space-y-2.5 short:space-y-1.5">
+          <div className="mt-3 short:mt-2 space-y-2 short:space-y-1.5">
             {[['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']].map((row) => (
               <div key={row[0]} className="flex gap-2.5">
                 {row.map((k) => (
@@ -123,12 +124,13 @@ export default function NominalKeypadSheet({
           <button
             type="button"
             onClick={onClose}
-            className="w-full h-[52px] short:h-10 mt-3 rounded-2xl bg-accent-600 dark:bg-accent-500 text-white font-bold active:bg-accent-700 dark:active:bg-accent-600 touch-manipulation transition-colors"
+            className="w-full h-12 short:h-10 mt-3 rounded-2xl bg-accent-600 dark:bg-accent-500 text-white font-bold active:bg-accent-700 dark:active:bg-accent-600 touch-manipulation transition-colors"
           >
             Selesai
           </button>
+         </div>
         </div>
-      </NominalOverlay>
+      </NominalDock>
 
       {calcOpen && (
         <NominalCalculator

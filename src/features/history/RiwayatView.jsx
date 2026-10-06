@@ -37,16 +37,17 @@ const NO_SCROLLBAR = '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 const saleTime = (s) => new Date(s.paid_at || s.created_at).getTime();
 const methodOf = (s) => s.payment_method || 'Lainnya';
 
-function PillSelect({ icon: Icon, value, onChange, children, label }) {
+/** Tombol bulat berisi ikon; ketuk = buka daftar pilihan bawaan HP (select transparan di atas ikon). */
+function IconSelect({ icon: Icon, value, active, onChange, children, label }) {
   return (
-    <div className="relative">
+    <div className={`relative shrink-0 w-11 h-11 rounded-full border transition-all duration-300 ${active ? 'border-accent-500 bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400'}`}>
+      <Icon className="w-5 h-5 absolute inset-0 m-auto pointer-events-none" />
       <select
-        aria-label={label} value={value} onChange={onChange}
-        className="w-full appearance-none rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-5 pr-12 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 transition-all duration-300"
+        aria-label={label} title={label} value={value} onChange={onChange}
+        className="absolute inset-0 w-full h-full appearance-none opacity-0 cursor-pointer"
       >
         {children}
       </select>
-      <Icon className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none" />
     </div>
   );
 }
@@ -134,14 +135,14 @@ export default function RiwayatView() {
   };
 
   const toggleSelecting = () => { if (isSelecting) reset(); setIsSelecting(v => !v); };
-  const updatedLabel = updatedAt ? `Diperbarui ${updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Memuat...';
+  const updatedLabel = updatedAt ? updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Memuat...';
 
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       <div className="max-w-3xl w-full space-y-4 pb-10">
 
-        {/* Periode */}
-        <Card className="space-y-2">
+        {/* Periode + tipe order / urutan (ikon) + cari */}
+        <Card className="space-y-3">
           <Select aria-label="Periode" data-testid="period-select" value={mode} onChange={e => { setMode(e.target.value); setMethodFilter('semua'); resetPaging(); }}>
             {PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
           </Select>
@@ -152,28 +153,26 @@ export default function RiwayatView() {
               <Input type="date" value={custom.end} min={custom.start || undefined} onChange={e => { setCustom({ ...custom, end: e.target.value }); resetPaging(); }} />
             </div>
           )}
-        </Card>
-
-        {/* Filter tipe order, urutan, cari */}
-        <Card className="space-y-3">
-          <PillSelect icon={Filter} label="Tipe order" value={typeFilter} onChange={e => { setTypeFilter(e.target.value); resetPaging(); }}>
-            <option value="semua">Semua Tipe Order</option>
-            {orderTypes.map(t => <option key={t} value={t}>{t}</option>)}
-          </PillSelect>
-          <PillSelect icon={ArrowUpDown} label="Urutkan" value={sortKey} onChange={e => setSortKey(e.target.value)}>
-            {SORTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </PillSelect>
-          <div className="relative">
-            <Search className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              value={query} onChange={e => { setQuery(e.target.value); resetPaging(); }} placeholder="Cari No. Order, ID, atau Nama..."
-              className="w-full rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-12 pr-12 py-3 text-sm font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 transition-all duration-300"
-            />
-            {query && (
-              <button onClick={() => { setQuery(''); resetPaging(); }} aria-label="Hapus pencarian" className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 active:scale-90 transition-all">
-                <X className="w-5 h-5" />
-              </button>
-            )}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                value={query} onChange={e => { setQuery(e.target.value); resetPaging(); }} placeholder="Cari order, ID, nama..."
+                className="w-full h-11 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-10 text-sm font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 transition-all duration-300"
+              />
+              {query && (
+                <button onClick={() => { setQuery(''); resetPaging(); }} aria-label="Hapus pencarian" className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 active:scale-90 transition-all">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <IconSelect icon={Filter} label="Tipe order" active={typeFilter !== 'semua'} value={typeFilter} onChange={e => { setTypeFilter(e.target.value); resetPaging(); }}>
+              <option value="semua">Semua Tipe Order</option>
+              {orderTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </IconSelect>
+            <IconSelect icon={ArrowUpDown} label="Urutkan" active={sortKey !== 'terbaru'} value={sortKey} onChange={e => setSortKey(e.target.value)}>
+              {SORTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </IconSelect>
           </div>
         </Card>
 
@@ -185,26 +184,28 @@ export default function RiwayatView() {
           </Card>
         )}
 
-        {/* Omset per metode bayar */}
+        {/* Omset per metode bayar — grid ringkas, muat satu kartu tanpa geser samping */}
         {!error && (
           <Card className="space-y-3">
-            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2.5 text-lg">
-              <CreditCard className="w-5 h-5 text-slate-400" /> Omset per Metode Pembayaran
-            </h3>
-            <div className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-500">
-              <span data-testid="riwayat-updated">{updatedLabel}</span>
-              <button onClick={reload} aria-label="Perbarui" disabled={loading} className="p-1.5 rounded-full text-accent-600 dark:text-accent-400 active:scale-90 transition-all disabled:opacity-50">
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-heading font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 min-w-0">
+                <CreditCard className="w-4 h-4 text-slate-400 shrink-0" /> <span className="truncate">Omset per Metode Pembayaran</span>
+              </h3>
+              <div className="flex items-center gap-0.5 shrink-0 text-xs text-slate-400 dark:text-slate-500" title="Terakhir diperbarui">
+                <span data-testid="riwayat-updated">{updatedLabel}</span>
+                <button onClick={reload} aria-label="Perbarui" disabled={loading} className="p-1.5 rounded-full text-accent-600 dark:text-accent-400 active:scale-90 transition-all disabled:opacity-50">
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
             </div>
-            <div className={`flex gap-3 overflow-x-auto -mx-1 px-1 py-1 ${NO_SCROLLBAR}`}>
-              {[{ key: 'semua', label: 'SEMUA', total: grandTotal }, ...methodStats.map(m => ({ key: m.key, label: `${m.key.toUpperCase()} · ${m.count}X`, total: m.total }))].map(c => (
+            <div className="grid grid-cols-2 gap-2">
+              {[{ key: 'semua', label: 'SEMUA', total: grandTotal, wide: true }, ...methodStats.map(m => ({ key: m.key, label: `${m.key.toUpperCase()} · ${m.count}X`, total: m.total }))].map(c => (
                 <button
                   key={c.key} onClick={() => { setMethodFilter(c.key); resetPaging(); }} data-testid={`method-${c.key}`}
-                  className={`shrink-0 text-left rounded-2xl px-5 py-3.5 border transition-all duration-300 active:scale-95 ${activeMethod === c.key ? 'bg-slate-800 dark:bg-white border-slate-800 dark:border-white text-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'}`}
+                  className={`${c.wide ? 'col-span-2' : ''} min-w-0 text-left rounded-xl px-3 py-2 border transition-all duration-300 active:scale-95 ${activeMethod === c.key ? 'bg-slate-800 dark:bg-white border-slate-800 dark:border-white text-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'}`}
                 >
-                  <p className="text-xs font-bold tracking-wider opacity-80">{c.label}</p>
-                  <p className="font-heading font-bold text-xl mt-0.5">{formatRupiah(c.total)}</p>
+                  <p className="text-xs font-bold tracking-wide opacity-80 truncate">{c.label}</p>
+                  <p className="font-heading font-bold text-sm mt-0.5 truncate">{formatRupiah(c.total)}</p>
                 </button>
               ))}
             </div>

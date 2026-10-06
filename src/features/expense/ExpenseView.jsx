@@ -166,12 +166,8 @@ const ExpenseView = () => {
 
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
-      <div className="flex flex-col gap-4 w-full min-w-0">
-        <Button onClick={openNew} variant="danger" icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
-          Tambah Pengeluaran
-        </Button>
-
-        <Card padding="none" className="flex flex-col h-[600px] w-full min-w-0">
+      <div className="flex flex-col gap-4 w-full min-w-0 flex-1">
+        <Card padding="none" className="flex flex-col flex-1 min-h-[360px] w-full min-w-0">
           <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap gap-2 justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-2xl">
             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 shrink-0"><History className="w-4 h-4" /> Riwayat Pengeluaran</h3>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -254,6 +250,10 @@ const ExpenseView = () => {
             ))}
           </div>
         </Card>
+
+        <Button onClick={openNew} variant="danger" icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
+          Tambah Pengeluaran
+        </Button>
       </div>
 
       <Modal isOpen={isFormOpen} onClose={closeForm} sheet size="lg" maxHeight title={editingId ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}>

@@ -172,3 +172,14 @@ html.nominal-open * {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+
+/* Keypad nominal terpasang di dasar layar seperti keyboard HP (NominalDock.jsx):
+   semua lapisan `fixed inset-0` (shell app, modal, laci) dipendekkan setinggi keypad
+   (--kb-h, diukur NominalDock) dan navbar bawah disembunyikan, jadi isi halaman
+   "terdorong" ke atas dan kolom yang diisi tetap kelihatan. */
+html.nominal-dock .fixed.inset-0 {
+  bottom: var(--kb-h, 0px);
+}
+html.nominal-dock [data-bottom-nav] {
+  display: none;
+}

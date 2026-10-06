@@ -24,9 +24,8 @@ import useBackLayer from '../../hook/useBackLayer';
 // Hitung overlay yang terbuka supaya keypad + kalkulator bertumpuk tidak saling cabut.
 let openOverlays = 0;
 
-export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
-  useBackLayer(true, onClose);
-
+/** Tandai <html> sebagai "nominal-open" selama komponen ini terpasang (dipakai Overlay & Dock). */
+export function useNominalOpenClass() {
   useEffect(() => {
     openOverlays += 1;
     document.documentElement.classList.add('nominal-open');
@@ -38,6 +37,11 @@ export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
       }
     };
   }, []);
+}
+
+export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
+  useBackLayer(true, onClose);
+  useNominalOpenClass();
 
   return createPortal(
     <div

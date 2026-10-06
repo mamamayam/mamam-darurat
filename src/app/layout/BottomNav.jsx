@@ -28,6 +28,7 @@ export default function BottomNav({
 
     return (
         <nav
+            data-bottom-nav
             aria-label="Navigasi utama"
             className="shrink-0 z-30 print:hidden bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100/60 dark:border-slate-900 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] dark:shadow-none pb-[env(safe-area-inset-bottom,0px)]"
         >
