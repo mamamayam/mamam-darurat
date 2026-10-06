@@ -192,7 +192,7 @@ export default function AppRoutes({ currentView, mountedViews, navDirection = 'f
                         animate={isActive ? variant.animate : variant.exit}
                         transition={TRANSITION}
                         className={isActive
-                            ? 'absolute inset-0 flex flex-col overflow-y-auto'
+                            ? 'absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain'
                             : 'absolute inset-0 flex flex-col overflow-hidden pointer-events-none'}
                         aria-hidden={!isActive}
                     >

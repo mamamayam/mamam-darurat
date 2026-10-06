@@ -8,6 +8,15 @@
    treat kayak tablet/desktop dan sidebar/bottom-nav jadi permanen di layar
    yang sebenarnya sempit. "short:" mengisi celah itu. */
 @custom-variant short (@media (max-height: 480px) and (orientation: landscape));
+/* App-shell: dokumen TIDAK boleh ikut scroll. Header & navbar nempel (flex di
+   dalam root `fixed inset-0`), cuma area konten di antaranya yang scroll.
+   overscroll none = scroll mentok di konten tidak "tembus" menggeser seluruh
+   halaman / memicu pull-to-refresh. */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 /* ======================================================
    ACCENT COLOR THEMES — diatur oleh data-color-theme
    ====================================================== */

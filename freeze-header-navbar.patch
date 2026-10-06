@@ -1,0 +1,85 @@
+From f00d4f062e2626cbe1aa3cd1807c212df269889b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 6 Oct 2026 15:55:40 +0700
+Subject: [PATCH] Freeze header & navbar: shell fixed inset-0, dokumen tidak
+ ikut scroll
+
+Akar masalah: root pakai `h-screen h-dvh`, tapi di CSS hasil build `.h-screen`
+(100vh) menimpa `.h-dvh`, jadi tinggi app = viewport besar (di HP lebih tinggi
+dari layar terlihat) -> navbar tenggelam & seluruh halaman ikut ke-scroll.
+
+- App & LoginScreen: root `fixed inset-0`
+- index.css: html/body overflow hidden + overscroll none
+- AppRoutes: area konten overscroll-y-contain
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KtmRJYCNTTH7x5qFJFzS8j
+---
+ src/app/App.jsx          | 2 +-
+ src/app/AppRoutes.jsx    | 2 +-
+ src/auth/LoginScreen.jsx | 2 +-
+ src/index.css            | 9 +++++++++
+ 4 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index 56bc8b6..3170c2b 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -178,7 +178,7 @@ export default function App() {
+ 
+   return (
+     <AppContext.Provider value={appContextValue}>
+-    <div className="h-screen h-dvh w-full flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
++    <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+       <Header
+         currentShift={currentShift}
+         currentView={currentView}
+diff --git a/src/app/AppRoutes.jsx b/src/app/AppRoutes.jsx
+index 5ccd984..803d857 100644
+--- a/src/app/AppRoutes.jsx
++++ b/src/app/AppRoutes.jsx
+@@ -192,7 +192,7 @@ export default function AppRoutes({ currentView, mountedViews, navDirection = 'f
+                         animate={isActive ? variant.animate : variant.exit}
+                         transition={TRANSITION}
+                         className={isActive
+-                            ? 'absolute inset-0 flex flex-col overflow-y-auto'
++                            ? 'absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain'
+                             : 'absolute inset-0 flex flex-col overflow-hidden pointer-events-none'}
+                         aria-hidden={!isActive}
+                     >
+diff --git a/src/auth/LoginScreen.jsx b/src/auth/LoginScreen.jsx
+index cc66788..ccecaa0 100644
+--- a/src/auth/LoginScreen.jsx
++++ b/src/auth/LoginScreen.jsx
+@@ -56,7 +56,7 @@ export default function LoginScreen() {
+   const shown = locked ? lockedMsg : message;
+ 
+   return (
+-    <div className="h-screen h-dvh w-full flex flex-col items-center justify-center gap-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
++    <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
+       <div className="text-center">
+         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><Lock className="w-6 h-6 text-white" /></div>
+         <h1 className="font-heading font-black text-2xl">Mamam Darurat</h1>
+diff --git a/src/index.css b/src/index.css
+index 311a053..223b041 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -8,6 +8,15 @@
+    treat kayak tablet/desktop dan sidebar/bottom-nav jadi permanen di layar
+    yang sebenarnya sempit. "short:" mengisi celah itu. */
+ @custom-variant short (@media (max-height: 480px) and (orientation: landscape));
++/* App-shell: dokumen TIDAK boleh ikut scroll. Header & navbar nempel (flex di
++   dalam root `fixed inset-0`), cuma area konten di antaranya yang scroll.
++   overscroll none = scroll mentok di konten tidak "tembus" menggeser seluruh
++   halaman / memicu pull-to-refresh. */
++html, body {
++  height: 100%;
++  overflow: hidden;
++  overscroll-behavior: none;
++}
+ /* ======================================================
+    ACCENT COLOR THEMES — diatur oleh data-color-theme
+    ====================================================== */
+-- 
+2.43.0
+

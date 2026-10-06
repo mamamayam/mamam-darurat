@@ -56,7 +56,7 @@ export default function LoginScreen() {
   const shown = locked ? lockedMsg : message;
 
   return (
-    <div className="h-screen h-dvh w-full flex flex-col items-center justify-center gap-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
+    <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
       <div className="text-center">
         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><Lock className="w-6 h-6 text-white" /></div>
         <h1 className="font-heading font-black text-2xl">Mamam Darurat</h1>
