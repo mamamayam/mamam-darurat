@@ -4,6 +4,8 @@ import { AlertCircle, RefreshCw, Lock } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { VIEW_PERMISSION } from '../auth/permissions';
 import { Button } from '../components/ui';
+import PullIndicator from '../components/PullIndicator';
+import { usePullToRefresh } from '../hook/usePullToRefresh';
 
 // C — mamam-darurat: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
 // test-app-baru. Mesin render (mountedViews, animasi framer-motion,
@@ -153,6 +155,10 @@ export default function AppRoutes({ currentView, mountedViews, navDirection = 'f
     const viewsToRender = mountedViews ? Array.from(mountedViews) : [currentView];
     const variant = VARIANTS[navDirection] || VARIANTS['forward-root'];
 
+    // Tarik ke bawah dari paling atas = muat ulang halaman (lihat hook untuk pengamannya).
+    const rootRef = useRef(null);
+    const ptr = usePullToRefresh(rootRef);
+
     const prevActiveRef = useRef(currentView);
     const previousActive = prevActiveRef.current;
     useEffect(() => {
@@ -160,7 +166,8 @@ export default function AppRoutes({ currentView, mountedViews, navDirection = 'f
     }, [currentView]);
 
     return (
-        <div className="relative flex-1 overflow-hidden">
+        <div ref={rootRef} className="relative flex-1 overflow-hidden">
+            <PullIndicator {...ptr} />
             {viewsToRender.map((viewKey) => {
                 const ViewComponent = VIEWS[viewKey] && !isAllowed(viewKey) ? RestrictedView : VIEWS[viewKey];
                 if (!ViewComponent) return null;
