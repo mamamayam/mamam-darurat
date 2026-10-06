@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import useBackLayer from '../../hook/useBackLayer';
 
@@ -15,8 +16,28 @@ import useBackLayer from '../../hook/useBackLayer';
  *
  * z-index: di atas PaymentModal (z-70) dan Modal 'top' (z-100), di bawah PIN (z-300).
  */
+// Selama keypad/kalkulator terbuka, backdrop-blur layar di belakangnya dimatikan
+// (kelas `nominal-open` di <html>, aturannya di index.css). Nilai di-commit LIVE,
+// jadi tiap tombol bikin halaman di belakang re-render; kalau di belakangnya masih
+// ada lapisan backdrop-blur (Modal, laci keranjang, header), browser harus nge-blur
+// ulang SELURUH layar tiap ketukan -> layar kelip-kelip di HP kelas menengah.
+// Hitung overlay yang terbuka supaya keypad + kalkulator bertumpuk tidak saling cabut.
+let openOverlays = 0;
+
 export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
   useBackLayer(true, onClose);
+
+  useEffect(() => {
+    openOverlays += 1;
+    document.documentElement.classList.add('nominal-open');
+    return () => {
+      openOverlays -= 1;
+      if (openOverlays <= 0) {
+        openOverlays = 0;
+        document.documentElement.classList.remove('nominal-open');
+      }
+    };
+  }, []);
 
   return createPortal(
     <div

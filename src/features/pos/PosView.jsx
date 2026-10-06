@@ -257,7 +257,7 @@ export default function PosView() {
         )}
       </div>
 
-      <div className="fixed bottom-24 short:!bottom-4 right-6 short:!right-4 z-50">
+      <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] short:!bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] right-6 short:!right-4 z-50">
         <button onClick={() => setIsCartOpen(true)}
           className="bg-gradient-to-r from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600 text-white rounded-full py-3 short:!py-2 px-5 short:!px-4 shadow-[0_10px_28px_rgba(var(--color-accent-500),0.4)] flex items-center gap-3 short:!gap-2 hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(var(--color-accent-500),0.45)] transition-all duration-300 active:scale-95">
           <div className="relative">

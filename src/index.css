@@ -135,3 +135,8 @@
 @media (prefers-reduced-motion: reduce) {
   .nominal-sheet-up { animation: none; }
 }
+/* Keypad terbuka: matikan blur di lapisan belakangnya (lihat NominalOverlay.jsx). */
+html.nominal-open * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}

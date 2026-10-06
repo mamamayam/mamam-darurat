@@ -21,7 +21,7 @@ export default function ExitToast() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 12 }}
           transition={{ duration: 0.18 }}
-          className="pointer-events-none fixed inset-x-0 z-[400] flex justify-center px-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] short:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"
+          className="pointer-events-none fixed inset-x-0 z-[400] flex justify-center px-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] short:bottom-[calc(4rem+env(safe-area-inset-bottom))]"
         >
           <div className="rounded-full bg-slate-900/95 px-4 py-2.5 text-sm font-semibold text-white shadow-lg">
             Ketuk lagi untuk keluar

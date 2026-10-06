@@ -1,0 +1,204 @@
+diff --git a/src/app/layout/BottomNav.jsx b/src/app/layout/BottomNav.jsx
+index 80cecd2..02faa4c 100644
+--- a/src/app/layout/BottomNav.jsx
++++ b/src/app/layout/BottomNav.jsx
+@@ -1,56 +1,68 @@
+ import React from "react";
+ import { Home, ShoppingCart, Menu } from "lucide-react";
+ 
+-// Ported apa adanya dari test-app-baru (mamam-global) — pure UI, tidak ada
++// Ported dari test-app-baru (mamam-global) — pure UI, tidak ada
+ // dependency ke data/sync sama sekali.
++//
++// Navbar SELALU tampil & nempel di dasar layar (termasuk HP landscape):
++//  - bukan lagi `short:hidden`; di layar pendek tinggi bar mengecil (h-12)
++//  - 3 tombol dibagi rata (flex-1) dan seluruhnya ada DI DALAM bar —
++//    tombol Kasir tidak lagi nongol ke atas menimpa konten halaman
++//  - safe-area bawah (gesture bar / home indicator) jadi padding bar, jadi
++//    tombol tidak ketutup tapi bar tetap mentok di tepi layar
++// Elemen lain yang melayang di atas bar (FAB keranjang, ExitToast) memakai
++// offset yang sama: tinggi bar + safe-area.
++const LABEL = "text-[10px] short:text-[9px] leading-none font-bold transition-colors duration-300";
++
+ export default function BottomNav({
+     currentView,
+     navigate,
+     onOpenMenu,
+ }) {
+-    return (
+-        <div className="short:hidden bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100/60 dark:border-slate-900 flex justify-around items-center h-16 shrink-0 z-30 print:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.02)] dark:shadow-none">
++    const tabClass = (active) =>
++        `flex-1 min-w-0 flex flex-col items-center justify-center gap-1 short:gap-0.5 transition-all duration-300 active:scale-95 ${
++            active
++                ? 'text-accent-600 dark:text-accent-400'
++                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
++        }`;
+ 
+-            {/* Tombol Beranda */}
+-            <button
+-                onClick={() => navigate('beranda')}
+-                className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-all duration-300 active:scale-95 ${
+-                    currentView === 'beranda'
+-                        ? 'text-accent-600 dark:text-accent-400'
+-                        : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+-                }`}
+-            >
+-                <Home className="w-5 h-5" />
+-                <span className="text-[10px] font-bold">Beranda</span>
+-            </button>
++    return (
++        <nav
++            aria-label="Navigasi utama"
++            className="shrink-0 z-30 print:hidden bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-100/60 dark:border-slate-900 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] dark:shadow-none pb-[env(safe-area-inset-bottom,0px)]"
++        >
++            <div className="flex items-stretch h-16 short:h-12">
+ 
+-            {/* Tombol Kasir (Menonjol di Tengah) */}
+-            <button
+-                onClick={() => navigate('kasir')}
+-                className="relative flex flex-col items-center justify-end pb-1 h-12 flex-1 group"
+-            >
+-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-14 h-14 rounded-2xl flex items-center justify-center shadow-[0_8px_20px_rgba(var(--color-accent-500),0.4)] border-4 border-white dark:border-slate-950 transition-all duration-300 group-hover:scale-105 group-hover:-translate-y-0.5 active:scale-95 z-10 bg-gradient-to-br from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600">
+-                    <ShoppingCart className="w-6 h-6 text-white" />
+-                </div>
++                {/* Tombol Beranda */}
++                <button onClick={() => navigate('beranda')} className={tabClass(currentView === 'beranda')}>
++                    <Home className="w-5 h-5 short:w-4 short:h-4" />
++                    <span className={LABEL}>Beranda</span>
++                </button>
+ 
+-                <span className={`text-xs font-semibold transition-colors duration-300 ${
+-                    currentView === 'kasir'
+-                        ? 'text-accent-600 dark:text-accent-400'
+-                        : 'text-slate-600 dark:text-slate-300'
+-                }`}>
+-                    Kasir
+-                </span>
+-            </button>
++                {/* Tombol Kasir (aksen di tengah, tetap di dalam bar) */}
++                <button
++                    onClick={() => navigate('kasir')}
++                    className="group flex-1 min-w-0 flex flex-col items-center justify-center gap-1 short:gap-0.5"
++                >
++                    <span className="w-11 h-11 short:w-8 short:h-8 rounded-2xl short:rounded-xl flex items-center justify-center shadow-[0_8px_20px_rgba(var(--color-accent-500),0.4)] transition-transform duration-300 group-active:scale-95 bg-gradient-to-br from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600">
++                        <ShoppingCart className="w-5 h-5 short:w-4 short:h-4 text-white" />
++                    </span>
++                    <span className={`${LABEL} ${
++                        currentView === 'kasir'
++                            ? 'text-accent-600 dark:text-accent-400'
++                            : 'text-slate-600 dark:text-slate-300'
++                    }`}>
++                        Kasir
++                    </span>
++                </button>
+ 
+-            {/* Tombol Menu — buka BottomSheetMenu */}
+-            <button
+-                onClick={onOpenMenu}
+-                className="flex flex-col items-center justify-center w-full h-full space-y-1 transition-all duration-300 active:scale-95 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+-            >
+-                <Menu className="w-5 h-5" />
+-                <span className="text-[10px] font-bold">Menu</span>
+-            </button>
++                {/* Tombol Menu — buka BottomSheetMenu */}
++                <button onClick={onOpenMenu} className={tabClass(false)}>
++                    <Menu className="w-5 h-5 short:w-4 short:h-4" />
++                    <span className={LABEL}>Menu</span>
++                </button>
+ 
+-        </div>
++            </div>
++        </nav>
+     );
+ }
+diff --git a/src/components/ui/ExitToast.jsx b/src/components/ui/ExitToast.jsx
+index 1ebf5cc..36c6c91 100644
+--- a/src/components/ui/ExitToast.jsx
++++ b/src/components/ui/ExitToast.jsx
+@@ -21,7 +21,7 @@ export default function ExitToast() {
+           animate={{ opacity: 1, y: 0 }}
+           exit={{ opacity: 0, y: 12 }}
+           transition={{ duration: 0.18 }}
+-          className="pointer-events-none fixed inset-x-0 z-[400] flex justify-center px-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] short:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"
++          className="pointer-events-none fixed inset-x-0 z-[400] flex justify-center px-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] short:bottom-[calc(4rem+env(safe-area-inset-bottom))]"
+         >
+           <div className="rounded-full bg-slate-900/95 px-4 py-2.5 text-sm font-semibold text-white shadow-lg">
+             Ketuk lagi untuk keluar
+diff --git a/src/components/ui/NominalKeypadSheet.jsx b/src/components/ui/NominalKeypadSheet.jsx
+index bfd323b..730c83e 100644
+--- a/src/components/ui/NominalKeypadSheet.jsx
++++ b/src/components/ui/NominalKeypadSheet.jsx
+@@ -26,7 +26,7 @@ import {
+  *                              (mis. Kembalian di PaymentModal)
+  *   onClose()
+  */
+-const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[22px] short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation transition-colors';
++const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[22px] short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
+ const ICON_BTN = 'p-2 rounded-[10px] text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800 touch-manipulation';
+ 
+ export default function NominalKeypadSheet({
+diff --git a/src/components/ui/NominalOverlay.jsx b/src/components/ui/NominalOverlay.jsx
+index 2421f30..398d406 100644
+--- a/src/components/ui/NominalOverlay.jsx
++++ b/src/components/ui/NominalOverlay.jsx
+@@ -1,3 +1,4 @@
++import { useEffect } from 'react';
+ import { createPortal } from 'react-dom';
+ import useBackLayer from '../../hook/useBackLayer';
+ 
+@@ -15,9 +16,29 @@ import useBackLayer from '../../hook/useBackLayer';
+  *
+  * z-index: di atas PaymentModal (z-70) dan Modal 'top' (z-100), di bawah PIN (z-300).
+  */
++// Selama keypad/kalkulator terbuka, backdrop-blur layar di belakangnya dimatikan
++// (kelas `nominal-open` di <html>, aturannya di index.css). Nilai di-commit LIVE,
++// jadi tiap tombol bikin halaman di belakang re-render; kalau di belakangnya masih
++// ada lapisan backdrop-blur (Modal, laci keranjang, header), browser harus nge-blur
++// ulang SELURUH layar tiap ketukan -> layar kelip-kelip di HP kelas menengah.
++// Hitung overlay yang terbuka supaya keypad + kalkulator bertumpuk tidak saling cabut.
++let openOverlays = 0;
++
+ export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
+   useBackLayer(true, onClose);
+ 
++  useEffect(() => {
++    openOverlays += 1;
++    document.documentElement.classList.add('nominal-open');
++    return () => {
++      openOverlays -= 1;
++      if (openOverlays <= 0) {
++        openOverlays = 0;
++        document.documentElement.classList.remove('nominal-open');
++      }
++    };
++  }, []);
++
+   return createPortal(
+     <div
+       className={`fixed inset-0 ${z} flex items-end justify-center bg-black/45`}
+diff --git a/src/features/pos/PosView.jsx b/src/features/pos/PosView.jsx
+index e2bfc33..0733a98 100644
+--- a/src/features/pos/PosView.jsx
++++ b/src/features/pos/PosView.jsx
+@@ -257,7 +257,7 @@ export default function PosView() {
+         )}
+       </div>
+ 
+-      <div className="fixed bottom-24 short:!bottom-4 right-6 short:!right-4 z-50">
++      <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] short:!bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] right-6 short:!right-4 z-50">
+         <button onClick={() => setIsCartOpen(true)}
+           className="bg-gradient-to-r from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600 text-white rounded-full py-3 short:!py-2 px-5 short:!px-4 shadow-[0_10px_28px_rgba(var(--color-accent-500),0.4)] flex items-center gap-3 short:!gap-2 hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(var(--color-accent-500),0.45)] transition-all duration-300 active:scale-95">
+           <div className="relative">
+diff --git a/src/index.css b/src/index.css
+index c1c1d66..311a053 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -135,3 +135,8 @@
+ @media (prefers-reduced-motion: reduce) {
+   .nominal-sheet-up { animation: none; }
+ }
++/* Keypad terbuka: matikan blur di lapisan belakangnya (lihat NominalOverlay.jsx). */
++html.nominal-open * {
++  -webkit-backdrop-filter: none !important;
++  backdrop-filter: none !important;
++}

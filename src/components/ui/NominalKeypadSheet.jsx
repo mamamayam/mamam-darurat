@@ -26,7 +26,7 @@ import {
  *                              (mis. Kembalian di PaymentModal)
  *   onClose()
  */
-const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[22px] short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation transition-colors';
+const KEY = 'flex-1 h-[68px] short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[22px] short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
 const ICON_BTN = 'p-2 rounded-[10px] text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800 touch-manipulation';
 
 export default function NominalKeypadSheet({
