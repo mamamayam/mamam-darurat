@@ -178,7 +178,7 @@ export default function App() {
 
   return (
     <AppContext.Provider value={appContextValue}>
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div data-app-shell className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <Header
         currentShift={currentShift}
         currentView={currentView}

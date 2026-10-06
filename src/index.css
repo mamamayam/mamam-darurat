@@ -174,12 +174,37 @@ html.nominal-open * {
 }
 
 /* Keypad nominal terpasang di dasar layar seperti keyboard HP (NominalDock.jsx):
-   semua lapisan `fixed inset-0` (shell app, modal, laci) dipendekkan setinggi keypad
-   (--kb-h, diukur NominalDock) dan navbar bawah disembunyikan, jadi isi halaman
-   "terdorong" ke atas dan kolom yang diisi tetap kelihatan. */
+   semua lapisan `fixed inset-0` (modal, laci) dipendekkan setinggi keypad (--kb-h,
+   diukur NominalDock) sehingga isi halaman "terdorong" ke atas.
+   Shell app: navbar bawah ikut turun TERTUTUP keypad (bukan disembunyikan), jadi area
+   konten berhenti persis di atas keypad dan semuanya bergerak mulus.
+   --kb-h didaftarkan sebagai <length> supaya bisa di-transisi (layar naik/turun
+   berbarengan dengan keypad meluncur). */
+@property --kb-h {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+html {
+  transition: --kb-h 280ms cubic-bezier(0.2, 0, 0, 1);
+}
 html.nominal-dock .fixed.inset-0 {
   bottom: var(--kb-h, 0px);
 }
-html.nominal-dock [data-bottom-nav] {
-  display: none;
+html.nominal-dock .fixed.inset-0[data-app-shell] {
+  bottom: max(0px, calc(var(--kb-h, 0px) - var(--nav-h, 0px)));
+}
+@keyframes nominal-dock-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes nominal-dock-out {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+.nominal-dock-in  { animation: nominal-dock-in 280ms cubic-bezier(0.2, 0, 0, 1); }
+.nominal-dock-out { animation: nominal-dock-out 280ms cubic-bezier(0.2, 0, 0, 1) forwards; }
+@media (prefers-reduced-motion: reduce) {
+  html { transition: none; }
+  .nominal-dock-in, .nominal-dock-out { animation: none; }
 }

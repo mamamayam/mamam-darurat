@@ -1,0 +1,194 @@
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index 3170c2b..b9e6ab2 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -178,7 +178,7 @@ export default function App() {
+ 
+   return (
+     <AppContext.Provider value={appContextValue}>
+-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
++    <div data-app-shell className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+       <Header
+         currentShift={currentShift}
+         currentView={currentView}
+diff --git a/src/components/ui/NominalDock.jsx b/src/components/ui/NominalDock.jsx
+index 93bc249..abbea96 100644
+--- a/src/components/ui/NominalDock.jsx
++++ b/src/components/ui/NominalDock.jsx
+@@ -5,12 +5,18 @@ import { useNominalOpenClass } from './NominalOverlay';
+ 
+ /**
+  * NominalDock — dasar keypad nominal yang muncul seperti keyboard HP biasa:
+- * menempel di dasar layar, tanpa latar gelap, tanpa animasi geser, tanpa kartu
+- * melayang. Halaman di belakangnya tetap kelihatan dan TIDAK tertutup: tinggi dock
+- * diukur lalu dipasang ke CSS var `--kb-h`, dan aturan di index.css
+- * (`html.nominal-dock`) memendekkan semua lapisan `fixed inset-0` (shell app, modal,
+- * laci) sebesar itu + menyembunyikan navbar bawah — sama seperti keyboard HP
+- * mendorong isi layar ke atas.
++ * menempel di dasar layar, tanpa latar gelap, tanpa kartu melayang.
++ *
++ * Halaman di belakangnya tetap kelihatan dan TIDAK tertutup: tinggi dock diukur lalu
++ * dipasang ke CSS var `--kb-h`, dan aturan di index.css (`html.nominal-dock`)
++ * memendekkan semua lapisan `fixed inset-0` (shell app, modal, laci) sebesar itu —
++ * sama seperti keyboard HP mendorong isi layar ke atas.
++ *
++ * ANIMASI (mirip keyboard HP): `--kb-h` adalah custom property terdaftar (@property)
++ * yang di-transisi di <html>, jadi layar naik/turun mulus; dock sendiri meluncur
++ * naik (keyframes `nominal-dock-in`). Saat ditutup, dock tidak langsung hilang:
++ * salinannya (ghost) meluncur turun sementara layar turun lagi. Pindah dari satu
++ * kolom angka ke kolom angka lain TIDAK memicu animasi (dock sama, cuma ganti pemilik).
+  *
+  * Dock ditutup lewat tombol Selesai, tombol Back HP, atau saat kolom teks lain
+  * difokuskan (supaya tidak bentrok dengan keyboard HP). Tidak ada tutup-lewat-ketuk-luar,
+@@ -19,25 +25,71 @@ import { useNominalOpenClass } from './NominalOverlay';
+  * `hidden` = disembunyikan sementara (mis. kalkulator sedang terbuka di atasnya),
+  * state keypad tetap utuh.
+  */
++export const DOCK_MS = 280;
++
++let dockCount = 0;       // jumlah dock yang sedang terpasang
++let pendingExit = false; // dock baru saja dicabut; tunggu apakah ada penggantinya (commit yang sama)
++
++function finishExit(ghost) {
++  const root = document.documentElement;
++  if (ghost) {
++    ghost.classList.remove('nominal-dock-in');
++    ghost.classList.add('nominal-dock-out');
++    ghost.style.pointerEvents = 'none';
++    ghost.setAttribute('aria-hidden', 'true');
++    document.body.appendChild(ghost);
++  }
++  root.style.setProperty('--kb-h', '0px'); // layar turun lagi (transisi di <html>)
++  setTimeout(() => {
++    ghost?.remove();
++    if (dockCount > 0) return; // keburu ada dock baru
++    root.classList.remove('nominal-dock');
++    root.style.removeProperty('--kb-h');
++    root.style.removeProperty('--nav-h');
++  }, DOCK_MS + 40);
++}
++
+ export default function NominalDock({ z = 'z-[110]', onClose, hidden = false, children }) {
+   const ref = useRef(null);
+   useBackLayer(true, onClose);
+   useNominalOpenClass();
+ 
++  // Pasang / cabut dock: urus serah-terima antar kolom & animasi keluar.
++  useLayoutEffect(() => {
++    const el = ref.current;
++    if (pendingExit && el) el.style.animation = 'none'; // menggantikan dock lain: jangan meluncur ulang
++    pendingExit = false;
++    dockCount += 1;
++    return () => {
++      dockCount -= 1;
++      pendingExit = true;
++      const ghost = el && el.style.display !== 'none' ? el.cloneNode(true) : null;
++      queueMicrotask(() => {
++        if (!pendingExit || dockCount > 0) return; // sudah digantikan
++        pendingExit = false;
++        finishExit(ghost);
++      });
++    };
++  }, []);
++
++  // Ukur tinggi dock -> --kb-h (dianimasikan lewat transisi di <html>).
+   useLayoutEffect(() => {
+     const el = ref.current;
+     const root = document.documentElement;
+-    if (!el || hidden) return undefined;
++    if (!el) return undefined;
++    if (hidden) {
++      root.classList.remove('nominal-dock');
++      root.style.setProperty('--kb-h', '0px');
++      return undefined;
++    }
++    const nav = document.querySelector('[data-bottom-nav]');
++    root.style.setProperty('--nav-h', `${nav ? nav.offsetHeight : 0}px`);
++    root.classList.add('nominal-dock');
+     const apply = () => root.style.setProperty('--kb-h', `${Math.ceil(el.getBoundingClientRect().height)}px`);
+     apply();
+-    root.classList.add('nominal-dock');
+     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
+     ro?.observe(el);
+-    return () => {
+-      ro?.disconnect();
+-      root.classList.remove('nominal-dock');
+-      root.style.removeProperty('--kb-h');
+-    };
++    return () => ro?.disconnect();
+   }, [hidden]);
+ 
+   useEffect(() => {
+@@ -56,7 +108,7 @@ export default function NominalDock({ z = 'z-[110]', onClose, hidden = false, ch
+       style={hidden ? { display: 'none' } : undefined}
+       // Event React tetap merambat ke leluhur di pohon React (mis. backdrop Modal) walau DOM-nya di <body>.
+       onClick={(e) => e.stopPropagation()}
+-      className={`fixed bottom-0 left-0 right-0 ${z}`}
++      className={`nominal-dock-in fixed bottom-0 left-0 right-0 ${z}`}
+     >
+       {children}
+     </div>,
+diff --git a/src/components/ui/NominalInput.jsx b/src/components/ui/NominalInput.jsx
+index 7b23f90..dbee006 100644
+--- a/src/components/ui/NominalInput.jsx
++++ b/src/components/ui/NominalInput.jsx
+@@ -55,10 +55,10 @@ export default function NominalInput({
+ 
+   useEffect(() => () => { if (activeId === id) setActive(null); }, [id]);
+ 
+-  // Keypad membuat area halaman memendek; pastikan kolom yang sedang diisi tetap kelihatan.
++  // Keypad membuat area halaman memendek (animasi ~280ms, jadi tunggu selesai); pastikan kolom yang sedang diisi tetap kelihatan.
+   useEffect(() => {
+     if (!open) return undefined;
+-    const t = setTimeout(() => triggerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
++    const t = setTimeout(() => triggerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+     return () => clearTimeout(t);
+   }, [open]);
+ 
+diff --git a/src/index.css b/src/index.css
+index ff85246..d84d1c5 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -174,12 +174,37 @@ html.nominal-open * {
+ }
+ 
+ /* Keypad nominal terpasang di dasar layar seperti keyboard HP (NominalDock.jsx):
+-   semua lapisan `fixed inset-0` (shell app, modal, laci) dipendekkan setinggi keypad
+-   (--kb-h, diukur NominalDock) dan navbar bawah disembunyikan, jadi isi halaman
+-   "terdorong" ke atas dan kolom yang diisi tetap kelihatan. */
++   semua lapisan `fixed inset-0` (modal, laci) dipendekkan setinggi keypad (--kb-h,
++   diukur NominalDock) sehingga isi halaman "terdorong" ke atas.
++   Shell app: navbar bawah ikut turun TERTUTUP keypad (bukan disembunyikan), jadi area
++   konten berhenti persis di atas keypad dan semuanya bergerak mulus.
++   --kb-h didaftarkan sebagai <length> supaya bisa di-transisi (layar naik/turun
++   berbarengan dengan keypad meluncur). */
++@property --kb-h {
++  syntax: '<length>';
++  inherits: true;
++  initial-value: 0px;
++}
++html {
++  transition: --kb-h 280ms cubic-bezier(0.2, 0, 0, 1);
++}
+ html.nominal-dock .fixed.inset-0 {
+   bottom: var(--kb-h, 0px);
+ }
+-html.nominal-dock [data-bottom-nav] {
+-  display: none;
++html.nominal-dock .fixed.inset-0[data-app-shell] {
++  bottom: max(0px, calc(var(--kb-h, 0px) - var(--nav-h, 0px)));
++}
++@keyframes nominal-dock-in {
++  from { transform: translateY(100%); }
++  to   { transform: translateY(0); }
++}
++@keyframes nominal-dock-out {
++  from { transform: translateY(0); }
++  to   { transform: translateY(100%); }
++}
++.nominal-dock-in  { animation: nominal-dock-in 280ms cubic-bezier(0.2, 0, 0, 1); }
++.nominal-dock-out { animation: nominal-dock-out 280ms cubic-bezier(0.2, 0, 0, 1) forwards; }
++@media (prefers-reduced-motion: reduce) {
++  html { transition: none; }
++  .nominal-dock-in, .nominal-dock-out { animation: none; }
+ }

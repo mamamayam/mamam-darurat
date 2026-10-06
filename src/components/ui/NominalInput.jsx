@@ -55,10 +55,10 @@ export default function NominalInput({
 
   useEffect(() => () => { if (activeId === id) setActive(null); }, [id]);
 
-  // Keypad membuat area halaman memendek; pastikan kolom yang sedang diisi tetap kelihatan.
+  // Keypad membuat area halaman memendek (animasi ~280ms, jadi tunggu selesai); pastikan kolom yang sedang diisi tetap kelihatan.
   useEffect(() => {
     if (!open) return undefined;
-    const t = setTimeout(() => triggerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
+    const t = setTimeout(() => triggerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
     return () => clearTimeout(t);
   }, [open]);
 
