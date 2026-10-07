@@ -39,6 +39,7 @@ export function buildAttendanceBoard(employees, logs, date, today) {
       employee: { id: emp.id, name: emp.name, role: emp.role },
       masuk: masukLog?.time ?? null, pulang: pulangLog?.time ?? null, bolongs: pairs,
       workedMinutes: 0, overtimeMinutes: 0, note: null,
+      edited: dayLogs.some(l => l.edited), autoPulang: Boolean(pulangLog?.auto), autoLibur: dayLogs.some(l => l.type === 'libur' && l.auto),
     };
 
     if (dayLogs.some(l => l.type === 'libur') && !masukLog) { rows.push({ ...base, status: 'libur' }); continue; }
@@ -57,7 +58,7 @@ export function buildAttendanceBoard(employees, logs, date, today) {
     rows.push({
       ...base, status,
       workedMinutes: res.workedMinutes || 0, overtimeMinutes: res.overtimeMinutes || 0,
-      note: res.effectiveFromBolong ? 'bolong dianggap jam pulang (hari sudah lewat)' : null,
+      note: res.effectiveFromBolong ? 'bolong dianggap jam pulang (hari sudah lewat)' : (pulangLog?.auto ? `pulang otomatis ${pulangLog.time} (lupa absen pulang)` : null),
     });
   }
   rows.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || a.employee.name.localeCompare(b.employee.name));

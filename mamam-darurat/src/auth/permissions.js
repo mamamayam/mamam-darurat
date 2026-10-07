@@ -19,6 +19,7 @@ export const PERMISSIONS = {
   'pengeluaran.ubah': ['owner'],         // edit & hapus pengeluaran (mencatat baru boleh semua)
   'karyawan.kelola': ['owner'],          // tambah/edit/hapus/impor karyawan
   'karyawan.upah': ['owner'],            // melihat upah, bonus, tarif lembur
+  'absensi.edit': ['owner'],             // mengoreksi jam absen (disimpan di C, bukan di sistem absensi)
 };
 
 /** Layar yang butuh izin tertentu untuk dibuka (id layar -> izin). */

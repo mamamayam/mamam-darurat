@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw, Fingerprint } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Fingerprint, Pencil } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useAttendanceDay } from '../../hook/useAttendanceDay';
 import AbsensiSetupCard from '../payroll/AbsensiSetupCard';
 import { parseIsoDate, formatIsoDate } from '../payroll/payrollEngine';
 import { toLocalDateString } from '../../utils/formatters';
+import { useAuth } from '../../auth/AuthContext';
+import AttendanceEditSheet from './AttendanceEditSheet';
 
 /**
  * AttendanceView — Absensi. Papan BACA-SAJA: siapa sedang jaga, bolong, belum
@@ -27,7 +29,10 @@ const longDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return
 export default function AttendanceView() {
   const today = toLocalDateString();
   const [date, setDate] = useState(today);
-  const { configured, loading, error, board, info, updatedAt, reload } = useAttendanceDay({ date });
+  const { configured, loading, error, board, info, updatedAt, reload, overrideKeys } = useAttendanceDay({ date });
+  const { can } = useAuth();
+  const canEdit = can('absensi.edit');
+  const [editRow, setEditRow] = useState(null);
 
   const warnings = [];
   if (info) {
@@ -82,7 +87,10 @@ export default function AttendanceView() {
                     <p className="font-heading font-bold text-slate-800 dark:text-slate-100 truncate">{r.employee.name}</p>
                     <p className="text-xs text-slate-400 capitalize">{r.employee.role}</p>
                   </div>
-                  <Badge size="sm" variant={STATUS[r.status].variant}>{STATUS[r.status].label}</Badge>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge size="sm" variant={STATUS[r.status].variant}>{STATUS[r.status].label}</Badge>
+                    {canEdit && <button type="button" aria-label={`Edit absen ${r.employee.name}`} data-testid={`edit-${r.employee.name}`} onClick={() => setEditRow(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-accent-600 active:scale-90 transition-all"><Pencil className="w-3.5 h-3.5" /></button>}
+                  </div>
                 </div>
                 {(r.masuk || r.pulang || r.bolongs.length > 0) && (
                   <div className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
@@ -93,11 +101,32 @@ export default function AttendanceView() {
                   </div>
                 )}
                 {r.note && <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">{r.note}</p>}
+                {(r.status === 'perluKlarifikasi' || r.status === 'lupaPulang') && (
+                  <div className="mt-2.5 rounded-xl bg-red-50 dark:bg-red-500/10 p-3 flex items-center justify-between gap-3" data-testid={`klarifikasi-${r.employee.name}`}>
+                    <p className="text-xs text-red-700 dark:text-red-300 min-w-0">
+                      {r.status === 'perluKlarifikasi'
+                        ? `Bolong ${r.bolongs.find(b => !b.to)?.from ?? ''} belum ada masuk-lagi, tapi sudah ada jam pulang${r.pulang ? ` ${r.pulang}` : ''}. Mana yang benar?`
+                        : 'Ada jam masuk tapi tidak ada jam pulang.'}
+                      {!canEdit && ' Minta owner untuk mengoreksi.'}
+                    </p>
+                    {canEdit && <Button size="xs" variant="danger" className="shrink-0" onClick={() => setEditRow(r)} data-testid={`selesaikan-${r.employee.name}`}>Selesaikan</Button>}
+                  </div>
+                )}
+                {r.autoLibur && <p className="text-xs text-slate-400 mt-1.5">libur otomatis (tidak ada absen)</p>}
+                {r.edited && <p className="text-xs text-sky-600 dark:text-sky-400 mt-1.5">diedit owner</p>}
               </div>
             ))}
           </>
         )}
       </div>
+
+      {editRow && (
+        <AttendanceEditSheet
+          isOpen onClose={() => setEditRow(null)} employee={editRow.employee} date={date}
+          initial={{ masuk: editRow.masuk || '', pulang: editRow.pulang || '', bolongs: editRow.bolongs.map(b => ({ from: b.from, to: b.to || '' })), libur: editRow.status === 'libur' }}
+          hasOverride={overrideKeys.has(`${editRow.employee.id}|${date}`)} onSaved={reload}
+        />
+      )}
     </div>
   );
 }

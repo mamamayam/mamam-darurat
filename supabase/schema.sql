@@ -402,6 +402,25 @@ create trigger trg_block_closed_opening before insert or update or delete on pay
 grant execute on function close_payroll_period(text, date, date, date, text, jsonb) to anon;
 
 
+-- Koreksi absensi oleh owner (migrasi 007)
+create table if not exists attendance_overrides (
+  id           uuid primary key default gen_random_uuid(),
+  employee_id  uuid not null references employees(id) on delete cascade,
+  date         date not null,
+  libur        boolean not null default false,
+  masuk        text check (masuk  is null or masuk  ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
+  pulang       text check (pulang is null or pulang ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
+  bolongs      jsonb not null default '[]'::jsonb,    -- [{"from":"13:00","to":"14:00"}]
+  note         text,
+  updated_at   timestamptz not null default now(),
+  unique (employee_id, date)
+);
+create index if not exists idx_attendance_overrides_date on attendance_overrides (date);
+
+drop trigger if exists trg_block_closed_attendance_overrides on attendance_overrides;
+create trigger trg_block_closed_attendance_overrides before insert or update or delete on attendance_overrides
+  for each row execute function block_closed_payroll_change();
+
 -- ---------------------------------------------------------------------
 -- RLS
 -- Disepakati: BELUM ada auth di C. Policy di bawah membuka akses penuh ke
@@ -415,7 +434,7 @@ begin
   foreach t in array array[
     'categories','menu_items','variant_categories','variant_groups','variant_options',
     'menu_item_variant_groups','customers','vouchers','expense_categories','transactions',
-    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines'
+    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines','attendance_overrides'
   ] loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists "anon_all_%s" on %I', t, t);

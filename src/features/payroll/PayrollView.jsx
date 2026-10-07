@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
 import { Card, Button, Input, NominalInput, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { usePayrollData } from '../../hook/usePayrollData';
 import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
 import { toLocalDateString } from '../../utils/formatters';
 import AbsensiSetupCard from './AbsensiSetupCard';
+import AttendanceEditSheet from '../attendance/AttendanceEditSheet';
+import { summarizeDay } from '../attendance/dayRules';
 
 /**
  * PayrollView — Penggajian. Semua angka dihitung payrollEngine (aturan sama
@@ -47,6 +49,7 @@ export default function PayrollView() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ type: 'potongan', label: '', amount: '', date: '', category: 'Kasbon' });
   const [openingInput, setOpeningInput] = useState('');
+  const [editDate, setEditDate] = useState(null);   // tanggal yang sedang dikoreksi (karyawan = selected)
 
   const run = async (fn) => {
     if (busy) return;
@@ -63,6 +66,12 @@ export default function PayrollView() {
     : `${MON_FULL[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
 
   const selected = results.find(r => r.employee.id === selectedId) || null;
+  // Penanda per hari: ada log otomatis (pulang/libur) atau hasil koreksi owner.
+  const hasPulang = (employeeId, date) => (data.prepared?.logs || []).some(l => l.employeeId === employeeId && l.date === date && l.type === 'pulang');
+  const dayFlags = (employeeId, date) => {
+    const ls = (data.prepared?.logs || []).filter(l => l.employeeId === employeeId && l.date === date);
+    return { auto: ls.some(l => l.auto), edited: ls.some(l => l.edited) };
+  };
   const openDetail = (r) => {
     setSelectedId(r.employee.id);
     setForm({ type: 'potongan', label: '', amount: '', date: clamp(today, period.start, period.end), category: 'Kasbon' });
@@ -103,6 +112,9 @@ export default function PayrollView() {
     if (info.staleLiburIgnored) warnings.push(`${info.staleLiburIgnored} catatan "libur" otomatis diabaikan karena karyawannya ternyata masuk hari itu.`);
     if (info.duplicatePulangIgnored) warnings.push(`${info.duplicatePulangIgnored} catatan pulang ganda diabaikan (dipakai yang terakhir).`);
     if (info.skippedInvalid) warnings.push(`${info.skippedInvalid} baris absensi rusak dilewati.`);
+    const pr = data.prepared;
+    if (pr?.autoPulangCount) warnings.push(`${pr.autoPulangCount} hari lupa absen pulang dihitung pulang otomatis jam 19:00 (tandai di Rincian Harian; bisa dikoreksi dengan tombol pensil).`);
+    if (pr?.editedCount) warnings.push(`${pr.editedCount} hari memakai koreksi owner, bukan data sistem absensi.`);
   }
   const clarifyCount = results.reduce((s, r) => s + r.needsClarification.length, 0);
 
@@ -153,7 +165,7 @@ export default function PayrollView() {
             {(warnings.length > 0 || clarifyCount > 0) && (
               <Card className="space-y-2 border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
                 {clarifyCount > 0 && (
-                  <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-start gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" />{clarifyCount} hari perlu klarifikasi (bolong belum selesai) dan BELUM dibayar. Buka karyawan yang bertanda merah.</p>
+                  <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-start gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" />{clarifyCount} hari perlu klarifikasi (bolong belum selesai) dan BELUM dibayar. Ketuk karyawan yang bertanda merah, lalu tekan Selesaikan.</p>
                 )}
                 {warnings.map((w, i) => <p key={i} className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{w}</p>)}
               </Card>
@@ -171,6 +183,7 @@ export default function PayrollView() {
                       <p className="font-heading font-bold text-slate-800 dark:text-slate-100 truncate">{r.employee.name}</p>
                       <div className="flex gap-1.5 mt-1 flex-wrap">
                         <Badge size="sm" variant="neutral">{a.hadirDays} hari hadir</Badge>
+                        {a.liburDays > 0 && <Badge size="sm" variant="neutral">{a.liburDays} libur</Badge>}
                         <Badge size="sm" variant="info">{fmtHM(a.totalWorkedMinutes)}</Badge>
                         {a.totalOvertimeMinutes > 0 && <Badge size="sm" variant="warning">lembur {a.totalOvertimeMinutes} mnt</Badge>}
                         {r.needsClarification.length > 0 && <Badge size="sm" variant="danger">perlu klarifikasi</Badge>}
@@ -210,7 +223,16 @@ export default function PayrollView() {
               </div>
 
               {selected.needsClarification.length > 0 && (
-                <p className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-xl p-3">Ada {selected.needsClarification.length} hari dengan bolong yang belum selesai ({selected.needsClarification.map(d => `${fmtDay(d.date)} jam ${d.stuckBolongTime}`).join(', ')}). Hari itu belum dibayar sampai ada masuk-lagi atau harinya lewat.</p>
+                <div className="rounded-xl bg-red-50 dark:bg-red-500/10 p-3 space-y-2" data-testid="klarifikasi-box">
+                  <p className="text-xs font-bold text-red-600 dark:text-red-400">Perlu klarifikasi — hari ini belum dibayar sampai diputuskan:</p>
+                  {selected.needsClarification.map(d => (
+                    <div key={d.date} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-slate-700 dark:text-slate-200 min-w-0"><b>{fmtDay(d.date)}</b> bolong jam {d.stuckBolongTime}, belum ada masuk-lagi{hasPulang(selected.employee.id, d.date) ? ' tapi sudah ada jam pulang' : ''}</span>
+                      {!isLocked && <Button size="xs" variant="danger" className="shrink-0" onClick={() => setEditDate(d.date)} data-testid="selesaikan">Selesaikan</Button>}
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Bolong tanpa masuk-lagi otomatis jadi jam pulang setelah jam 21:00. Kalau sudah ada jam pulang padahal bolong belum kembali, harus diputuskan lewat Selesaikan.</p>
+                </div>
               )}
 
               <div>
@@ -220,8 +242,13 @@ export default function PayrollView() {
                     {a.dayRows.map(d => (
                       <div key={d.date} className="py-2 flex justify-between items-center gap-2 text-xs" data-testid="day-row">
                         <div className="min-w-0"><span className="font-bold text-slate-700 dark:text-slate-200">{fmtDay(d.date)}</span> <Badge size="sm" variant={STATUS_VARIANT[d.status]}>{STATUS_LABEL[d.status]}</Badge>
-                          {d.effectiveFromBolong && <span className="text-xs text-amber-600 ml-1">bolong dianggap pulang</span>}</div>
+                          {d.effectiveFromBolong && <span className="text-xs text-amber-600 ml-1">bolong dianggap pulang</span>}
+                          {dayFlags(selected.employee.id, d.date).auto && <span className="text-xs text-slate-400 ml-1">otomatis</span>}
+                          {dayFlags(selected.employee.id, d.date).edited && <span className="text-xs text-sky-600 ml-1">diedit</span>}</div>
+                        <div className="flex items-center gap-1.5 shrink-0">
                         {d.status === 'hadir' && <div className="text-right text-slate-500 dark:text-slate-400 shrink-0">{fmtHM(d.workedMinutes)}{d.overtimeMinutes > 0 && ` · lembur ${d.overtimeMinutes}m`}{d.bolongMinutes > 0 && ` · bolong ${d.bolongMinutes}m`}{d.fullTimeBonus && ' · FT'}</div>}
+                        {!isLocked && <button type="button" aria-label={`Edit absen ${fmtDay(d.date)}`} data-testid="edit-day" onClick={() => setEditDate(d.date)} className="p-1 text-slate-400 hover:text-accent-600"><Pencil className="w-3.5 h-3.5" /></button>}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -269,6 +296,14 @@ export default function PayrollView() {
           );
         })()}
       </Modal>
+
+      {selected && editDate && (
+        <AttendanceEditSheet
+          isOpen onClose={() => setEditDate(null)} employee={selected.employee} date={editDate}
+          initial={summarizeDay((data.prepared?.logs || []).filter(l => l.employeeId === selected.employee.id && l.date === editDate))}
+          hasOverride={data.overrideKeys.has(`${selected.employee.id}|${editDate}`)} onSaved={data.reload}
+        />
+      )}
     </div>
   );
 }

@@ -166,3 +166,25 @@ describe('loadAttendance', () => {
     expect(r.withoutExternalId).toEqual(['Manual']);       // resign tidak dilaporkan
   });
 });
+
+describe('log otomatis buatan mamam-global (adaptasi)', () => {
+  const idMap = new Map([['EMP-1', 'emp-1']]);
+  const row = (o) => ({ id: o.id, payload: { employeeId: 'EMP-1', employeeName: 'Andi', dateStr: '2026-09-29', deletedAt: null, ...o } });
+  it('isAutoClose -> auto: true; log biasa -> auto: false', () => {
+    const r = mapAttendanceRows([
+      row({ id: 'm', type: 'masuk', date: '2026-09-29T02:00:00Z' }),
+      row({ id: 'k', type: 'keluar', date: '2026-09-29T12:00:00Z', isAutoClose: true }),
+    ], idMap, { toLocalHHmm: () => '09:00' });
+    expect(r.logs.find(l => l.type === 'pulang').auto).toBe(true);
+    expect(r.logs.find(l => l.type === 'masuk').auto).toBe(false);
+  });
+  it('pulang otomatis dari bolong (isFromBolong) dibuang supaya bolong->pulang yang berlaku', () => {
+    const r = mapAttendanceRows([
+      row({ id: 'm', type: 'masuk', date: '2026-09-29T02:00:00Z' }),
+      row({ id: 'b', type: 'bolong', date: '2026-09-29T07:00:00Z' }),
+      row({ id: 'k', type: 'keluar', date: '2026-09-29T12:00:00Z', isAutoClose: true, isFromBolong: true }),
+    ], idMap, { toLocalHHmm: (iso) => ({ '2026-09-29T02:00:00Z': '09:00', '2026-09-29T07:00:00Z': '14:00', '2026-09-29T12:00:00Z': '19:00' })[iso] });
+    expect(r.logs.map(l => l.type)).toEqual(['masuk', 'bolong']);
+    expect(r.autoFromBolongIgnored).toBe(1);
+  });
+});

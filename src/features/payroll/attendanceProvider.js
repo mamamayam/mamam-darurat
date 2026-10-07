@@ -53,7 +53,7 @@ export function mapAttendanceRows(rows, externalIdToEmployeeId, { toLocalHHmm = 
       time = toLocalHHmm(p.date);
       if (!time) { skippedInvalid++; continue; }
     }
-    parsed.push({ id: String(p.id ?? row.id), employeeId, date, type, time, auto: false, ts: Date.parse(p.date) || 0 });
+    parsed.push({ id: String(p.id ?? row.id), employeeId, date, type, time, auto: Boolean(p.isAutoClose), fromBolong: Boolean(p.isFromBolong), ts: Date.parse(p.date) || 0 });
   }
 
   // Urut kronologis, supaya "masuk pertama" = masuk paling awal.
@@ -72,22 +72,33 @@ export function mapAttendanceRows(rows, externalIdToEmployeeId, { toLocalHHmm = 
     return true;
   });
 
+  // (1b) 'pulang' buatan watchdog mamam-global untuk karyawan yang lupa masuk-lagi
+  //      setelah bolong (isFromBolong, jam tutup 19:00): itu tebakan mesin, bukan
+  //  absen sungguhan. Dibuang supaya aturan bolong->pulang biasa yang berlaku
+  //  (jam kerjanya sama dengan hitungan mamam-global). Pulang yang dibuat orang
+  //  bersama bolong menggantung tetap "perlu klarifikasi".
+  let autoFromBolongIgnored = 0;
+  const afterAuto = afterLibur.filter((l) => {
+    if (l.type === 'pulang' && l.fromBolong) { autoFromBolongIgnored++; return false; }
+    return true;
+  });
+
   // (2) Lebih dari satu 'pulang' di hari yang sama: pakai yang TERAKHIR
   //     (sama seperti mamam-global memilih keluar terakhir).
   const lastPulangIdx = new Map();
-  afterLibur.forEach((l, i) => { if (l.type === 'pulang') lastPulangIdx.set(key(l), i); });
+  afterAuto.forEach((l, i) => { if (l.type === 'pulang') lastPulangIdx.set(key(l), i); });
   let duplicatePulangIgnored = 0;
-  const logs = afterLibur.filter((l, i) => {
+  const logs = afterAuto.filter((l, i) => {
     if (l.type !== 'pulang') return true;
     if (lastPulangIdx.get(key(l)) === i) return true;
     duplicatePulangIgnored++;
     return false;
-  }).map(({ ts, ...l }) => l);
+  }).map(({ ts, fromBolong, ...l }) => l);
 
   return {
     logs,
     unknownEmployees: [...unknown].map(([externalId, name]) => ({ externalId, name })),
-    skippedDeleted, skippedInvalid, staleLiburIgnored, duplicatePulangIgnored,
+    skippedDeleted, skippedInvalid, staleLiburIgnored, duplicatePulangIgnored, autoFromBolongIgnored,
   };
 }
 

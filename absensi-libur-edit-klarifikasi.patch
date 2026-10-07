@@ -1,0 +1,1026 @@
+diff --git a/mamam-darurat/src/auth/permissions.js b/mamam-darurat/src/auth/permissions.js
+index 88ec707..d7f2251 100644
+--- a/mamam-darurat/src/auth/permissions.js
++++ b/mamam-darurat/src/auth/permissions.js
+@@ -19,6 +19,7 @@ export const PERMISSIONS = {
+   'pengeluaran.ubah': ['owner'],         // edit & hapus pengeluaran (mencatat baru boleh semua)
+   'karyawan.kelola': ['owner'],          // tambah/edit/hapus/impor karyawan
+   'karyawan.upah': ['owner'],            // melihat upah, bonus, tarif lembur
++  'absensi.edit': ['owner'],             // mengoreksi jam absen (disimpan di C, bukan di sistem absensi)
+ };
+ 
+ /** Layar yang butuh izin tertentu untuk dibuka (id layar -> izin). */
+diff --git a/src/auth/permissions.js b/src/auth/permissions.js
+index 88ec707..d7f2251 100644
+--- a/src/auth/permissions.js
++++ b/src/auth/permissions.js
+@@ -19,6 +19,7 @@ export const PERMISSIONS = {
+   'pengeluaran.ubah': ['owner'],         // edit & hapus pengeluaran (mencatat baru boleh semua)
+   'karyawan.kelola': ['owner'],          // tambah/edit/hapus/impor karyawan
+   'karyawan.upah': ['owner'],            // melihat upah, bonus, tarif lembur
++  'absensi.edit': ['owner'],             // mengoreksi jam absen (disimpan di C, bukan di sistem absensi)
+ };
+ 
+ /** Layar yang butuh izin tertentu untuk dibuka (id layar -> izin). */
+diff --git a/src/features/attendance/AttendanceEditSheet.jsx b/src/features/attendance/AttendanceEditSheet.jsx
+new file mode 100644
+index 0000000..a111de8
+--- /dev/null
++++ b/src/features/attendance/AttendanceEditSheet.jsx
+@@ -0,0 +1,101 @@
++import { useState, useEffect } from 'react';
++import { Plus, X } from 'lucide-react';
++import { Modal, Button, Input } from '../../components/ui';
++import { saveOverride, deleteOverride } from '../../hook/attendanceOverrides';
++import { validateEdit } from './dayRules';
++
++/**
++ * AttendanceEditSheet — owner mengoreksi jam absen satu karyawan pada satu hari.
++ * Hasilnya disimpan di aplikasi ini dan MENGGANTIKAN absensi hari itu saat
++ * dihitung; sistem absensi tidak diubah. "Kembalikan" menghapus koreksi.
++ *
++ * initial: { masuk, pulang, bolongs:[{from,to}], libur } — nilai yang sedang tampil.
++ */
++export default function AttendanceEditSheet({ isOpen, onClose, employee, date, initial, hasOverride, onSaved }) {
++  const [libur, setLibur] = useState(false);
++  const [masuk, setMasuk] = useState('');
++  const [pulang, setPulang] = useState('');
++  const [bolongs, setBolongs] = useState([]);
++  const [error, setError] = useState('');
++  const [busy, setBusy] = useState(false);
++
++  useEffect(() => {
++    if (!isOpen) return;
++    setLibur(!!initial?.libur); setMasuk(initial?.masuk || ''); setPulang(initial?.pulang || '');
++    setBolongs((initial?.bolongs || []).map(b => ({ from: b.from || '', to: b.to || '' })));
++    setError(''); setBusy(false);
++  }, [isOpen, employee?.id, date]); // eslint-disable-line react-hooks/exhaustive-deps
++
++  const setBolong = (i, patch) => setBolongs(prev => prev.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
++
++  const run = async (fn) => {
++    setBusy(true); setError('');
++    try { await fn(); await onSaved?.(); onClose(); } catch (e) { setError(e.message || 'Terjadi kesalahan.'); setBusy(false); }
++  };
++
++  const handleSave = () => {
++    const err = validateEdit({ libur, masuk, pulang, bolongs });
++    if (err) { setError(err); return; }
++    run(() => saveOverride({ employeeId: employee.id, date, libur, masuk, pulang, bolongs }));
++  };
++  const stuckIdx = libur ? -1 : bolongs.findIndex(b => b.from && !b.to);
++  const stuck = stuckIdx >= 0 ? bolongs[stuckIdx] : null;
++  const makeStuckThePulang = () => { setPulang(stuck.from); setBolongs(prev => prev.filter((_, i) => i !== stuckIdx)); setError(''); };
++
++  const handleRestore = () => run(() => deleteOverride(employee.id, date));
++
++  const label = date ? new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
++
++  return (
++    <Modal isOpen={isOpen} onClose={onClose} sheet size="md" maxHeight title="Edit Absen">
++      <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]" data-testid="att-edit-sheet">
++        <div>
++          <p className="font-heading font-bold text-slate-800 dark:text-slate-100">{employee?.name}</p>
++          <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
++        </div>
++
++        <label className="flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
++          <input type="checkbox" checked={libur} onChange={e => setLibur(e.target.checked)} className="w-4 h-4 accent-orange-500" data-testid="edit-libur" />
++          Libur (tidak masuk kerja)
++        </label>
++
++        {!libur && (
++          <>
++            <div className="grid grid-cols-2 gap-3">
++              <Input type="time" label="Masuk" variant="muted" value={masuk} onChange={e => setMasuk(e.target.value)} data-testid="edit-masuk" />
++              <Input type="time" label="Pulang" variant="muted" value={pulang} onChange={e => setPulang(e.target.value)} data-testid="edit-pulang" />
++            </div>
++
++            {stuck && (
++              <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 p-3 space-y-2" data-testid="edit-stuck">
++                <p className="text-xs text-amber-800 dark:text-amber-300">Bolong jam <b>{stuck.from}</b> belum ada masuk-lagi. Kalau karyawan sebenarnya kembali, isi "Masuk lagi" di bawah. Kalau dia memang tidak kembali, jadikan jam bolong itu jam pulang.</p>
++                <Button variant="secondary" size="xs" onClick={makeStuckThePulang} data-testid="edit-jadikan-pulang">Jadikan {stuck.from} sebagai jam pulang</Button>
++              </div>
++            )}
++
++            <div className="space-y-2">
++              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Bolong</p>
++              {bolongs.map((b, i) => (
++                <div key={i} className="flex items-end gap-2" data-testid="edit-bolong-row">
++                  <Input type="time" label={i === 0 ? 'Mulai' : undefined} variant="muted" value={b.from} onChange={e => setBolong(i, { from: e.target.value })} />
++                  <Input type="time" label={i === 0 ? 'Masuk lagi' : undefined} variant="muted" value={b.to} onChange={e => setBolong(i, { to: e.target.value })} />
++                  <button type="button" aria-label="Hapus bolong" onClick={() => setBolongs(prev => prev.filter((_, idx) => idx !== i))} className="p-2.5 mb-0.5 rounded-xl text-slate-400 hover:text-red-500 active:scale-90"><X className="w-4 h-4" /></button>
++                </div>
++              ))}
++              <Button variant="secondary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setBolongs(prev => [...prev, { from: '', to: '' }])} data-testid="edit-add-bolong">Tambah bolong</Button>
++            </div>
++          </>
++        )}
++
++        <p className="text-xs text-slate-400 dark:text-slate-500">Koreksi ini menggantikan seluruh absen karyawan ini di hari tersebut dan hanya tersimpan di aplikasi ini. Data di sistem absensi tidak berubah.</p>
++
++        {error && <p className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-xl p-3" data-testid="edit-error">{error}</p>}
++
++        <div className="flex flex-col gap-2">
++          <Button variant="primary" size="full" onClick={handleSave} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Koreksi'}</Button>
++          {hasOverride && <Button variant="ghost-danger" size="full" onClick={handleRestore} disabled={busy}>Kembalikan ke data absensi</Button>}
++        </div>
++      </div>
++    </Modal>
++  );
++}
+diff --git a/src/features/attendance/AttendanceView.jsx b/src/features/attendance/AttendanceView.jsx
+index 4466518..6b4fd0c 100644
+--- a/src/features/attendance/AttendanceView.jsx
++++ b/src/features/attendance/AttendanceView.jsx
+@@ -1,10 +1,12 @@
+ import { useState } from 'react';
+-import { ChevronLeft, ChevronRight, RefreshCw, Fingerprint } from 'lucide-react';
++import { ChevronLeft, ChevronRight, RefreshCw, Fingerprint, Pencil } from 'lucide-react';
+ import { Card, Badge, Button, EmptyState } from '../../components/ui';
+ import { useAttendanceDay } from '../../hook/useAttendanceDay';
+ import AbsensiSetupCard from '../payroll/AbsensiSetupCard';
+ import { parseIsoDate, formatIsoDate } from '../payroll/payrollEngine';
+ import { toLocalDateString } from '../../utils/formatters';
++import { useAuth } from '../../auth/AuthContext';
++import AttendanceEditSheet from './AttendanceEditSheet';
+ 
+ /**
+  * AttendanceView — Absensi. Papan BACA-SAJA: siapa sedang jaga, bolong, belum
+@@ -27,7 +29,10 @@ const longDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return
+ export default function AttendanceView() {
+   const today = toLocalDateString();
+   const [date, setDate] = useState(today);
+-  const { configured, loading, error, board, info, updatedAt, reload } = useAttendanceDay({ date });
++  const { configured, loading, error, board, info, updatedAt, reload, overrideKeys } = useAttendanceDay({ date });
++  const { can } = useAuth();
++  const canEdit = can('absensi.edit');
++  const [editRow, setEditRow] = useState(null);
+ 
+   const warnings = [];
+   if (info) {
+@@ -82,7 +87,10 @@ export default function AttendanceView() {
+                     <p className="font-heading font-bold text-slate-800 dark:text-slate-100 truncate">{r.employee.name}</p>
+                     <p className="text-xs text-slate-400 capitalize">{r.employee.role}</p>
+                   </div>
+-                  <Badge size="sm" variant={STATUS[r.status].variant}>{STATUS[r.status].label}</Badge>
++                  <div className="flex items-center gap-1.5 shrink-0">
++                    <Badge size="sm" variant={STATUS[r.status].variant}>{STATUS[r.status].label}</Badge>
++                    {canEdit && <button type="button" aria-label={`Edit absen ${r.employee.name}`} data-testid={`edit-${r.employee.name}`} onClick={() => setEditRow(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-accent-600 active:scale-90 transition-all"><Pencil className="w-3.5 h-3.5" /></button>}
++                  </div>
+                 </div>
+                 {(r.masuk || r.pulang || r.bolongs.length > 0) && (
+                   <div className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
+@@ -93,11 +101,32 @@ export default function AttendanceView() {
+                   </div>
+                 )}
+                 {r.note && <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">{r.note}</p>}
++                {(r.status === 'perluKlarifikasi' || r.status === 'lupaPulang') && (
++                  <div className="mt-2.5 rounded-xl bg-red-50 dark:bg-red-500/10 p-3 flex items-center justify-between gap-3" data-testid={`klarifikasi-${r.employee.name}`}>
++                    <p className="text-xs text-red-700 dark:text-red-300 min-w-0">
++                      {r.status === 'perluKlarifikasi'
++                        ? `Bolong ${r.bolongs.find(b => !b.to)?.from ?? ''} belum ada masuk-lagi, tapi sudah ada jam pulang${r.pulang ? ` ${r.pulang}` : ''}. Mana yang benar?`
++                        : 'Ada jam masuk tapi tidak ada jam pulang.'}
++                      {!canEdit && ' Minta owner untuk mengoreksi.'}
++                    </p>
++                    {canEdit && <Button size="xs" variant="danger" className="shrink-0" onClick={() => setEditRow(r)} data-testid={`selesaikan-${r.employee.name}`}>Selesaikan</Button>}
++                  </div>
++                )}
++                {r.autoLibur && <p className="text-xs text-slate-400 mt-1.5">libur otomatis (tidak ada absen)</p>}
++                {r.edited && <p className="text-xs text-sky-600 dark:text-sky-400 mt-1.5">diedit owner</p>}
+               </div>
+             ))}
+           </>
+         )}
+       </div>
++
++      {editRow && (
++        <AttendanceEditSheet
++          isOpen onClose={() => setEditRow(null)} employee={editRow.employee} date={date}
++          initial={{ masuk: editRow.masuk || '', pulang: editRow.pulang || '', bolongs: editRow.bolongs.map(b => ({ from: b.from, to: b.to || '' })), libur: editRow.status === 'libur' }}
++          hasOverride={overrideKeys.has(`${editRow.employee.id}|${date}`)} onSaved={reload}
++        />
++      )}
+     </div>
+   );
+ }
+diff --git a/src/features/attendance/attendanceBoard.js b/src/features/attendance/attendanceBoard.js
+index 148d4ee..763ab6f 100644
+--- a/src/features/attendance/attendanceBoard.js
++++ b/src/features/attendance/attendanceBoard.js
+@@ -39,6 +39,7 @@ export function buildAttendanceBoard(employees, logs, date, today) {
+       employee: { id: emp.id, name: emp.name, role: emp.role },
+       masuk: masukLog?.time ?? null, pulang: pulangLog?.time ?? null, bolongs: pairs,
+       workedMinutes: 0, overtimeMinutes: 0, note: null,
++      edited: dayLogs.some(l => l.edited), autoPulang: Boolean(pulangLog?.auto), autoLibur: dayLogs.some(l => l.type === 'libur' && l.auto),
+     };
+ 
+     if (dayLogs.some(l => l.type === 'libur') && !masukLog) { rows.push({ ...base, status: 'libur' }); continue; }
+@@ -57,7 +58,7 @@ export function buildAttendanceBoard(employees, logs, date, today) {
+     rows.push({
+       ...base, status,
+       workedMinutes: res.workedMinutes || 0, overtimeMinutes: res.overtimeMinutes || 0,
+-      note: res.effectiveFromBolong ? 'bolong dianggap jam pulang (hari sudah lewat)' : null,
++      note: res.effectiveFromBolong ? 'bolong dianggap jam pulang (hari sudah lewat)' : (pulangLog?.auto ? `pulang otomatis ${pulangLog.time} (lupa absen pulang)` : null),
+     });
+   }
+   rows.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || a.employee.name.localeCompare(b.employee.name));
+diff --git a/src/features/attendance/dayRules.js b/src/features/attendance/dayRules.js
+new file mode 100644
+index 0000000..cc7170f
+--- /dev/null
++++ b/src/features/attendance/dayRules.js
+@@ -0,0 +1,163 @@
++/**
++ * dayRules — aturan HARIAN yang diadaptasi dari mamam-global, dihitung SAAT
++ * DIBACA (tidak menulis apa pun ke database absensi). FUNGSI MURNI.
++ *
++ * Kenapa di sini dan bukan di payrollEngine: engine harus tetap identik dengan
++ * mamam-kasir (B). Aturan di bawah hanya MENYIAPKAN log sebelum masuk engine,
++ * jadi engine tidak diubah. Saat migrasi ke B, normalisasi ini disalin ke
++ * AttendanceProvider B.
++ *
++ * Urutan (lihat prepareLogs):
++ *   1. koreksi owner (applyOverrides)  — hari yang dikoreksi memakai data koreksi
++ *   2. aturan otomatis (applyAutoRules):
++ *        a. LUPA PULANG: hari sudah lewat, ada masuk, tidak ada pulang, tidak ada
++ *           bolong yang menggantung -> pulang otomatis 19:00 (ikut aturan bonus
++ *           full time biasa: masuk <= 09:00 dan pulang >= 19:00)
++ *        b. LIBUR OTOMATIS: karyawan aktif tanpa catatan apa pun pada hari yang
++ *           sudah lewat -> libur (tidak mengubah gaji; hanya tampilan & hitungan)
++ *   "Hari sudah lewat" = tanggalnya sebelum hari ini ATAU hari ini sudah lewat
++ *   jam cutoff 21:00 (sama seperti watchdog mamam-global).
++ *   Bolong yang tidak ada masuk-lagi dihitung jam pulang oleh engine begitu hari
++ *   itu "sudah lewat" menurut aturan yang sama.
++ */
++import { findStuckBolong, timeToMinutes, parseIsoDate, formatIsoDate } from '../payroll/payrollEngine.js';
++
++export const CUTOFF_MINUTES = 21 * 60;       // 21:00
++export const AUTO_PULANG_TIME = '19:00';
++export const LIBUR_LOOKBACK_DAYS = 60;       // sama seperti backfill libur di mamam-global
++
++const addDays = (iso, n) => formatIsoDate(new Date(parseIsoDate(iso).getTime() + n * 86400000));
++const keyOf = (employeeId, date) => `${employeeId}|${date}`;
++const hhmm = (t) => (typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : null);
++
++export const nowMinutesOf = (d = new Date()) => d.getHours() * 60 + d.getMinutes();
++
++/**
++ * "Hari ini" versi engine: setelah jam cutoff, hari ini dianggap sudah lewat.
++ * Dipakai sebagai argumen `today` untuk engine/papan; tanggal asli tetap dipakai
++ * untuk hal lain (mis. syarat tutup periode).
++ */
++export function effectiveToday(todayIso, nowMinutes) {
++  return nowMinutes >= CUTOFF_MINUTES ? addDays(todayIso, 1) : todayIso;
++}
++
++/** Ringkas log satu hari jadi bentuk yang bisa diedit. */
++export function summarizeDay(dayLogs) {
++  const timed = [...dayLogs].filter(l => l.time).sort((a, b) => String(a.time).localeCompare(String(b.time)));
++  const masuk = timed.find(l => l.type === 'masuk')?.time ?? '';
++  const pulang = [...timed].reverse().find(l => l.type === 'pulang')?.time ?? '';
++  const bolongs = timed.filter(l => l.type === 'bolong').map(b => ({
++    from: b.time, to: timed.find(l => l.type === 'masuk_lagi' && l.time > b.time)?.time ?? '',
++  }));
++  return { masuk, pulang, bolongs, libur: !masuk && dayLogs.some(l => l.type === 'libur') };
++}
++
++/**
++ * Terapkan koreksi owner. Satu koreksi = SATU hari satu karyawan, MENGGANTIKAN
++ * seluruh log hari itu dari sistem absensi.
++ * override: { employeeId, date, libur, masuk, pulang, bolongs:[{from,to}] }
++ */
++export function applyOverrides(logs, overrides) {
++  if (!overrides || overrides.length === 0) return { logs, editedCount: 0 };
++  const byKey = new Map(overrides.map(o => [keyOf(o.employeeId, o.date), o]));
++  const kept = logs.filter(l => !byKey.has(keyOf(l.employeeId, l.date)));
++  const made = [];
++  for (const o of byKey.values()) {
++    const base = { employeeId: o.employeeId, date: o.date, auto: false, edited: true };
++    const id = (s) => `edit-${o.employeeId}-${o.date}-${s}`;
++    if (o.libur) { made.push({ ...base, id: id('libur'), type: 'libur', time: null }); continue; }
++    if (hhmm(o.masuk)) made.push({ ...base, id: id('masuk'), type: 'masuk', time: o.masuk });
++    (o.bolongs || []).forEach((b, i) => {
++      if (hhmm(b.from)) made.push({ ...base, id: id(`bolong${i}`), type: 'bolong', time: b.from });
++      if (hhmm(b.from) && hhmm(b.to)) made.push({ ...base, id: id(`lagi${i}`), type: 'masuk_lagi', time: b.to });
++    });
++    if (hhmm(o.pulang)) made.push({ ...base, id: id('pulang'), type: 'pulang', time: o.pulang });
++  }
++  return { logs: [...kept, ...made], editedCount: byKey.size };
++}
++
++/**
++ * Pulang otomatis + libur otomatis.
++ * @param employees  karyawan (boleh bentuk UI atau baris DB: startDate/start_date, externalId/external_id)
++ * @param period     { start, end } rentang yang sedang dilihat (inklusif)
++ */
++export function applyAutoRules(logs, employees, period, today, nowMinutes) {
++  const effToday = effectiveToday(today, nowMinutes);
++  const groups = new Map();
++  for (const l of logs) {
++    const k = keyOf(l.employeeId, l.date);
++    if (!groups.has(k)) groups.set(k, []);
++    groups.get(k).push(l);
++  }
++
++  const added = [];
++  let autoPulangCount = 0, autoLiburCount = 0;
++
++  // a. lupa pulang
++  for (const [k, dayLogs] of groups) {
++    const [employeeId, date] = k.split('|');
++    if (date >= effToday) continue;
++    const masuk = dayLogs.find(l => l.type === 'masuk' && l.time);
++    if (!masuk || dayLogs.some(l => l.type === 'pulang')) continue;
++    if (findStuckBolong(dayLogs)) continue;                              // bolong menggantung ditangani engine
++    if (timeToMinutes(masuk.time) >= timeToMinutes(AUTO_PULANG_TIME)) continue;   // masuk malam: jangan menebak
++    added.push({ id: `auto-pulang-${employeeId}-${date}`, employeeId, date, type: 'pulang', time: AUTO_PULANG_TIME, auto: true });
++    autoPulangCount++;
++  }
++
++  // b. libur otomatis — hanya karyawan aktif yang absennya bisa dicocokkan
++  const floor = addDays(effToday, -LIBUR_LOOKBACK_DAYS);
++  const last = addDays(effToday, -1);
++  for (const e of employees || []) {
++    if (e.status !== 'aktif') continue;
++    if (!(e.externalId ?? e.external_id)) continue;
++    const startDate = String(e.startDate ?? e.start_date ?? '').slice(0, 10);
++    let from = period.start > floor ? period.start : floor;
++    if (startDate && startDate > from) from = startDate;
++    const to = period.end < last ? period.end : last;
++    for (let d = from; d <= to; d = addDays(d, 1)) {
++      if (groups.has(keyOf(e.id, d))) continue;
++      added.push({ id: `auto-libur-${e.id}-${d}`, employeeId: e.id, date: d, type: 'libur', time: null, auto: true });
++      autoLiburCount++;
++    }
++  }
++
++  return { logs: added.length ? [...logs, ...added] : logs, autoPulangCount, autoLiburCount, effectiveToday: effToday };
++}
++
++/** Semua langkah sekaligus. */
++export function prepareLogs({ logs, overrides, employees, period, today, nowMinutes = nowMinutesOf() }) {
++  const o = applyOverrides(logs, overrides);
++  const a = applyAutoRules(o.logs, employees, period, today, nowMinutes);
++  return { logs: a.logs, editedCount: o.editedCount, autoPulangCount: a.autoPulangCount, autoLiburCount: a.autoLiburCount, effectiveToday: a.effectiveToday };
++}
++
++/**
++ * Validasi isi form koreksi. Mengembalikan pesan error (string) atau null.
++ * `bolong menggantung + pulang` ditolak karena itu keadaan janggal yang tidak
++ * pernah dihitung otomatis.
++ */
++export function validateEdit({ libur, masuk, pulang, bolongs = [] }) {
++  if (libur) return null;
++  if (!masuk) return pulang || bolongs.length ? 'Isi jam masuk dulu.' : 'Isi jam masuk, atau tandai Libur.';
++  if (!hhmm(masuk)) return 'Format jam masuk tidak valid.';
++  if (pulang && !hhmm(pulang)) return 'Format jam pulang tidak valid.';
++  let cursor = masuk;
++  for (let i = 0; i < bolongs.length; i++) {
++    const { from, to } = bolongs[i];
++    const n = i + 1;
++    if (!hhmm(from)) return `Isi jam mulai bolong #${n}.`;
++    if (from < cursor) return `Bolong #${n} tidak boleh sebelum ${i === 0 ? 'jam masuk' : 'masuk-lagi sebelumnya'} (${cursor}).`;
++    if (to) {
++      if (!hhmm(to)) return `Format jam masuk-lagi #${n} tidak valid.`;
++      if (to <= from) return `Masuk-lagi #${n} harus setelah mulai bolong.`;
++      cursor = to;
++    } else {
++      if (i < bolongs.length - 1) return `Bolong #${n} belum ada jam masuk-lagi, tapi masih ada bolong sesudahnya.`;
++      if (pulang) return `Bolong #${n} belum kembali tapi sudah ada jam pulang. Isi jam masuk-lagi, atau kosongkan jam pulang (bolong dianggap jam pulang).`;
++      cursor = from;
++    }
++  }
++  if (pulang && pulang <= cursor) return `Jam pulang harus setelah ${cursor}.`;
++  return null;
++}
+diff --git a/src/features/attendance/dayRules.test.js b/src/features/attendance/dayRules.test.js
+new file mode 100644
+index 0000000..a8f476f
+--- /dev/null
++++ b/src/features/attendance/dayRules.test.js
+@@ -0,0 +1,154 @@
++import { describe, it, expect } from 'vitest';
++import { effectiveToday, applyOverrides, applyAutoRules, prepareLogs, summarizeDay, validateEdit, CUTOFF_MINUTES } from './dayRules.js';
++import { computeDayResult, computePayroll, weekPeriodForDate } from '../payroll/payrollEngine.js';
++import { buildAttendanceBoard } from './attendanceBoard.js';
++
++const T = '2026-10-06', Y = '2026-10-05';
++const emp = (id, o = {}) => ({ id, name: id, role: 'kasir', status: 'aktif', externalId: `EMP-${id}`, startDate: '2026-01-01', ...o });
++const L = (employeeId, type, time, date = Y) => ({ id: `${employeeId}${type}${time}${date}`, employeeId, date, type, time });
++const prep = (logs, employees = [emp('a')], today = T, nowMinutes = 12 * 60, overrides = [], period = { start: Y, end: T }) =>
++  prepareLogs({ logs, overrides, employees, period, today, nowMinutes });
++
++describe('effectiveToday — cutoff 21:00', () => {
++  it('sebelum 21:00 hari ini tetap hari ini', () => expect(effectiveToday(T, CUTOFF_MINUTES - 1)).toBe(T));
++  it('mulai 21:00 hari ini dianggap sudah lewat', () => expect(effectiveToday(T, CUTOFF_MINUTES)).toBe('2026-10-07'));
++  it('lintas bulan', () => expect(effectiveToday('2026-10-31', 22 * 60)).toBe('2026-11-01'));
++});
++
++describe('pulang otomatis (lupa absen pulang)', () => {
++  it('hari lewat, masuk tanpa pulang -> pulang 19:00 bertanda auto', () => {
++    const r = prep([L('a', 'masuk', '09:00')]);
++    const p = r.logs.find(l => l.type === 'pulang');
++    expect(p).toMatchObject({ time: '19:00', auto: true, date: Y });
++    expect(r.autoPulangCount).toBe(1);
++  });
++  it('masuk <= 09:00 + pulang otomatis 19:00 -> DAPAT bonus full time (permintaan owner)', () => {
++    const r = prep([L('a', 'masuk', '09:00')]);
++    const day = computeDayResult(r.logs.filter(l => l.date === Y), emp('a'), Y, r.effectiveToday);
++    expect(day).toMatchObject({ status: 'hadir', workedMinutes: 600, fullTimeBonus: true, overtimeMinutes: 0 });
++  });
++  it('masuk 09:30 + pulang otomatis -> hadir tapi tanpa bonus', () => {
++    const r = prep([L('a', 'masuk', '09:30')]);
++    expect(computeDayResult(r.logs.filter(l => l.date === Y), emp('a'), Y, r.effectiveToday)).toMatchObject({ workedMinutes: 570, fullTimeBonus: false });
++  });
++  it('hari ini sebelum 21:00 -> belum diotomatiskan', () => {
++    expect(prep([L('a', 'masuk', '09:00', T)], [emp('a')], T, 20 * 60).autoPulangCount).toBe(0);
++  });
++  it('hari ini setelah 21:00 -> pulang otomatis', () => {
++    expect(prep([L('a', 'masuk', '09:00', T)], [emp('a')], T, 21 * 60).autoPulangCount).toBe(1);
++  });
++  it('masuk -> bolong -> masuk lagi -> lupa pulang: pulang otomatis', () => {
++    const r = prep([L('a', 'masuk', '09:00'), L('a', 'bolong', '13:00'), L('a', 'masuk_lagi', '14:00')]);
++    expect(r.autoPulangCount).toBe(1);
++    expect(computeDayResult(r.logs.filter(l => l.date === Y), emp('a'), Y, r.effectiveToday)).toMatchObject({ status: 'hadir', workedMinutes: 540, bolongMinutes: 60 });
++  });
++  it('bolong menggantung TIDAK ditambah pulang otomatis (jadi pulang lewat aturan bolong)', () => {
++    const r = prep([L('a', 'masuk', '09:00'), L('a', 'bolong', '14:00')]);
++    expect(r.autoPulangCount).toBe(0);
++    expect(computeDayResult(r.logs.filter(l => l.date === Y), emp('a'), Y, r.effectiveToday)).toMatchObject({ status: 'hadir', workedMinutes: 300, effectiveFromBolong: true });
++  });
++  it('bolong menggantung HARI INI setelah 21:00 -> dianggap jam pulang', () => {
++    const r = prep([L('a', 'masuk', '09:00', T), L('a', 'bolong', '14:00', T)], [emp('a')], T, 21 * 60 + 5);
++    expect(computeDayResult(r.logs.filter(l => l.date === T), emp('a'), T, r.effectiveToday)).toMatchObject({ status: 'hadir', workedMinutes: 300 });
++  });
++  it('bolong menggantung HARI INI sebelum 21:00 -> tetap perlu klarifikasi', () => {
++    const r = prep([L('a', 'masuk', '09:00', T), L('a', 'bolong', '14:00', T)], [emp('a')], T, 15 * 60);
++    expect(computeDayResult(r.logs.filter(l => l.date === T), emp('a'), T, r.effectiveToday).status).toBe('perluKlarifikasi');
++  });
++  it('bolong menggantung + ada pulang (buatan orang) tetap perlu klarifikasi', () => {
++    const r = prep([L('a', 'masuk', '09:00'), L('a', 'bolong', '14:00'), L('a', 'pulang', '19:00')]);
++    expect(computeDayResult(r.logs.filter(l => l.date === Y), emp('a'), Y, r.effectiveToday).status).toBe('perluKlarifikasi');
++  });
++  it('masuk malam (>= 19:00) tanpa pulang tidak ditebak', () => {
++    expect(prep([L('a', 'masuk', '19:30')]).autoPulangCount).toBe(0);
++  });
++});
++
++describe('libur otomatis', () => {
++  const period = { start: '2026-10-01', end: T };
++  it('hari lewat tanpa catatan -> libur auto; hari ini sebelum 21:00 -> belum', () => {
++    const r = prep([L('a', 'masuk', '09:00', '2026-10-03'), L('a', 'pulang', '19:00', '2026-10-03')], [emp('a')], T, 12 * 60, [], period);
++    const liburDates = r.logs.filter(l => l.type === 'libur').map(l => l.date);
++    expect(liburDates).toEqual(['2026-10-01', '2026-10-02', '2026-10-04', '2026-10-05']);
++    expect(r.logs.filter(l => l.type === 'libur').every(l => l.auto)).toBe(true);
++  });
++  it('hari ini setelah 21:00 ikut libur kalau tidak ada catatan', () => {
++    const r = prep([], [emp('a')], T, 21 * 60, [], { start: T, end: T });
++    expect(r.logs.map(l => l.date)).toEqual([T]);
++  });
++  it('tidak ada libur sebelum tanggal mulai kerja', () => {
++    const r = prep([], [emp('a', { startDate: '2026-10-04' })], T, 12 * 60, [], period);
++    expect(r.logs.map(l => l.date)).toEqual(['2026-10-04', '2026-10-05']);
++  });
++  it('hanya status aktif; cuti/freelance/resign dilewati', () => {
++    for (const status of ['cuti', 'freelance', 'resign']) expect(prep([], [emp('a', { status })], T, 12 * 60, [], period).autoLiburCount).toBe(0);
++  });
++  it('tanpa ID absensi tidak ditebak libur (absennya memang tak bisa dicocokkan)', () => {
++    expect(prep([], [emp('a', { externalId: null })], T, 12 * 60, [], period).autoLiburCount).toBe(0);
++  });
++  it('bentuk baris DB (start_date/external_id) juga dikenali', () => {
++    const r = prep([], [{ id: 'a', status: 'aktif', external_id: 'EMP-a', start_date: '2026-10-05' }], T, 12 * 60, [], period);
++    expect(r.logs.map(l => l.date)).toEqual(['2026-10-05']);
++  });
++  it('libur tidak mengubah gaji, tapi tercatat di hitungan', () => {
++    const e = { id: 'a', wagePerHour: 10000, bonusFullTime: 0, overtimeRatePer30Min: 5000 };
++    const base = [L('a', 'masuk', '09:00', '2026-10-02'), L('a', 'pulang', '19:00', '2026-10-02')];
++    const r = prep(base, [emp('a')], T, 12 * 60, [], period);
++    const pay = (logs) => computePayroll({ employee: e, logs, additions: [], deductions: [], openingBalances: {}, period: { ...period, monthKey: null }, today: r.effectiveToday });
++    expect(pay(r.logs).netPay).toBe(pay(base).netPay);
++    expect(pay(r.logs).attendance.liburDays).toBe(4);
++  });
++  it('papan absensi: hari lewat tanpa log -> Libur (bukan Belum Absen)', () => {
++    const r = prep([], [emp('a')], T, 12 * 60, [], { start: Y, end: Y });
++    const row = buildAttendanceBoard([emp('a')], r.logs, Y, r.effectiveToday).rows[0];
++    expect(row.status).toBe('libur'); expect(row.autoLibur).toBe(true);
++  });
++});
++
++describe('koreksi owner', () => {
++  const ovr = (o) => ({ employeeId: 'a', date: Y, libur: false, masuk: '', pulang: '', bolongs: [], ...o });
++  it('menggantikan SELURUH log hari itu dan menandai edited', () => {
++    const { logs } = applyOverrides([L('a', 'masuk', '09:00'), L('a', 'bolong', '14:00'), L('b', 'masuk', '08:00')], [ovr({ masuk: '10:00', pulang: '19:00' })]);
++    expect(logs.filter(l => l.employeeId === 'a').map(l => [l.type, l.time])).toEqual([['masuk', '10:00'], ['pulang', '19:00']]);
++    expect(logs.find(l => l.employeeId === 'a').edited).toBe(true);
++    expect(logs.filter(l => l.employeeId === 'b')).toHaveLength(1);
++  });
++  it('bolong lengkap -> bolong + masuk lagi', () => {
++    const { logs } = applyOverrides([], [ovr({ masuk: '09:00', bolongs: [{ from: '13:00', to: '14:00' }], pulang: '19:00' })]);
++    expect(logs.map(l => l.type)).toEqual(['masuk', 'bolong', 'masuk_lagi', 'pulang']);
++  });
++  it('libur menggantikan absen', () => {
++    const { logs } = applyOverrides([L('a', 'masuk', '09:00')], [ovr({ libur: true })]);
++    expect(logs.map(l => l.type)).toEqual(['libur']);
++  });
++  it('koreksi bolong menggantung + pulang diizinkan lewat bentuk valid: menghapus bolong dari log', () => {
++    const r = prep([L('a', 'masuk', '09:00'), L('a', 'bolong', '14:00'), L('a', 'pulang', '19:00')], [emp('a')], T, 12 * 60, [ovr({ masuk: '09:00', pulang: '19:00' })]);
++    expect(computeDayResult(r.logs.filter(l => l.date === Y), emp('a'), Y, r.effectiveToday).status).toBe('hadir');
++    expect(r.editedCount).toBe(1);
++  });
++  it('hari yang dikoreksi tidak kena libur otomatis; papan menandai diedit', () => {
++    const r = prep([], [emp('a')], T, 12 * 60, [ovr({ masuk: '09:00', pulang: '19:00' })], { start: Y, end: Y });
++    const row = buildAttendanceBoard([emp('a')], r.logs, Y, r.effectiveToday).rows[0];
++    expect(row).toMatchObject({ status: 'sudahPulang', edited: true });
++  });
++  it('summarizeDay mengembalikan nilai form', () => {
++    expect(summarizeDay([L('a', 'masuk', '09:00'), L('a', 'bolong', '13:00'), L('a', 'masuk_lagi', '14:00'), L('a', 'pulang', '19:00')]))
++      .toEqual({ masuk: '09:00', pulang: '19:00', bolongs: [{ from: '13:00', to: '14:00' }], libur: false });
++    expect(summarizeDay([{ type: 'libur', time: null }]).libur).toBe(true);
++  });
++});
++
++describe('validateEdit', () => {
++  it('libur selalu valid', () => expect(validateEdit({ libur: true })).toBeNull());
++  it('kosong semua -> error', () => expect(validateEdit({ masuk: '', pulang: '', bolongs: [] })).toMatch(/jam masuk/i));
++  it('pulang tanpa masuk -> error', () => expect(validateEdit({ masuk: '', pulang: '19:00', bolongs: [] })).toMatch(/masuk dulu/i));
++  it('pulang sebelum masuk -> error', () => expect(validateEdit({ masuk: '10:00', pulang: '09:00', bolongs: [] })).toMatch(/setelah/));
++  it('masuk saja (lupa pulang) valid', () => expect(validateEdit({ masuk: '09:00', pulang: '', bolongs: [] })).toBeNull());
++  it('bolong menggantung + pulang -> ditolak dengan petunjuk', () => expect(validateEdit({ masuk: '09:00', pulang: '19:00', bolongs: [{ from: '14:00', to: '' }] })).toMatch(/masuk-lagi/i));
++  it('bolong menggantung tanpa pulang valid (jadi jam pulang)', () => expect(validateEdit({ masuk: '09:00', pulang: '', bolongs: [{ from: '14:00', to: '' }] })).toBeNull());
++  it('masuk-lagi sebelum mulai bolong -> error', () => expect(validateEdit({ masuk: '09:00', pulang: '', bolongs: [{ from: '14:00', to: '13:00' }] })).toMatch(/setelah mulai bolong/));
++  it('dua bolong berurutan valid, bertabrakan ditolak', () => {
++    expect(validateEdit({ masuk: '09:00', pulang: '19:00', bolongs: [{ from: '12:00', to: '12:30' }, { from: '15:00', to: '15:15' }] })).toBeNull();
++    expect(validateEdit({ masuk: '09:00', pulang: '19:00', bolongs: [{ from: '12:00', to: '13:00' }, { from: '12:30', to: '13:30' }] })).toMatch(/tidak boleh sebelum/);
++  });
++});
+diff --git a/src/features/payroll/PayrollView.jsx b/src/features/payroll/PayrollView.jsx
+index d35d3d2..7be7b6b 100644
+--- a/src/features/payroll/PayrollView.jsx
++++ b/src/features/payroll/PayrollView.jsx
+@@ -1,11 +1,13 @@
+ import { useState, useMemo } from 'react';
+-import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info, Lock } from 'lucide-react';
++import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
+ import { Card, Button, Input, NominalInput, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { usePayrollData } from '../../hook/usePayrollData';
+ import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
+ import { toLocalDateString } from '../../utils/formatters';
+ import AbsensiSetupCard from './AbsensiSetupCard';
++import AttendanceEditSheet from '../attendance/AttendanceEditSheet';
++import { summarizeDay } from '../attendance/dayRules';
+ 
+ /**
+  * PayrollView — Penggajian. Semua angka dihitung payrollEngine (aturan sama
+@@ -47,6 +49,7 @@ export default function PayrollView() {
+   const [busy, setBusy] = useState(false);
+   const [form, setForm] = useState({ type: 'potongan', label: '', amount: '', date: '', category: 'Kasbon' });
+   const [openingInput, setOpeningInput] = useState('');
++  const [editDate, setEditDate] = useState(null);   // tanggal yang sedang dikoreksi (karyawan = selected)
+ 
+   const run = async (fn) => {
+     if (busy) return;
+@@ -63,6 +66,12 @@ export default function PayrollView() {
+     : `${MON_FULL[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+ 
+   const selected = results.find(r => r.employee.id === selectedId) || null;
++  // Penanda per hari: ada log otomatis (pulang/libur) atau hasil koreksi owner.
++  const hasPulang = (employeeId, date) => (data.prepared?.logs || []).some(l => l.employeeId === employeeId && l.date === date && l.type === 'pulang');
++  const dayFlags = (employeeId, date) => {
++    const ls = (data.prepared?.logs || []).filter(l => l.employeeId === employeeId && l.date === date);
++    return { auto: ls.some(l => l.auto), edited: ls.some(l => l.edited) };
++  };
+   const openDetail = (r) => {
+     setSelectedId(r.employee.id);
+     setForm({ type: 'potongan', label: '', amount: '', date: clamp(today, period.start, period.end), category: 'Kasbon' });
+@@ -103,6 +112,9 @@ export default function PayrollView() {
+     if (info.staleLiburIgnored) warnings.push(`${info.staleLiburIgnored} catatan "libur" otomatis diabaikan karena karyawannya ternyata masuk hari itu.`);
+     if (info.duplicatePulangIgnored) warnings.push(`${info.duplicatePulangIgnored} catatan pulang ganda diabaikan (dipakai yang terakhir).`);
+     if (info.skippedInvalid) warnings.push(`${info.skippedInvalid} baris absensi rusak dilewati.`);
++    const pr = data.prepared;
++    if (pr?.autoPulangCount) warnings.push(`${pr.autoPulangCount} hari lupa absen pulang dihitung pulang otomatis jam 19:00 (tandai di Rincian Harian; bisa dikoreksi dengan tombol pensil).`);
++    if (pr?.editedCount) warnings.push(`${pr.editedCount} hari memakai koreksi owner, bukan data sistem absensi.`);
+   }
+   const clarifyCount = results.reduce((s, r) => s + r.needsClarification.length, 0);
+ 
+@@ -153,7 +165,7 @@ export default function PayrollView() {
+             {(warnings.length > 0 || clarifyCount > 0) && (
+               <Card className="space-y-2 border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
+                 {clarifyCount > 0 && (
+-                  <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-start gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" />{clarifyCount} hari perlu klarifikasi (bolong belum selesai) dan BELUM dibayar. Buka karyawan yang bertanda merah.</p>
++                  <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-start gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" />{clarifyCount} hari perlu klarifikasi (bolong belum selesai) dan BELUM dibayar. Ketuk karyawan yang bertanda merah, lalu tekan Selesaikan.</p>
+                 )}
+                 {warnings.map((w, i) => <p key={i} className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{w}</p>)}
+               </Card>
+@@ -171,6 +183,7 @@ export default function PayrollView() {
+                       <p className="font-heading font-bold text-slate-800 dark:text-slate-100 truncate">{r.employee.name}</p>
+                       <div className="flex gap-1.5 mt-1 flex-wrap">
+                         <Badge size="sm" variant="neutral">{a.hadirDays} hari hadir</Badge>
++                        {a.liburDays > 0 && <Badge size="sm" variant="neutral">{a.liburDays} libur</Badge>}
+                         <Badge size="sm" variant="info">{fmtHM(a.totalWorkedMinutes)}</Badge>
+                         {a.totalOvertimeMinutes > 0 && <Badge size="sm" variant="warning">lembur {a.totalOvertimeMinutes} mnt</Badge>}
+                         {r.needsClarification.length > 0 && <Badge size="sm" variant="danger">perlu klarifikasi</Badge>}
+@@ -210,7 +223,16 @@ export default function PayrollView() {
+               </div>
+ 
+               {selected.needsClarification.length > 0 && (
+-                <p className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-xl p-3">Ada {selected.needsClarification.length} hari dengan bolong yang belum selesai ({selected.needsClarification.map(d => `${fmtDay(d.date)} jam ${d.stuckBolongTime}`).join(', ')}). Hari itu belum dibayar sampai ada masuk-lagi atau harinya lewat.</p>
++                <div className="rounded-xl bg-red-50 dark:bg-red-500/10 p-3 space-y-2" data-testid="klarifikasi-box">
++                  <p className="text-xs font-bold text-red-600 dark:text-red-400">Perlu klarifikasi — hari ini belum dibayar sampai diputuskan:</p>
++                  {selected.needsClarification.map(d => (
++                    <div key={d.date} className="flex items-center justify-between gap-2 text-xs">
++                      <span className="text-slate-700 dark:text-slate-200 min-w-0"><b>{fmtDay(d.date)}</b> bolong jam {d.stuckBolongTime}, belum ada masuk-lagi{hasPulang(selected.employee.id, d.date) ? ' tapi sudah ada jam pulang' : ''}</span>
++                      {!isLocked && <Button size="xs" variant="danger" className="shrink-0" onClick={() => setEditDate(d.date)} data-testid="selesaikan">Selesaikan</Button>}
++                    </div>
++                  ))}
++                  <p className="text-xs text-slate-500 dark:text-slate-400">Bolong tanpa masuk-lagi otomatis jadi jam pulang setelah jam 21:00. Kalau sudah ada jam pulang padahal bolong belum kembali, harus diputuskan lewat Selesaikan.</p>
++                </div>
+               )}
+ 
+               <div>
+@@ -220,8 +242,13 @@ export default function PayrollView() {
+                     {a.dayRows.map(d => (
+                       <div key={d.date} className="py-2 flex justify-between items-center gap-2 text-xs" data-testid="day-row">
+                         <div className="min-w-0"><span className="font-bold text-slate-700 dark:text-slate-200">{fmtDay(d.date)}</span> <Badge size="sm" variant={STATUS_VARIANT[d.status]}>{STATUS_LABEL[d.status]}</Badge>
+-                          {d.effectiveFromBolong && <span className="text-xs text-amber-600 ml-1">bolong dianggap pulang</span>}</div>
++                          {d.effectiveFromBolong && <span className="text-xs text-amber-600 ml-1">bolong dianggap pulang</span>}
++                          {dayFlags(selected.employee.id, d.date).auto && <span className="text-xs text-slate-400 ml-1">otomatis</span>}
++                          {dayFlags(selected.employee.id, d.date).edited && <span className="text-xs text-sky-600 ml-1">diedit</span>}</div>
++                        <div className="flex items-center gap-1.5 shrink-0">
+                         {d.status === 'hadir' && <div className="text-right text-slate-500 dark:text-slate-400 shrink-0">{fmtHM(d.workedMinutes)}{d.overtimeMinutes > 0 && ` · lembur ${d.overtimeMinutes}m`}{d.bolongMinutes > 0 && ` · bolong ${d.bolongMinutes}m`}{d.fullTimeBonus && ' · FT'}</div>}
++                        {!isLocked && <button type="button" aria-label={`Edit absen ${fmtDay(d.date)}`} data-testid="edit-day" onClick={() => setEditDate(d.date)} className="p-1 text-slate-400 hover:text-accent-600"><Pencil className="w-3.5 h-3.5" /></button>}
++                        </div>
+                       </div>
+                     ))}
+                   </div>
+@@ -269,6 +296,14 @@ export default function PayrollView() {
+           );
+         })()}
+       </Modal>
++
++      {selected && editDate && (
++        <AttendanceEditSheet
++          isOpen onClose={() => setEditDate(null)} employee={selected.employee} date={editDate}
++          initial={summarizeDay((data.prepared?.logs || []).filter(l => l.employeeId === selected.employee.id && l.date === editDate))}
++          hasOverride={data.overrideKeys.has(`${selected.employee.id}|${editDate}`)} onSaved={data.reload}
++        />
++      )}
+     </div>
+   );
+ }
+diff --git a/src/features/payroll/attendanceProvider.js b/src/features/payroll/attendanceProvider.js
+index 9ef76df..479d3a7 100644
+--- a/src/features/payroll/attendanceProvider.js
++++ b/src/features/payroll/attendanceProvider.js
+@@ -53,7 +53,7 @@ export function mapAttendanceRows(rows, externalIdToEmployeeId, { toLocalHHmm =
+       time = toLocalHHmm(p.date);
+       if (!time) { skippedInvalid++; continue; }
+     }
+-    parsed.push({ id: String(p.id ?? row.id), employeeId, date, type, time, auto: false, ts: Date.parse(p.date) || 0 });
++    parsed.push({ id: String(p.id ?? row.id), employeeId, date, type, time, auto: Boolean(p.isAutoClose), fromBolong: Boolean(p.isFromBolong), ts: Date.parse(p.date) || 0 });
+   }
+ 
+   // Urut kronologis, supaya "masuk pertama" = masuk paling awal.
+@@ -72,22 +72,33 @@ export function mapAttendanceRows(rows, externalIdToEmployeeId, { toLocalHHmm =
+     return true;
+   });
+ 
++  // (1b) 'pulang' buatan watchdog mamam-global untuk karyawan yang lupa masuk-lagi
++  //      setelah bolong (isFromBolong, jam tutup 19:00): itu tebakan mesin, bukan
++  //  absen sungguhan. Dibuang supaya aturan bolong->pulang biasa yang berlaku
++  //  (jam kerjanya sama dengan hitungan mamam-global). Pulang yang dibuat orang
++  //  bersama bolong menggantung tetap "perlu klarifikasi".
++  let autoFromBolongIgnored = 0;
++  const afterAuto = afterLibur.filter((l) => {
++    if (l.type === 'pulang' && l.fromBolong) { autoFromBolongIgnored++; return false; }
++    return true;
++  });
++
+   // (2) Lebih dari satu 'pulang' di hari yang sama: pakai yang TERAKHIR
+   //     (sama seperti mamam-global memilih keluar terakhir).
+   const lastPulangIdx = new Map();
+-  afterLibur.forEach((l, i) => { if (l.type === 'pulang') lastPulangIdx.set(key(l), i); });
++  afterAuto.forEach((l, i) => { if (l.type === 'pulang') lastPulangIdx.set(key(l), i); });
+   let duplicatePulangIgnored = 0;
+-  const logs = afterLibur.filter((l, i) => {
++  const logs = afterAuto.filter((l, i) => {
+     if (l.type !== 'pulang') return true;
+     if (lastPulangIdx.get(key(l)) === i) return true;
+     duplicatePulangIgnored++;
+     return false;
+-  }).map(({ ts, ...l }) => l);
++  }).map(({ ts, fromBolong, ...l }) => l);
+ 
+   return {
+     logs,
+     unknownEmployees: [...unknown].map(([externalId, name]) => ({ externalId, name })),
+-    skippedDeleted, skippedInvalid, staleLiburIgnored, duplicatePulangIgnored,
++    skippedDeleted, skippedInvalid, staleLiburIgnored, duplicatePulangIgnored, autoFromBolongIgnored,
+   };
+ }
+ 
+diff --git a/src/features/payroll/attendanceProvider.test.js b/src/features/payroll/attendanceProvider.test.js
+index 29e801d..6c8d65b 100644
+--- a/src/features/payroll/attendanceProvider.test.js
++++ b/src/features/payroll/attendanceProvider.test.js
+@@ -166,3 +166,25 @@ describe('loadAttendance', () => {
+     expect(r.withoutExternalId).toEqual(['Manual']);       // resign tidak dilaporkan
+   });
+ });
++
++describe('log otomatis buatan mamam-global (adaptasi)', () => {
++  const idMap = new Map([['EMP-1', 'emp-1']]);
++  const row = (o) => ({ id: o.id, payload: { employeeId: 'EMP-1', employeeName: 'Andi', dateStr: '2026-09-29', deletedAt: null, ...o } });
++  it('isAutoClose -> auto: true; log biasa -> auto: false', () => {
++    const r = mapAttendanceRows([
++      row({ id: 'm', type: 'masuk', date: '2026-09-29T02:00:00Z' }),
++      row({ id: 'k', type: 'keluar', date: '2026-09-29T12:00:00Z', isAutoClose: true }),
++    ], idMap, { toLocalHHmm: () => '09:00' });
++    expect(r.logs.find(l => l.type === 'pulang').auto).toBe(true);
++    expect(r.logs.find(l => l.type === 'masuk').auto).toBe(false);
++  });
++  it('pulang otomatis dari bolong (isFromBolong) dibuang supaya bolong->pulang yang berlaku', () => {
++    const r = mapAttendanceRows([
++      row({ id: 'm', type: 'masuk', date: '2026-09-29T02:00:00Z' }),
++      row({ id: 'b', type: 'bolong', date: '2026-09-29T07:00:00Z' }),
++      row({ id: 'k', type: 'keluar', date: '2026-09-29T12:00:00Z', isAutoClose: true, isFromBolong: true }),
++    ], idMap, { toLocalHHmm: (iso) => ({ '2026-09-29T02:00:00Z': '09:00', '2026-09-29T07:00:00Z': '14:00', '2026-09-29T12:00:00Z': '19:00' })[iso] });
++    expect(r.logs.map(l => l.type)).toEqual(['masuk', 'bolong']);
++    expect(r.autoFromBolongIgnored).toBe(1);
++  });
++});
+diff --git a/src/hook/attendanceOverrides.js b/src/hook/attendanceOverrides.js
+new file mode 100644
+index 0000000..dad98c9
+--- /dev/null
++++ b/src/hook/attendanceOverrides.js
+@@ -0,0 +1,37 @@
++import { supabase } from '../lib/supabase';
++
++/**
++ * Koreksi absensi oleh owner (tabel attendance_overrides di project C).
++ * Satu baris = satu karyawan + satu tanggal; MENGGANTIKAN log absensi hari itu.
++ * Tidak pernah menulis ke sistem absensi (itu baca-saja).
++ */
++const day = (v) => String(v).slice(0, 10);
++const fail = (error, aksi) => { throw new Error(`${aksi}: ${error.message}`); };
++
++export const toOverride = (r) => ({
++  employeeId: r.employee_id, date: day(r.date), libur: !!r.libur,
++  masuk: r.masuk || '', pulang: r.pulang || '',
++  bolongs: Array.isArray(r.bolongs) ? r.bolongs : [], note: r.note || '',
++});
++
++export async function fetchOverrides(start, end) {
++  const { data, error } = await supabase.from('attendance_overrides').select('*').gte('date', start).lte('date', end);
++  if (error) fail(error, 'Gagal membaca koreksi absensi');
++  return (data || []).map(toOverride);
++}
++
++export async function saveOverride({ employeeId, date, libur, masuk, pulang, bolongs, note }) {
++  const row = {
++    employee_id: employeeId, date, libur: !!libur,
++    masuk: libur ? null : (masuk || null), pulang: libur ? null : (pulang || null),
++    bolongs: libur ? [] : (bolongs || []).filter(b => b.from).map(b => ({ from: b.from, to: b.to || '' })),
++    note: String(note || '').trim() || null, updated_at: new Date().toISOString(),
++  };
++  const { error } = await supabase.from('attendance_overrides').upsert(row, { onConflict: 'employee_id,date' });
++  if (error) fail(error, 'Gagal menyimpan koreksi');
++}
++
++export async function deleteOverride(employeeId, date) {
++  const { error } = await supabase.from('attendance_overrides').delete().eq('employee_id', employeeId).eq('date', date);
++  if (error) fail(error, 'Gagal mengembalikan data absensi');
++}
+diff --git a/src/hook/useAttendanceDay.js b/src/hook/useAttendanceDay.js
+index e55d33a..0811817 100644
+--- a/src/hook/useAttendanceDay.js
++++ b/src/hook/useAttendanceDay.js
+@@ -4,6 +4,8 @@ import { absensiClient } from '../lib/absensiClient';
+ import { loadAttendance } from '../features/payroll/attendanceProvider';
+ import { buildAttendanceBoard } from '../features/attendance/attendanceBoard';
+ import { toLocalDateString } from '../utils/formatters';
++import { prepareLogs, nowMinutesOf } from '../features/attendance/dayRules';
++import { fetchOverrides } from './attendanceOverrides';
+ 
+ /**
+  * useAttendanceDay — papan absensi satu hari, BACA-SAJA dari sistem absensi.
+@@ -15,6 +17,7 @@ import { toLocalDateString } from '../utils/formatters';
+ export function useAttendanceDay({ date, attendanceClient = absensiClient, pollMs = 60000 }) {
+   const [employees, setEmployees] = useState([]);
+   const [data, setData] = useState(null);
++  const [overrides, setOverrides] = useState([]);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState(null);
+   const [updatedAt, setUpdatedAt] = useState(null);
+@@ -23,15 +26,18 @@ export function useAttendanceDay({ date, attendanceClient = absensiClient, pollM
+ 
+   const reload = useCallback(async () => {
+     try {
+-      const emps = await supabase.from('employees').select('id, name, role, status, external_id').order('name');
++      const emps = await supabase.from('employees').select('id, name, role, status, external_id, start_date').order('name');
+       if (emps.error) throw new Error(emps.error.message);
+-      const list = (emps.data || []).map(e => ({ id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.external_id || null }));
++      const list = (emps.data || []).map(e => ({ id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.external_id || null, startDate: e.start_date ? String(e.start_date).slice(0, 10) : '' }));
+       if (!alive.current) return;
+       setEmployees(list);
+       if (attendanceClient) {
+-        const result = await loadAttendance(attendanceClient, { start: date, end: date }, list);
++        const [result, ovr] = await Promise.all([
++          loadAttendance(attendanceClient, { start: date, end: date }, list),
++          fetchOverrides(date, date).catch(() => []),   // koreksi gagal dibaca: tampilkan absensi apa adanya
++        ]);
+         if (!alive.current) return;
+-        setData(result);
++        setData(result); setOverrides(ovr);
+         setUpdatedAt(new Date());
+       }
+       setError(null);
+@@ -51,7 +57,14 @@ export function useAttendanceDay({ date, attendanceClient = absensiClient, pollM
+   }, [pollMs, configured, reload]);
+ 
+   const today = toLocalDateString();
+-  const board = useMemo(() => (data ? buildAttendanceBoard(employees, data.logs, date, today) : null), [employees, data, date, today]);
++  const prepared = useMemo(
++    () => (data ? prepareLogs({ logs: data.logs, overrides, employees, period: { start: date, end: date }, today, nowMinutes: nowMinutesOf() }) : null),
++    [employees, data, overrides, date, today],
++  );
++  const board = useMemo(
++    () => (prepared ? buildAttendanceBoard(employees, prepared.logs, date, prepared.effectiveToday) : null),
++    [employees, prepared, date],
++  );
+ 
+-  return { configured, loading, error, board, info: data, updatedAt, reload };
++  return { configured, loading, error, board, info: data, updatedAt, reload, overrideKeys: new Set(overrides.map(o => `${o.employeeId}|${o.date}`)) };
+ }
+diff --git a/src/hook/usePayrollData.js b/src/hook/usePayrollData.js
+index d22ea1e..ad228ca 100644
+--- a/src/hook/usePayrollData.js
++++ b/src/hook/usePayrollData.js
+@@ -5,6 +5,8 @@ import { computePayroll } from '../features/payroll/payrollEngine';
+ import { loadAttendance } from '../features/payroll/attendanceProvider';
+ import { toLocalDateString } from '../utils/formatters';
+ import { employeeGrossCost } from '../features/reports/reportsMath';
++import { prepareLogs, nowMinutesOf } from '../features/attendance/dayRules';
++import { fetchOverrides } from './attendanceOverrides';
+ 
+ /**
+  * usePayrollData — data Penggajian untuk satu periode (mingguan Jumat–Kamis
+@@ -34,6 +36,8 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+   const [openingBalances, setOpeningBalances] = useState({});
+   const [closing, setClosing] = useState(null);           // penutupan periode ini (kalau sudah ditutup)
+   const [closingLines, setClosingLines] = useState([]);
++  const [overrides, setOverrides] = useState([]);
++  const [empList, setEmpList] = useState([]);
+   const [attendance, setAttendance] = useState({ status: attendanceClient ? 'loading' : 'not-configured', data: null, error: null });
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState(null);
+@@ -53,8 +57,8 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+       const bad = [emps, adds, deds, opens, clos].find(r => r.error);
+       if (bad) throw new Error(bad.error.message);
+ 
+-      const empList = (emps.data || []).map(e => ({ ...e, externalId: e.external_id || null, name: e.name }));
+-      setEmployees(empList);
++      const empRows = (emps.data || []).map(e => ({ ...e, externalId: e.external_id || null, name: e.name }));
++      setEmployees(empRows); setEmpList(empRows);
+       setAdditions((adds.data || []).map(a => ({ id: a.id, employeeId: a.employee_id, label: a.label, amount: a.amount, date: day(a.date), category: a.category })));
+       setDeductions((deds.data || []).map(d => ({ id: d.id, employeeId: d.employee_id, label: d.label, amount: d.amount, date: day(d.date), category: d.category })));
+       setOpeningBalances(Object.fromEntries((opens.data || []).map(o => [`${o.employee_id}|${o.month}`, o.amount])));
+@@ -72,7 +76,11 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+       if (!attendanceClient) { setAttendance({ status: 'not-configured', data: null, error: null }); return; }
+       setAttendance(prev => ({ status: 'loading', data: prev.data, error: null }));
+       try {
+-        const data = await loadAttendance(attendanceClient, { start, end }, empList);
++        const [data, ovr] = await Promise.all([
++          loadAttendance(attendanceClient, { start, end }, empRows),
++          fetchOverrides(start, end).catch(() => []),   // koreksi gagal dibaca: pakai absensi apa adanya
++        ]);
++        setOverrides(ovr);
+         setAttendance({ status: 'ready', data, error: null });
+       } catch (e) {
+         setAttendance({ status: 'error', data: null, error: e.message });
+@@ -87,6 +95,14 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+ 
+   const today = toLocalDateString();
+ 
++  // Log siap hitung: absensi + koreksi owner + aturan harian (pulang/libur otomatis).
++  // `engineToday` = hari ini versi engine (setelah 21:00 hari ini dianggap sudah lewat);
++  // `today` asli tetap dipakai untuk syarat tutup periode.
++  const prepared = useMemo(() => {
++    if (attendance.status !== 'ready' || !attendance.data) return null;
++    return prepareLogs({ logs: attendance.data.logs, overrides, employees: empList, period: { start, end }, today, nowMinutes: nowMinutesOf() });
++  }, [attendance, overrides, empList, start, end, today]);
++
+   const { results, totals } = useMemo(() => {
+     const sumTotals = (rows) => {
+       const sum = (f) => rows.reduce((s, r) => s + f(r.payroll), 0);
+@@ -103,11 +119,12 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+       return { results: rows, totals: sumTotals(rows) };
+     }
+     if (attendance.status !== 'ready') return { results: [], totals: null };
+-    const logs = attendance.data.logs;
++    const logs = prepared.logs;
++    const engineToday = prepared.effectiveToday;
+     const rows = [];
+     for (const e of employees) {
+       const payroll = computePayroll({
+-        employee: toEngineEmployee(e), logs, additions, deductions, openingBalances, period: { start, end, monthKey, isMonth: !!monthKey }, today,
++        employee: toEngineEmployee(e), logs, additions, deductions, openingBalances, period: { start, end, monthKey, isMonth: !!monthKey }, today: engineToday,
+       });
+       const active = payroll.attendance.dayRows.length > 0 || payroll.additions.length > 0 || payroll.deductions.length > 0 || payroll.openingBalance !== 0;
+       if (e.status === 'resign' && !active) continue;      // resign tanpa aktivitas di periode ini: disembunyikan
+@@ -115,7 +132,7 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+       rows.push({ employee: { id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.externalId }, payroll, needsClarification });
+     }
+     return { results: rows, totals: sumTotals(rows) };
+-  }, [closing, closingLines, attendance, employees, additions, deductions, openingBalances, start, end, monthKey, today]);
++  }, [closing, closingLines, attendance, prepared, employees, additions, deductions, openingBalances, start, end, monthKey, today]);
+ 
+   // Status gabungan untuk layar: 'closed' berarti angka berasal dari foto yang tersimpan.
+   const status = closing ? 'closed' : attendance.status;
+@@ -218,6 +235,7 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+ 
+   return {
+     configured, loading, error, attendance, status, isLocked, closing, closeBlockers, results, totals, employees,
++    prepared, overrideKeys: new Set(overrides.map(o => `${o.employeeId}|${o.date}`)),
+     reload, addAddition, addDeduction, deleteAddition, deleteDeduction, setOpeningBalance, closePeriod, reopenPeriod,
+   };
+ }
+diff --git a/supabase/migrations/007_attendance_overrides.sql b/supabase/migrations/007_attendance_overrides.sql
+new file mode 100644
+index 0000000..11c1f51
+--- /dev/null
++++ b/supabase/migrations/007_attendance_overrides.sql
+@@ -0,0 +1,32 @@
++-- =====================================================================
++-- Migrasi 007 — Koreksi absensi oleh owner.
++-- Jalankan SEKALI di SQL Editor project C. Aman diulang.
++--
++-- Data absensi dibaca dari sistem absensi (BACA-SAJA). Koreksi owner disimpan
++-- DI SINI, satu baris per karyawan per tanggal, dan MENGGANTIKAN seluruh log
++-- absensi hari itu saat dihitung. Menghapus baris = kembali ke data absensi.
++-- Koreksi pada tanggal di periode gaji yang sudah ditutup ditolak (sama seperti
++-- tambahan/potongan); buka kembali periodenya dulu kalau perlu koreksi.
++-- =====================================================================
++
++create table if not exists attendance_overrides (
++  id           uuid primary key default gen_random_uuid(),
++  employee_id  uuid not null references employees(id) on delete cascade,
++  date         date not null,
++  libur        boolean not null default false,
++  masuk        text check (masuk  is null or masuk  ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
++  pulang       text check (pulang is null or pulang ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
++  bolongs      jsonb not null default '[]'::jsonb,    -- [{"from":"13:00","to":"14:00"}]
++  note         text,
++  updated_at   timestamptz not null default now(),
++  unique (employee_id, date)
++);
++create index if not exists idx_attendance_overrides_date on attendance_overrides (date);
++
++drop trigger if exists trg_block_closed_attendance_overrides on attendance_overrides;
++create trigger trg_block_closed_attendance_overrides before insert or update or delete on attendance_overrides
++  for each row execute function block_closed_payroll_change();
++
++alter table attendance_overrides enable row level security;
++drop policy if exists "anon_all_attendance_overrides" on attendance_overrides;
++create policy "anon_all_attendance_overrides" on attendance_overrides for all to anon using (true) with check (true);
+diff --git a/supabase/schema.sql b/supabase/schema.sql
+index 2b3ce16..572ec40 100644
+--- a/supabase/schema.sql
++++ b/supabase/schema.sql
+@@ -402,6 +402,25 @@ create trigger trg_block_closed_opening before insert or update or delete on pay
+ grant execute on function close_payroll_period(text, date, date, date, text, jsonb) to anon;
+ 
+ 
++-- Koreksi absensi oleh owner (migrasi 007)
++create table if not exists attendance_overrides (
++  id           uuid primary key default gen_random_uuid(),
++  employee_id  uuid not null references employees(id) on delete cascade,
++  date         date not null,
++  libur        boolean not null default false,
++  masuk        text check (masuk  is null or masuk  ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
++  pulang       text check (pulang is null or pulang ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
++  bolongs      jsonb not null default '[]'::jsonb,    -- [{"from":"13:00","to":"14:00"}]
++  note         text,
++  updated_at   timestamptz not null default now(),
++  unique (employee_id, date)
++);
++create index if not exists idx_attendance_overrides_date on attendance_overrides (date);
++
++drop trigger if exists trg_block_closed_attendance_overrides on attendance_overrides;
++create trigger trg_block_closed_attendance_overrides before insert or update or delete on attendance_overrides
++  for each row execute function block_closed_payroll_change();
++
+ -- ---------------------------------------------------------------------
+ -- RLS
+ -- Disepakati: BELUM ada auth di C. Policy di bawah membuka akses penuh ke
+@@ -415,7 +434,7 @@ begin
+   foreach t in array array[
+     'categories','menu_items','variant_categories','variant_groups','variant_options',
+     'menu_item_variant_groups','customers','vouchers','expense_categories','transactions',
+-    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines'
++    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines','attendance_overrides'
+   ] loop
+     execute format('alter table %I enable row level security', t);
+     execute format('drop policy if exists "anon_all_%s" on %I', t, t);

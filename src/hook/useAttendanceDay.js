@@ -4,6 +4,8 @@ import { absensiClient } from '../lib/absensiClient';
 import { loadAttendance } from '../features/payroll/attendanceProvider';
 import { buildAttendanceBoard } from '../features/attendance/attendanceBoard';
 import { toLocalDateString } from '../utils/formatters';
+import { prepareLogs, nowMinutesOf } from '../features/attendance/dayRules';
+import { fetchOverrides } from './attendanceOverrides';
 
 /**
  * useAttendanceDay — papan absensi satu hari, BACA-SAJA dari sistem absensi.
@@ -15,6 +17,7 @@ import { toLocalDateString } from '../utils/formatters';
 export function useAttendanceDay({ date, attendanceClient = absensiClient, pollMs = 60000 }) {
   const [employees, setEmployees] = useState([]);
   const [data, setData] = useState(null);
+  const [overrides, setOverrides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -23,15 +26,18 @@ export function useAttendanceDay({ date, attendanceClient = absensiClient, pollM
 
   const reload = useCallback(async () => {
     try {
-      const emps = await supabase.from('employees').select('id, name, role, status, external_id').order('name');
+      const emps = await supabase.from('employees').select('id, name, role, status, external_id, start_date').order('name');
       if (emps.error) throw new Error(emps.error.message);
-      const list = (emps.data || []).map(e => ({ id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.external_id || null }));
+      const list = (emps.data || []).map(e => ({ id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.external_id || null, startDate: e.start_date ? String(e.start_date).slice(0, 10) : '' }));
       if (!alive.current) return;
       setEmployees(list);
       if (attendanceClient) {
-        const result = await loadAttendance(attendanceClient, { start: date, end: date }, list);
+        const [result, ovr] = await Promise.all([
+          loadAttendance(attendanceClient, { start: date, end: date }, list),
+          fetchOverrides(date, date).catch(() => []),   // koreksi gagal dibaca: tampilkan absensi apa adanya
+        ]);
         if (!alive.current) return;
-        setData(result);
+        setData(result); setOverrides(ovr);
         setUpdatedAt(new Date());
       }
       setError(null);
@@ -51,7 +57,14 @@ export function useAttendanceDay({ date, attendanceClient = absensiClient, pollM
   }, [pollMs, configured, reload]);
 
   const today = toLocalDateString();
-  const board = useMemo(() => (data ? buildAttendanceBoard(employees, data.logs, date, today) : null), [employees, data, date, today]);
+  const prepared = useMemo(
+    () => (data ? prepareLogs({ logs: data.logs, overrides, employees, period: { start: date, end: date }, today, nowMinutes: nowMinutesOf() }) : null),
+    [employees, data, overrides, date, today],
+  );
+  const board = useMemo(
+    () => (prepared ? buildAttendanceBoard(employees, prepared.logs, date, prepared.effectiveToday) : null),
+    [employees, prepared, date],
+  );
 
-  return { configured, loading, error, board, info: data, updatedAt, reload };
+  return { configured, loading, error, board, info: data, updatedAt, reload, overrideKeys: new Set(overrides.map(o => `${o.employeeId}|${o.date}`)) };
 }

@@ -5,6 +5,8 @@ import { computePayroll } from '../features/payroll/payrollEngine';
 import { loadAttendance } from '../features/payroll/attendanceProvider';
 import { toLocalDateString } from '../utils/formatters';
 import { employeeGrossCost } from '../features/reports/reportsMath';
+import { prepareLogs, nowMinutesOf } from '../features/attendance/dayRules';
+import { fetchOverrides } from './attendanceOverrides';
 
 /**
  * usePayrollData — data Penggajian untuk satu periode (mingguan Jumat–Kamis
@@ -34,6 +36,8 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
   const [openingBalances, setOpeningBalances] = useState({});
   const [closing, setClosing] = useState(null);           // penutupan periode ini (kalau sudah ditutup)
   const [closingLines, setClosingLines] = useState([]);
+  const [overrides, setOverrides] = useState([]);
+  const [empList, setEmpList] = useState([]);
   const [attendance, setAttendance] = useState({ status: attendanceClient ? 'loading' : 'not-configured', data: null, error: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -53,8 +57,8 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
       const bad = [emps, adds, deds, opens, clos].find(r => r.error);
       if (bad) throw new Error(bad.error.message);
 
-      const empList = (emps.data || []).map(e => ({ ...e, externalId: e.external_id || null, name: e.name }));
-      setEmployees(empList);
+      const empRows = (emps.data || []).map(e => ({ ...e, externalId: e.external_id || null, name: e.name }));
+      setEmployees(empRows); setEmpList(empRows);
       setAdditions((adds.data || []).map(a => ({ id: a.id, employeeId: a.employee_id, label: a.label, amount: a.amount, date: day(a.date), category: a.category })));
       setDeductions((deds.data || []).map(d => ({ id: d.id, employeeId: d.employee_id, label: d.label, amount: d.amount, date: day(d.date), category: d.category })));
       setOpeningBalances(Object.fromEntries((opens.data || []).map(o => [`${o.employee_id}|${o.month}`, o.amount])));
@@ -72,7 +76,11 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
       if (!attendanceClient) { setAttendance({ status: 'not-configured', data: null, error: null }); return; }
       setAttendance(prev => ({ status: 'loading', data: prev.data, error: null }));
       try {
-        const data = await loadAttendance(attendanceClient, { start, end }, empList);
+        const [data, ovr] = await Promise.all([
+          loadAttendance(attendanceClient, { start, end }, empRows),
+          fetchOverrides(start, end).catch(() => []),   // koreksi gagal dibaca: pakai absensi apa adanya
+        ]);
+        setOverrides(ovr);
         setAttendance({ status: 'ready', data, error: null });
       } catch (e) {
         setAttendance({ status: 'error', data: null, error: e.message });
@@ -86,6 +94,14 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
   useEffect(() => { setLoading(true); reload(); }, [reload]);
 
   const today = toLocalDateString();
+
+  // Log siap hitung: absensi + koreksi owner + aturan harian (pulang/libur otomatis).
+  // `engineToday` = hari ini versi engine (setelah 21:00 hari ini dianggap sudah lewat);
+  // `today` asli tetap dipakai untuk syarat tutup periode.
+  const prepared = useMemo(() => {
+    if (attendance.status !== 'ready' || !attendance.data) return null;
+    return prepareLogs({ logs: attendance.data.logs, overrides, employees: empList, period: { start, end }, today, nowMinutes: nowMinutesOf() });
+  }, [attendance, overrides, empList, start, end, today]);
 
   const { results, totals } = useMemo(() => {
     const sumTotals = (rows) => {
@@ -103,11 +119,12 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
       return { results: rows, totals: sumTotals(rows) };
     }
     if (attendance.status !== 'ready') return { results: [], totals: null };
-    const logs = attendance.data.logs;
+    const logs = prepared.logs;
+    const engineToday = prepared.effectiveToday;
     const rows = [];
     for (const e of employees) {
       const payroll = computePayroll({
-        employee: toEngineEmployee(e), logs, additions, deductions, openingBalances, period: { start, end, monthKey, isMonth: !!monthKey }, today,
+        employee: toEngineEmployee(e), logs, additions, deductions, openingBalances, period: { start, end, monthKey, isMonth: !!monthKey }, today: engineToday,
       });
       const active = payroll.attendance.dayRows.length > 0 || payroll.additions.length > 0 || payroll.deductions.length > 0 || payroll.openingBalance !== 0;
       if (e.status === 'resign' && !active) continue;      // resign tanpa aktivitas di periode ini: disembunyikan
@@ -115,7 +132,7 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
       rows.push({ employee: { id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.externalId }, payroll, needsClarification });
     }
     return { results: rows, totals: sumTotals(rows) };
-  }, [closing, closingLines, attendance, employees, additions, deductions, openingBalances, start, end, monthKey, today]);
+  }, [closing, closingLines, attendance, prepared, employees, additions, deductions, openingBalances, start, end, monthKey, today]);
 
   // Status gabungan untuk layar: 'closed' berarti angka berasal dari foto yang tersimpan.
   const status = closing ? 'closed' : attendance.status;
@@ -218,6 +235,7 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
 
   return {
     configured, loading, error, attendance, status, isLocked, closing, closeBlockers, results, totals, employees,
+    prepared, overrideKeys: new Set(overrides.map(o => `${o.employeeId}|${o.date}`)),
     reload, addAddition, addDeduction, deleteAddition, deleteDeduction, setOpeningBalance, closePeriod, reopenPeriod,
   };
 }
