@@ -5,6 +5,7 @@ import {
 import { usePosStore } from '../../store/usePosStore';
 import { computeOrderTotals } from './posMath';
 import useBackLayer from '../../hook/useBackLayer';
+import Overlay from '../../components/ui/Overlay';
 import CustomerPickerModal from './CustomerPicker';
 import NominalInput from '../../components/ui/NominalInput';
 
@@ -20,6 +21,11 @@ import NominalInput from '../../components/ui/NominalInput';
  *  - Voucher tetap ada (kolomnya sudah di skema, dipakai checkout),
  *    tapi manajemen voucher sendiri belum ada UI-nya.
  */
+// Ongkir cepat: Gratis - 3rb - 4rb - 5rb - Custom (5 kolom, muat satu layar tanpa geser samping).
+const FEE_PRESETS = [0, 3000, 4000, 5000];
+// Custom: slider kelipatan Rp1.000 sampai Rp25.000; nominal lain tetap bisa diketik.
+const FEE_SLIDER_MAX = 25000;
+
 export default function CartDrawer({ menus, customers, saveCustomer, vouchers, employees, triggerAlert, triggerConfirm, formatRupiah }) {
   const cart = usePosStore((s) => s.cart);
   const setCart = usePosStore((s) => s.setCart);
@@ -40,6 +46,8 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
   const setDeliveryFee = usePosStore((s) => s.setDeliveryFee);
   const customDeliveryFee = usePosStore((s) => s.customDeliveryFee);
   const setCustomDeliveryFee = usePosStore((s) => s.setCustomDeliveryFee);
+  // Mode Custom aktif kalau ongkir tersimpan bukan salah satu preset (mis. draft lama).
+  const [customFeeMode, setCustomFeeMode] = useState(() => deliveryFee > 0 && !FEE_PRESETS.includes(deliveryFee));
   const setDeliveryCourierId = usePosStore((s) => s.setDeliveryCourierId);
   const setDeliveryPaidTo = usePosStore((s) => s.setDeliveryPaidTo);
   const updateCartQty = usePosStore((s) => s.updateCartQty);
@@ -55,6 +63,8 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
 
   const activeCustomer = customers.find(c => c.id === selectedCustomerId) || null;
   const appliedVoucher = vouchers.find(v => v.code === voucherCode) || null;
+
+  useEffect(() => { if (orderType !== 'Delivery') setCustomFeeMode(false); }, [orderType]);
 
   const totals = computeOrderTotals({ cart, voucher: appliedVoucher, manualDiscount, orderType, deliveryFee });
 
@@ -84,12 +94,15 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
 
   useBackLayer(isCartOpen, () => setIsCartOpen(false));
 
-  if (!isCartOpen) return null;
+  if (!isCartOpen) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center">
-      <div className="absolute inset-0 bg-slate-500/40 dark:bg-slate-800/40 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsCartOpen(false)} />
-      <div className="w-full md:w-[420px] bg-white dark:bg-slate-900 h-full flex flex-col shadow-2xl relative animate-in slide-in-from-right duration-300 ease-out">
+    <Overlay
+      open variant="right" z="z-50" containerClass="justify-center" onClose={() => setIsCartOpen(false)}
+      backdropClass="bg-slate-500/40 dark:bg-slate-800/40 backdrop-blur-sm"
+      panelClass="w-full md:w-[420px] bg-white dark:bg-slate-900 h-full flex flex-col shadow-2xl"
+    >
+      <>
 
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
           <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -163,19 +176,33 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
               {orderType === 'Delivery' && (
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-accent-100 dark:border-accent-500/20 animate-in slide-in-from-top-3 duration-300">
                   <label className="block text-xs font-bold text-accent-600 dark:text-accent-400 uppercase tracking-wider mb-3 flex items-center gap-1"><Truck className="w-3 h-3" /> Biaya Pengiriman</label>
-                  <div className="flex overflow-x-auto pb-2 gap-2 snap-x hide-scrollbar">
-                    {[0, 3000, 5000].map(fee => (
-                      <button key={fee} onClick={() => { setDeliveryFee(fee); setCustomDeliveryFee(''); }}
-                        className={`snap-center shrink-0 py-2 px-4 rounded-xl border font-bold text-sm transition-all whitespace-nowrap ${deliveryFee === fee && !customDeliveryFee ? 'bg-accent-600 dark:bg-accent-500 text-white border-accent-600 dark:border-accent-500 shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-950'}`}>
-                        {fee === 0 ? 'Gratis' : formatRupiah(fee)}
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {FEE_PRESETS.map(fee => (
+                      <button key={fee} onClick={() => { setCustomFeeMode(false); setDeliveryFee(fee); setCustomDeliveryFee(''); }}
+                        className={`py-2.5 rounded-xl border font-bold text-sm transition-all whitespace-nowrap active:scale-95 ${!customFeeMode && deliveryFee === fee ? 'bg-accent-600 dark:bg-accent-500 text-white border-accent-600 dark:border-accent-500 shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                        {fee === 0 ? 'Gratis' : `${fee / 1000}rb`}
                       </button>
                     ))}
-                    <div className="snap-center shrink-0 flex items-center gap-2 border rounded-xl px-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 min-w-[140px]">
-                      <span className="text-slate-400 dark:text-slate-500 text-xs font-bold pl-2">Rp</span>
-                      <NominalInput bare title="Biaya Pengiriman Custom" placeholder="Custom" className="w-full py-2 bg-transparent outline-none text-sm font-bold text-slate-700 dark:text-slate-200 text-left"
-                        value={customDeliveryFee} onChange={(e) => { setCustomDeliveryFee(e.target.value); setDeliveryFee(Number(e.target.value) || 0); }} />
-                    </div>
+                    <button onClick={() => { setCustomFeeMode(true); if (!customDeliveryFee && deliveryFee) setCustomDeliveryFee(String(deliveryFee)); }}
+                      className={`py-2.5 rounded-xl border font-bold text-sm transition-all whitespace-nowrap active:scale-95 ${customFeeMode ? 'bg-accent-600 dark:bg-accent-500 text-white border-accent-600 dark:border-accent-500 shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                      Custom
+                    </button>
                   </div>
+                  {customFeeMode && (
+                    <div className="mt-3 flex items-center gap-3" data-testid="fee-custom">
+                      <input
+                        type="range" min={0} max={FEE_SLIDER_MAX} step={1000} aria-label="Ongkir custom"
+                        value={Math.min(Number(deliveryFee) || 0, FEE_SLIDER_MAX)}
+                        onChange={(e) => { const v = Number(e.target.value); setDeliveryFee(v); setCustomDeliveryFee(v ? String(v) : ''); }}
+                        className="flex-1 min-w-0 h-8 accent-accent-600"
+                      />
+                      <div className="shrink-0 w-32 flex items-center gap-1 border rounded-xl px-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                        <span className="text-slate-400 dark:text-slate-500 text-xs font-bold pl-1">Rp</span>
+                        <NominalInput bare title="Biaya Pengiriman Custom" placeholder="0" className="w-full py-2 bg-transparent outline-none text-sm font-bold text-slate-700 dark:text-slate-200 text-left"
+                          value={customDeliveryFee} onChange={(e) => { setCustomDeliveryFee(e.target.value); setDeliveryFee(Number(e.target.value) || 0); }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -265,7 +292,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </>
+    </Overlay>
   );
 }

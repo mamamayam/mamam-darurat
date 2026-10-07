@@ -29,6 +29,8 @@ import { formatRupiah } from '../../utils/formatters';
  *   actions              [{ label, icon?, variant?, onClick, hide? }] — tombol aksi di footer
  *   closeLabel           string — label tombol tutup (default: 'Tutup'); null buat sembunyiin
  *   size                 dilempar ke Modal, default 'md'
+ *   zLevel               dilempar ke Modal ('modal' | 'top' | 'pin')
+ *   afterHighlight       ReactNode — catatan tambahan tepat di bawah kotak TOTAL (opsional)
  *
  * Row: { label, value, type?, variant?, alwaysShow?, fullWidth? }
  *   type: 'text' (default) | 'currency' | 'date' | 'datetime' | 'badge' | 'multiline'
@@ -131,8 +133,10 @@ export default function DetailModal({
   actions = [],
   closeLabel = 'Tutup',
   size = 'md',
+  zLevel,
+  afterHighlight,
 }) {
-  if (!isOpen) return null;
+  if (!isOpen) return <Modal isOpen={false} maxHeight />; // tetap terpasang sampai animasi keluar selesai
 
   const visibleSections = sections
     .filter(Boolean)
@@ -145,7 +149,7 @@ export default function DetailModal({
   const hasItems = items && items.length > 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size={size} maxHeight>
+    <Modal isOpen={isOpen} onClose={onClose} size={size} zLevel={zLevel} maxHeight>
       {/* Header */}
       <div className="flex justify-between items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-6 pt-6 pb-4 shrink-0">
         <div className="min-w-0">
@@ -233,6 +237,8 @@ export default function DetailModal({
             ))}
           </div>
         )}
+
+        {afterHighlight}
       </div>
 
       {/* Footer */}

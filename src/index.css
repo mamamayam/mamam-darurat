@@ -188,7 +188,7 @@ html.nominal-open * {
 html {
   transition: --kb-h 280ms cubic-bezier(0.2, 0, 0, 1);
 }
-html.nominal-dock .fixed.inset-0 {
+html.nominal-dock .fixed.inset-0:not([data-kb-ignore]) {
   bottom: var(--kb-h, 0px);
 }
 html.nominal-dock .fixed.inset-0[data-app-shell] {

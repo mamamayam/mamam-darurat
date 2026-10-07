@@ -102,5 +102,18 @@ export async function checkout({
     fail(itemErr, 'Gagal menyimpan item transaksi');
   }
 
-  return { id: tx.id, display_number, ...totals, paymentMethod: isSplitMode ? 'Split Payment' : paymentMethod, amount_paid, change_amount, paidAt: now };
+  return {
+    id: tx.id, display_number, ...totals,
+    paymentMethod: isSplitMode ? 'Split Payment' : paymentMethod, amount_paid, change_amount, paidAt: now,
+    // Data tambahan untuk ringkasan transaksi (ReceiptModal).
+    orderType, customerName: customerName || '',
+    ojolPlatform: paymentMethod === 'Ojol' ? (ojolPlatform || '') : '',
+    ojolOrderNumber: paymentMethod === 'Ojol' ? (orderNumber || '') : '',
+    splitPayments: isSplitMode ? split_payments_json : null,
+    courierName: courier?.name || '',
+    items: cart.map(item => ({
+      name: item.name, qty: item.qty, price: item.price,
+      note: [item.variantName, item.note ? `Catatan: ${item.note}` : ''].filter(Boolean).join(' · '),
+    })),
+  };
 }

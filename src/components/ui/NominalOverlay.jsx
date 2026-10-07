@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import useBackLayer from '../../hook/useBackLayer';
+import Overlay from './Overlay';
 
 /**
  * NominalOverlay — dasar bottom sheet untuk keypad nominal & kalkulator.
@@ -25,8 +26,9 @@ import useBackLayer from '../../hook/useBackLayer';
 let openOverlays = 0;
 
 /** Tandai <html> sebagai "nominal-open" selama komponen ini terpasang (dipakai Overlay & Dock). */
-export function useNominalOpenClass() {
+export function useNominalOpenClass(active = true) {
   useEffect(() => {
+    if (!active) return undefined;
     openOverlays += 1;
     document.documentElement.classList.add('nominal-open');
     return () => {
@@ -36,25 +38,24 @@ export function useNominalOpenClass() {
         document.documentElement.classList.remove('nominal-open');
       }
     };
-  }, []);
+  }, [active]);
 }
 
-export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
-  useBackLayer(true, onClose);
-  useNominalOpenClass();
+/**
+ * Popup bottom-sheet untuk kalkulator: naik dari bawah, turun ke bawah, bisa di-swipe
+ * turun (lihat Overlay.jsx). `open` dikontrol pemanggil supaya animasi keluar sempat jalan.
+ */
+export default function NominalOverlay({ z = 'z-[110]', open = true, onClose, children }) {
+  useBackLayer(open, onClose);
+  useNominalOpenClass(open);
 
   return createPortal(
-    <div
-      className={`fixed inset-0 ${z} flex items-end justify-center bg-black/45`}
-      onClick={(e) => { e.stopPropagation(); onClose(); }}
+    <Overlay
+      open={open} onClose={onClose} variant="sheet" z={z} ignoreKeyboard
+      backdropClass="bg-black/45" containerClass="items-end justify-center" panelClass="w-full max-w-md"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="nominal-sheet-up w-full max-w-md"
-      >
-        {children}
-      </div>
-    </div>,
+      {children}
+    </Overlay>,
     document.body,
   );
 }

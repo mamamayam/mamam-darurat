@@ -37,6 +37,10 @@ export default function NominalKeypadSheet({
   const digitsRef = useRef(toDigits(value));
   const [digits, setDigits] = useState(digitsRef.current);
   const [calcOpen, setCalcOpen] = useState(false);
+  // Kalkulator dibiarkan terpasang setelah ditutup (supaya animasi keluar jalan); `key` baru
+  // tiap dibuka = state hitungan segar dari nilai field saat ini.
+  const [calcSession, setCalcSession] = useState(0);
+  const openCalc = () => { setCalcSession((n) => n + 1); setCalcOpen(true); };
 
   const onChangeRef = useRef(onChange);
   useEffect(() => { onChangeRef.current = onChange; });
@@ -96,7 +100,7 @@ export default function NominalKeypadSheet({
               </button>
             )}
             {calculator && (
-              <button type="button" aria-label="Buka kalkulator" onClick={() => setCalcOpen(true)} className={ICON_BTN}>
+              <button type="button" aria-label="Buka kalkulator" onClick={openCalc} className={ICON_BTN}>
                 <Calculator className="w-5 h-5" />
               </button>
             )}
@@ -132,8 +136,10 @@ export default function NominalKeypadSheet({
         </div>
       </NominalDock>
 
-      {calcOpen && (
+      {calcSession > 0 && (
         <NominalCalculator
+          key={calcSession}
+          open={calcOpen}
           initialDigits={digits}
           prefix={prefix}
           suffix={suffix}

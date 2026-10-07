@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Search, UserPlus, User } from 'lucide-react';
 import { usePosStore } from '../../store/usePosStore';
 import useBackLayer from '../../hook/useBackLayer';
+import Overlay from '../../components/ui/Overlay';
 
 /**
  * CustomerPickerModal — di-port dari mamam-global dengan alasan desain
@@ -36,7 +37,7 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
   // Back = sama dengan tombol X (handleClose): kosongkan pencarian lalu tutup.
   useBackLayer(isOpen, () => { setQuery(''); setNewPhone(''); onClose(); });
 
-  if (!isOpen) return null;
+  if (!isOpen) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
 
   const handleClose = () => { setQuery(''); setNewPhone(''); onClose(); };
 
@@ -79,8 +80,12 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center bg-black/40 backdrop-blur-md transition-opacity duration-300" onClick={handleClose}>
-      <div className="w-full md:max-w-md bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-2xl shadow-xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom md:zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+    <Overlay
+      open variant="responsive" z="z-[70]" containerClass="items-end md:items-center justify-center" onClose={handleClose}
+      backdropClass="bg-black/40 backdrop-blur-md"
+      panelClass="w-full md:max-w-md bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-2xl shadow-xl max-h-[85vh] flex flex-col"
+    >
+      <>
         <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <h3 className="font-bold text-slate-800 dark:text-slate-100">Pilih Pelanggan</h3>
           <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"><X className="w-5 h-5" /></button>
@@ -139,7 +144,7 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </>
+    </Overlay>
   );
 }

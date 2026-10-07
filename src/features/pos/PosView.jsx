@@ -259,11 +259,11 @@ export default function PosView() {
 
       <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] short:!bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] right-6 short:!right-4 z-50">
         <button onClick={() => setIsCartOpen(true)}
-          className="bg-gradient-to-r from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600 text-white rounded-full py-3 short:!py-2 px-5 short:!px-4 shadow-[0_10px_28px_rgba(var(--color-accent-500),0.4)] flex items-center gap-3 short:!gap-2 hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(var(--color-accent-500),0.45)] transition-all duration-300 active:scale-95">
+          className="relative w-16 h-16 short:!w-14 short:!h-14 rounded-full flex items-center justify-center bg-gradient-to-r from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600 text-white shadow-[0_10px_28px_rgba(var(--color-accent-500),0.4)] hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(var(--color-accent-500),0.45)] transition-all duration-300 active:scale-95">
           <div className="relative">
-            <ShoppingCart className="w-5 h-5" />
+            <ShoppingCart className="w-8 h-8 short:!w-7 short:!h-7" />
             {cart.length > 0 && (
-              <span className="absolute -top-2.5 -right-2.5 bg-white text-accent-600 text-xs font-bold rounded-full w-[18px] h-[18px] flex items-center justify-center border-2 border-accent-600 animate-in zoom-in duration-300">{cartTotalQty}</span>
+              <span className="absolute -top-3 -right-3 bg-white text-accent-600 text-xs font-bold rounded-full min-w-6 h-6 px-1 flex items-center justify-center border-2 border-accent-600 animate-in zoom-in duration-300">{cartTotalQty}</span>
             )}
           </div>
         </button>

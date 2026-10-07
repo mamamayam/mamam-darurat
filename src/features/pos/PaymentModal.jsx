@@ -7,6 +7,7 @@ import { computeOrderTotals, cashChange, splitStatus } from './posMath';
 import { checkout } from './useCheckout';
 import useBackLayer from '../../hook/useBackLayer';
 import NominalInput from '../../components/ui/NominalInput';
+import Overlay from '../../components/ui/Overlay';
 
 /**
  * PaymentModal — di-port dari mamam-global. Bagian bayar-tunai/QRIS/
@@ -44,7 +45,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
 
   useBackLayer(paymentModal.isOpen, () => setPaymentModal({ ...paymentModal, isOpen: false }));
 
-  if (!paymentModal.isOpen) return null;
+  if (!paymentModal.isOpen) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
 
   const appliedVoucher = vouchers.find(v => v.code === voucherCode) || null;
   const totals = computeOrderTotals({ cart, voucher: appliedVoucher, manualDiscount, orderType, deliveryFee });
@@ -91,8 +92,11 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md transition-opacity duration-300">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300 ease-out">
+    <Overlay
+      open variant="center" z="z-[70]" backdropClass="bg-black/40 backdrop-blur-md" closeOnBackdrop={false}
+      panelClass="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+    >
+      <>
         <div className="p-5 border-b flex justify-between items-center bg-slate-50 dark:bg-slate-950">
           <div>
             <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Pembayaran</h2>
@@ -166,15 +170,12 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                   </div>
                   {orderType === 'Delivery' && couriers.length > 0 && (
                     <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Diterima Kurir? (opsional)</label>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Diterima Oleh</label>
                       <select value={deliveryCourierId} onChange={(e) => { setDeliveryCourierId(e.target.value); setDeliveryPaidTo(e.target.value ? 'kurir' : 'kasir'); }}
                         className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-accent-500 dark:focus:border-accent-500 transition-colors">
-                        <option value="">Tidak — Masuk Kasir</option>
                         {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        <option value="">Kasir</option>
                       </select>
-                      {deliveryCourierId && (
-                        <p className="text-xs text-accent-600 dark:text-accent-400 mt-1.5 italic">*Uang gak masuk laci kasir, dicatat sebagai dipegang kurir ini.</p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -226,11 +227,11 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                   </div>
                   {orderType === 'Delivery' && method === 'Tunai' && couriers.length > 0 && (
                     <div className="pt-1">
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Diterima Kurir? (opsional)</label>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Diterima Oleh</label>
                       <select value={deliveryCourierId} onChange={(e) => { setDeliveryCourierId(e.target.value); setDeliveryPaidTo(e.target.value ? 'kurir' : 'kasir'); }}
                         className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-accent-500 dark:focus:border-accent-500 transition-colors">
-                        <option value="">Tidak — Masuk Kasir</option>
                         {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        <option value="">Kasir</option>
                       </select>
                     </div>
                   )}
@@ -263,7 +264,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
             </button>
           )}
         </div>
-      </div>
-    </div>
+      </>
+    </Overlay>
   );
 }

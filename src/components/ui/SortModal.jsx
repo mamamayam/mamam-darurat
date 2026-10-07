@@ -42,7 +42,7 @@ export default function SortModal({
   onChange,
   closeOnSelect = true,
 }) {
-  if (!isOpen) return null;
+  if (!isOpen) return <Modal isOpen={false} sheet />; // tetap terpasang sampai animasi keluar selesai
 
   const handleSelect = (key) => {
     onChange?.(key);

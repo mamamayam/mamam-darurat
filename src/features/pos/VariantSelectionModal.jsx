@@ -1,6 +1,8 @@
-import { X, CheckCircle2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, CheckCircle2, Minus, Plus } from 'lucide-react';
 import { usePosStore } from '../../store/usePosStore';
 import useBackLayer from '../../hook/useBackLayer';
+import Overlay from '../../components/ui/Overlay';
 
 /**
  * VariantSelectionModal — di-port hampir 100% dari mamam-global. Murni
@@ -19,6 +21,10 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
   const addToCart = usePosStore((state) => state.addToCart);
   const updateCartItemVariants = usePosStore((state) => state.updateCartItemVariants);
 
+  // Jumlah porsi yang ditambahkan sekaligus (hanya saat menambah baru, bukan edit varian item keranjang).
+  const [qty, setQty] = useState(1);
+  useEffect(() => { setQty(1); }, [selectedMenuForVariant]);
+
   // Back = sama dengan tombol X (handleCloseModal): tutup dan reset pilihan varian.
   useBackLayer(Boolean(selectedMenuForVariant), () => {
     setSelectedMenuForVariant(null);
@@ -26,7 +32,7 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
     setEditingCartItemId(null);
   });
 
-  if (!selectedMenuForVariant) return null;
+  if (!selectedMenuForVariant) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
 
   const menuVariants = variantGroups.filter(vg =>
     selectedMenuForVariant.variantGroupIds.includes(vg.id)
@@ -63,16 +69,19 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
       setEditingCartItemId(null);
       setSelectedMenuForVariant(null);
     } else {
-      addToCart(selectedMenuForVariant, variantSelectedOptions, variantGroups);
+      addToCart(selectedMenuForVariant, variantSelectedOptions, variantGroups, qty);
       setSelectedMenuForVariant(null);
       setVariantSelectedOptions({});
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40 backdrop-blur-sm transition-opacity duration-300">
-      <div className="bg-white dark:bg-slate-900 w-full md:w-[450px] rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full md:zoom-in-95 duration-300 ease-out max-h-[90vh] flex flex-col">
-
+    <Overlay
+      open variant="responsive" z="z-50" containerClass="items-end md:items-center justify-center" onClose={handleCloseModal}
+      backdropClass="bg-black/40 backdrop-blur-sm"
+      panelClass="bg-white dark:bg-slate-900 w-full md:w-[450px] rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+    >
+      <>
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 sticky top-0 z-10">
           <div>
             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-lg leading-tight">
@@ -88,6 +97,23 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
         </div>
 
         <div className="p-5 overflow-y-auto flex-1 space-y-6 bg-slate-50 dark:bg-slate-950/50">
+          {!editingCartItemId && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-sm">
+              <h4 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm pl-1">Jumlah Porsi</h4>
+              <div className="flex items-center gap-2" data-testid="variant-qty">
+                <button type="button" aria-label="Kurangi porsi" disabled={qty <= 1} onClick={() => setQty(q => Math.max(1, q - 1))}
+                  className="w-11 h-11 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 active:scale-90 transition-all disabled:opacity-40">
+                  <Minus className="w-5 h-5" />
+                </button>
+                <span className="w-10 text-center font-heading font-bold text-lg text-slate-800 dark:text-slate-100 tabular-nums">{qty}</span>
+                <button type="button" aria-label="Tambah porsi" onClick={() => setQty(q => Math.min(99, q + 1))}
+                  className="w-11 h-11 rounded-full flex items-center justify-center bg-accent-600 dark:bg-accent-500 text-white active:scale-90 transition-all">
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {menuVariants.length === 0 && (
             <p className="text-sm text-slate-500 dark:text-slate-400 italic text-center py-4">Tidak ada variasi untuk menu ini.</p>
           )}
@@ -140,10 +166,10 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
         <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
           <button onClick={handleSave} disabled={!isSelectionValid}
             className="w-full py-3.5 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-lg transition-all duration-300">
-            {editingCartItemId ? 'Simpan Perubahan Varian' : (isSelectionValid ? 'Tambah ke Keranjang' : 'Lengkapi Pilihan Wajib')}
+            {editingCartItemId ? 'Simpan Perubahan Varian' : (isSelectionValid ? (qty > 1 ? `Tambah ${qty} ke Keranjang` : 'Tambah ke Keranjang') : 'Lengkapi Pilihan Wajib')}
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </Overlay>
   );
 }

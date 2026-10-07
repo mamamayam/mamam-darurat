@@ -1,0 +1,817 @@
+diff --git a/src/components/ui/Modal.jsx b/src/components/ui/Modal.jsx
+index ec75bda..693ab78 100644
+--- a/src/components/ui/Modal.jsx
++++ b/src/components/ui/Modal.jsx
+@@ -1,6 +1,6 @@
+-import { useState, useEffect } from 'react';
+ import { X } from 'lucide-react';
+ import useBackLayer from '../../hook/useBackLayer';
++import Overlay from './Overlay';
+ 
+ /**
+  * Modal — komponen global untuk semua dialog overlay.
+@@ -18,6 +18,9 @@ import useBackLayer from '../../hook/useBackLayer';
+  *   maxHeight     boolean              — batasi tinggi + scroll inner (default: false, gak dipakai kalau side dipakai karena udah diatur sendiri per-variant)
+  *   className     string               — class tambahan untuk container dialog
+  *
++ * Animasi: semua varian punya animasi masuk & keluar (lihat Overlay.jsx). Bottom sheet
++ * muncul dari bawah, keluar ke bawah, dan bisa di-swipe turun untuk menutup.
++ *
+  * Z-index:
+  *   modal → z-[60]   : modal umum (CategoryModal, PaymentModal, dll)
+  *   top   → z-[100]  : alert/confirm global (App.jsx)
+@@ -57,6 +60,8 @@ const SIZES = {
+   lg: 'max-w-lg',
+ };
+ 
++const CLOSE_BTN = 'p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500 hover:bg-accent-100 dark:hover:bg-accent-500/20 hover:text-accent-600 dark:hover:text-accent-400 active:scale-95 transition-all duration-300 shrink-0';
++
+ export default function Modal({
+   isOpen,
+   onClose,
+@@ -70,192 +75,81 @@ export default function Modal({
+   maxHeight = false,
+   className = '',
+ }) {
+-  // State transisi buat variant `side` (right/top) — proyek ini gak install
+-  // plugin `tailwindcss-animate`/`tw-animate-css` (Tailwind v4 gak nyediain
+-  // animate-in/slide-in-from-* built-in), jadi slide beneran digerakkan
+-  // manual: render dulu dalam posisi translate penuh (di luar layar), abis
+-  // mount toggle ke translate-0 biar transition-transform jalan. Hooks WAJIB
+-  // selalu jalan tiap render (rules of hooks) makanya ditaro sebelum early
+-  // return `if (!isOpen)` — untuk caller lain yang gak pernah pakai prop
+-  // `side`, effect di bawah langsung no-op, gak ada efek samping.
+-  const [entered, setEntered] = useState(false);
+-
+-  useEffect(() => {
+-    if (!side) return;
+-    if (!isOpen) { setEntered(false); return; }
+-    setEntered(false);
+-    const id = setTimeout(() => setEntered(true), 10);
+-    return () => clearTimeout(id);
+-  }, [isOpen, side]);
+-
+   // Tombol Back browser/HP menutup modal ini (sama dengan menekan X), bukan keluar dari layar.
+   useBackLayer(isOpen && Boolean(onClose), onClose);
+ 
+-  if (!isOpen) return null;
+-
+-  const zClass = Z_LEVELS[zLevel] ?? Z_LEVELS.modal;
++  const z = Z_LEVELS[zLevel] ?? Z_LEVELS.modal;
+   const sizeClass = SIZES[size] ?? SIZES.sm;
+ 
+-  const handleBackdrop = () => { if (closeOnBackdrop && onClose) onClose(); };
+-
+-  // ── Side drawer variant (slide dari kanan, full-height) ──────────────────
++  // ── Side drawer (slide dari kanan, full-height) ──────────────────────────
+   if (side === 'right') {
+     return (
+-      <div
+-        className={`fixed inset-0 ${zClass} flex justify-end bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${entered ? 'opacity-100' : 'opacity-0'}`}
+-        onClick={handleBackdrop}
++      <Overlay
++        open={isOpen} onClose={onClose} variant="right" z={z} closeOnBackdrop={closeOnBackdrop}
++        panelClass={`bg-white dark:bg-slate-900 h-full w-full ${sizeClass} shadow-2xl flex flex-col ${className}`}
+       >
+-        <div
+-          onClick={e => e.stopPropagation()}
+-          className={`
+-            bg-white dark:bg-slate-900 h-full w-full ${sizeClass} shadow-2xl
+-            flex flex-col transition-transform duration-300 ease-out
+-            ${entered ? 'translate-x-0' : 'translate-x-full'}
+-            ${className}
+-          `}
+-        >
+-          {/* Header opsional */}
+-          {title && (
+-            <div className="flex items-center justify-between gap-3 p-5 pb-3 shrink-0 border-b border-slate-100 dark:border-slate-800">
+-              <h3 className="font-heading font-bold text-slate-900 dark:text-slate-50 text-lg min-w-0 truncate">{title}</h3>
+-              {onClose && (
+-                <button
+-                  onClick={onClose}
+-                  className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500 hover:bg-accent-100 dark:hover:bg-accent-500/20 hover:text-accent-600 dark:hover:text-accent-400 active:scale-95 transition-all duration-300 shrink-0"
+-                >
+-                  <X className="w-4 h-4" />
+-                </button>
+-              )}
+-            </div>
+-          )}
+-
+-          {/* Konten — selalu scrollable karena panel udah full-height */}
+-          <div className="overflow-y-auto flex-1">
+-            {children}
++        {title && (
++          <div className="flex items-center justify-between gap-3 p-5 pb-3 shrink-0 border-b border-slate-100 dark:border-slate-800">
++            <h3 className="font-heading font-bold text-slate-900 dark:text-slate-50 text-lg min-w-0 truncate">{title}</h3>
++            {onClose && <button onClick={onClose} className={CLOSE_BTN}><X className="w-4 h-4" /></button>}
+           </div>
+-        </div>
+-      </div>
++        )}
++        <div className="overflow-y-auto flex-1">{children}</div>
++      </Overlay>
+     );
+   }
+ 
+-  // ── Top drawer variant (drop-down dari atas, di bawah header) ────────────
++  // ── Top drawer (drop-down dari atas, di bawah header) ────────────────────
+   if (side === 'top') {
+     return (
+-      <div
+-        className={`fixed inset-0 ${zClass} flex flex-col bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${entered ? 'opacity-100' : 'opacity-0'}`}
+-        onClick={handleBackdrop}
++      <Overlay
++        open={isOpen} onClose={onClose} variant="top" z={z} closeOnBackdrop={closeOnBackdrop}
++        panelClass={`bg-white dark:bg-slate-900 w-full max-h-[75dvh] shadow-2xl rounded-b-3xl flex flex-col ${className}`}
+       >
+-        <div
+-          onClick={e => e.stopPropagation()}
+-          className={`
+-            bg-white dark:bg-slate-900 w-full max-h-[75dvh] shadow-2xl rounded-b-3xl
+-            flex flex-col transition-transform duration-300 ease-out
+-            ${entered ? 'translate-y-0' : '-translate-y-full'}
+-            ${className}
+-          `}
+-        >
+-          {/* Header opsional */}
+-          {title && (
+-            <div className="flex items-center justify-between gap-3 p-5 pb-3 shrink-0 border-b border-slate-100 dark:border-slate-800">
+-              <h3 className="font-heading font-bold text-slate-900 dark:text-slate-50 text-lg min-w-0 truncate">{title}</h3>
+-              {onClose && (
+-                <button
+-                  onClick={onClose}
+-                  className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500 hover:bg-accent-100 dark:hover:bg-accent-500/20 hover:text-accent-600 dark:hover:text-accent-400 active:scale-95 transition-all duration-300 shrink-0"
+-                >
+-                  <X className="w-4 h-4" />
+-                </button>
+-              )}
+-            </div>
+-          )}
+-
+-          {/* Konten — selalu scrollable, panel dibatasi max-h */}
+-          <div className="overflow-y-auto flex-1">
+-            {children}
++        {title && (
++          <div className="flex items-center justify-between gap-3 p-5 pb-3 shrink-0 border-b border-slate-100 dark:border-slate-800">
++            <h3 className="font-heading font-bold text-slate-900 dark:text-slate-50 text-lg min-w-0 truncate">{title}</h3>
++            {onClose && <button onClick={onClose} className={CLOSE_BTN}><X className="w-4 h-4" /></button>}
+           </div>
+-        </div>
+-      </div>
++        )}
++        <div className="overflow-y-auto flex-1">{children}</div>
++      </Overlay>
+     );
+   }
+ 
+-  // ── Bottom sheet variant ─────────────────────────────────────────────────
++  // ── Bottom sheet: naik dari bawah, turun ke bawah, bisa di-swipe turun ───
+   if (sheet) {
+     return (
+-      <div
+-        className={`fixed inset-0 ${zClass} flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300`}
+-        onClick={handleBackdrop}
++      <Overlay
++        open={isOpen} onClose={onClose} variant="sheet" z={z} closeOnBackdrop={closeOnBackdrop}
++        panelClass={`bg-white dark:bg-slate-900 w-full ${sizeClass} rounded-t-3xl ${maxHeight ? 'max-h-[90dvh] flex flex-col' : ''} ${className}`}
+       >
+-        <div
+-          onClick={e => e.stopPropagation()}
+-          className={`
+-            bg-white dark:bg-slate-900 w-full ${sizeClass} rounded-t-3xl
+-            animate-in slide-in-from-bottom-4 duration-300 ease-out
+-            ${maxHeight ? 'max-h-[90dvh] flex flex-col' : ''}
+-            ${className}
+-          `}
+-        >
+-          {/* Handle bar */}
+-          <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-1 shrink-0" />
+-
+-          {/* Header opsional */}
+-          {title && (
+-            <div className="flex items-center justify-between px-5 py-3 shrink-0">
+-              <h3 className="font-heading font-bold text-slate-900 dark:text-slate-50 text-base">{title}</h3>
+-              {onClose && (
+-                <button
+-                  onClick={onClose}
+-                  className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500 hover:bg-accent-100 dark:hover:bg-accent-500/20 hover:text-accent-600 dark:hover:text-accent-400 transition-colors"
+-                >
+-                  <X className="w-4 h-4" />
+-                </button>
+-              )}
+-            </div>
+-          )}
+-
+-          {/* Konten */}
+-          <div className={maxHeight ? 'overflow-y-auto flex-1' : ''}>
+-            {children}
++        {/* Handle bar */}
++        <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-1 shrink-0" />
++        {title && (
++          <div className="flex items-center justify-between px-5 py-3 shrink-0">
++            <h3 className="font-heading font-bold text-slate-900 dark:text-slate-50 text-base">{title}</h3>
++            {onClose && <button onClick={onClose} className={CLOSE_BTN}><X className="w-4 h-4" /></button>}
+           </div>
+-        </div>
+-      </div>
++        )}
++        <div className={maxHeight ? 'overflow-y-auto flex-1' : ''}>{children}</div>
++      </Overlay>
+     );
+   }
+ 
+-  // ── Dialog variant (default) ─────────────────────────────────────────────
++  // ── Dialog (default) ─────────────────────────────────────────────────────
+   return (
+-    <div
+-      className={`fixed inset-0 ${zClass} flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300`}
+-      onClick={handleBackdrop}
++    <Overlay
++      open={isOpen} onClose={onClose} variant="center" z={z} closeOnBackdrop={closeOnBackdrop}
++      panelClass={`bg-white dark:bg-slate-900 ${sizeClass} w-full rounded-3xl shadow-2xl ${maxHeight ? 'max-h-[90dvh] flex flex-col' : ''} ${className}`}
+     >
+-      <div
+-        onClick={e => e.stopPropagation()}
+-        className={`
+-          bg-white dark:bg-slate-900 ${sizeClass} w-full rounded-3xl shadow-2xl
+-          animate-in zoom-in-95 duration-300 ease-out
+-          ${maxHeight ? 'max-h-[90dvh] flex flex-col' : ''}
+-          ${className}
+-        `}
+-      >
+-        {/* Header opsional */}
+-        {title && (
+-          <div className="flex items-start justify-between gap-3 p-5 pb-0 shrink-0">
+-            <h3 className="font-heading font-bold text-slate-900 dark:text-slate-50 text-lg min-w-0 truncate">{title}</h3>
+-            {onClose && (
+-              <button
+-                onClick={onClose}
+-                className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500 hover:bg-accent-100 dark:hover:bg-accent-500/20 hover:text-accent-600 dark:hover:text-accent-400 active:scale-95 transition-all duration-300 shrink-0"
+-              >
+-                <X className="w-4 h-4" />
+-              </button>
+-            )}
+-          </div>
+-        )}
+-
+-        {/* Konten */}
+-        <div className={maxHeight ? 'overflow-y-auto flex-1' : ''}>
+-          {children}
++      {title && (
++        <div className="flex items-start justify-between gap-3 p-5 pb-0 shrink-0">
++          <h3 className="font-heading font-bold text-slate-900 dark:text-slate-50 text-lg min-w-0 truncate">{title}</h3>
++          {onClose && <button onClick={onClose} className={CLOSE_BTN}><X className="w-4 h-4" /></button>}
+         </div>
+-      </div>
+-    </div>
++      )}
++      <div className={maxHeight ? 'overflow-y-auto flex-1' : ''}>{children}</div>
++    </Overlay>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/src/components/ui/NominalCalculator.jsx b/src/components/ui/NominalCalculator.jsx
+index 7fa731d..04626bb 100644
+--- a/src/components/ui/NominalCalculator.jsx
++++ b/src/components/ui/NominalCalculator.jsx
+@@ -17,12 +17,13 @@ import {
+  *   suffix         string
+  *   allowNegative  boolean  — kalau false, hasil minus tidak bisa dimasukkan
+  *   onApply(digits)         — dipanggil dengan string digit hasil akhir
++ *   open           boolean  — dikontrol pemanggil (default true) agar animasi keluar sempat jalan
+  *   onClose()
+  */
+ const KEY = 'h-14 rounded-2xl text-xl font-medium bg-[#262626] text-[#ECECEC] active:bg-[#3A3A3C] select-none';
+ const OP = 'h-14 rounded-2xl text-xl font-semibold bg-[#262626] text-[#FF9F0A] active:bg-[#3A3A3C] select-none';
+ 
+-export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix = '', allowNegative = false, onApply, onClose }) {
++export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix = '', allowNegative = false, open = true, onApply, onClose }) {
+   const [s, setS] = useState(() => calcInit(initialDigits));
+ 
+   const fmt = (n) => formatNominal(n, { prefix, suffix });
+@@ -38,7 +39,7 @@ export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix
+   const op = (o) => () => setS((cur) => calcOperator(cur, o));
+ 
+   return (
+-    <NominalOverlay z="z-[120]" onClose={onClose}>
++    <NominalOverlay z="z-[120]" open={open} onClose={onClose}>
+       <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+       <div className="bg-black rounded-3xl px-4 pt-[18px] pb-4">
+         <div className="text-sm font-bold text-[#8E8E93] uppercase tracking-wider text-center mb-3">Kalkulator</div>
+diff --git a/src/components/ui/NominalKeypadSheet.jsx b/src/components/ui/NominalKeypadSheet.jsx
+index 5c95a82..0eda854 100644
+--- a/src/components/ui/NominalKeypadSheet.jsx
++++ b/src/components/ui/NominalKeypadSheet.jsx
+@@ -37,6 +37,10 @@ export default function NominalKeypadSheet({
+   const digitsRef = useRef(toDigits(value));
+   const [digits, setDigits] = useState(digitsRef.current);
+   const [calcOpen, setCalcOpen] = useState(false);
++  // Kalkulator dibiarkan terpasang setelah ditutup (supaya animasi keluar jalan); `key` baru
++  // tiap dibuka = state hitungan segar dari nilai field saat ini.
++  const [calcSession, setCalcSession] = useState(0);
++  const openCalc = () => { setCalcSession((n) => n + 1); setCalcOpen(true); };
+ 
+   const onChangeRef = useRef(onChange);
+   useEffect(() => { onChangeRef.current = onChange; });
+@@ -96,7 +100,7 @@ export default function NominalKeypadSheet({
+               </button>
+             )}
+             {calculator && (
+-              <button type="button" aria-label="Buka kalkulator" onClick={() => setCalcOpen(true)} className={ICON_BTN}>
++              <button type="button" aria-label="Buka kalkulator" onClick={openCalc} className={ICON_BTN}>
+                 <Calculator className="w-5 h-5" />
+               </button>
+             )}
+@@ -132,8 +136,10 @@ export default function NominalKeypadSheet({
+         </div>
+       </NominalDock>
+ 
+-      {calcOpen && (
++      {calcSession > 0 && (
+         <NominalCalculator
++          key={calcSession}
++          open={calcOpen}
+           initialDigits={digits}
+           prefix={prefix}
+           suffix={suffix}
+diff --git a/src/components/ui/NominalOverlay.jsx b/src/components/ui/NominalOverlay.jsx
+index 363115e..d162fa3 100644
+--- a/src/components/ui/NominalOverlay.jsx
++++ b/src/components/ui/NominalOverlay.jsx
+@@ -1,6 +1,7 @@
+ import { useEffect } from 'react';
+ import { createPortal } from 'react-dom';
+ import useBackLayer from '../../hook/useBackLayer';
++import Overlay from './Overlay';
+ 
+ /**
+  * NominalOverlay — dasar bottom sheet untuk keypad nominal & kalkulator.
+@@ -25,8 +26,9 @@ import useBackLayer from '../../hook/useBackLayer';
+ let openOverlays = 0;
+ 
+ /** Tandai <html> sebagai "nominal-open" selama komponen ini terpasang (dipakai Overlay & Dock). */
+-export function useNominalOpenClass() {
++export function useNominalOpenClass(active = true) {
+   useEffect(() => {
++    if (!active) return undefined;
+     openOverlays += 1;
+     document.documentElement.classList.add('nominal-open');
+     return () => {
+@@ -36,25 +38,24 @@ export function useNominalOpenClass() {
+         document.documentElement.classList.remove('nominal-open');
+       }
+     };
+-  }, []);
++  }, [active]);
+ }
+ 
+-export default function NominalOverlay({ z = 'z-[110]', onClose, children }) {
+-  useBackLayer(true, onClose);
+-  useNominalOpenClass();
++/**
++ * Popup bottom-sheet untuk kalkulator: naik dari bawah, turun ke bawah, bisa di-swipe
++ * turun (lihat Overlay.jsx). `open` dikontrol pemanggil supaya animasi keluar sempat jalan.
++ */
++export default function NominalOverlay({ z = 'z-[110]', open = true, onClose, children }) {
++  useBackLayer(open, onClose);
++  useNominalOpenClass(open);
+ 
+   return createPortal(
+-    <div
+-      className={`fixed inset-0 ${z} flex items-end justify-center bg-black/45`}
+-      onClick={(e) => { e.stopPropagation(); onClose(); }}
++    <Overlay
++      open={open} onClose={onClose} variant="sheet" z={z} ignoreKeyboard
++      backdropClass="bg-black/45" containerClass="items-end justify-center" panelClass="w-full max-w-md"
+     >
+-      <div
+-        onClick={(e) => e.stopPropagation()}
+-        className="nominal-sheet-up w-full max-w-md"
+-      >
+-        {children}
+-      </div>
+-    </div>,
++      {children}
++    </Overlay>,
+     document.body,
+   );
+ }
+diff --git a/src/components/ui/Overlay.jsx b/src/components/ui/Overlay.jsx
+new file mode 100644
+index 0000000..d22ca97
+--- /dev/null
++++ b/src/components/ui/Overlay.jsx
+@@ -0,0 +1,181 @@
++import { useEffect, useRef, useState } from 'react';
++
++/**
++ * Overlay — kerangka SEMUA tumpukan layar (modal, bottom sheet, laci, dropdown):
++ *
++ *  - ANIMASI MASUK & KELUAR. Proyek ini tidak punya plugin animasi (`animate-in` /
++ *    `slide-in-from-*` TIDAK ada di Tailwind v4 polos), jadi gerakan dibuat manual
++ *    dengan transition: render dulu di posisi "luar layar", frame berikutnya pindah ke
++ *    posisi akhir. Saat ditutup, komponen tetap terpasang sampai animasi keluar selesai.
++ *  - Posisi akhir memakai `translate-none`/`scale-none` (bukan translate-0) supaya panel TIDAK
++ *    menyisakan transform — transform di leluhur membuat elemen `fixed` di dalamnya
++ *    (mis. pemilih pelanggan di dalam keranjang) ikut terkurung di panel.
++ *  - Yang muncul dari bawah (sheet) keluar lagi KE BAWAH; laci kanan keluar ke kanan;
++ *    dropdown atas ke atas; dialog tengah memudar + mengecil.
++ *  - SWIPE KE BAWAH untuk menutup (varian sheet/responsive): geser dari mana saja di
++ *    panel selama isi panel sedang di paling atas. Lepas > ~110px (atau sentakan cepat)
++ *    = tutup, kurang dari itu = membal kembali. Tandai elemen dengan `data-no-swipe`
++ *    untuk mengecualikannya.
++ *  - Isi terakhir dibekukan selama animasi keluar, jadi walau state induk sudah
++ *    di-reset (form kosong, keranjang dihapus) isi panel tidak berubah/kedip sambil turun.
++ *    Karena itu pemanggil cukup render <Overlay open={false} /> saat tertutup.
++ *
++ * Props:
++ *   open, onClose
++ *   variant        'sheet' | 'responsive' (sheet di HP, dialog tengah di md+) | 'center' | 'right' | 'top'
++ *   z              kelas z-index (default 'z-[60]')
++ *   backdropClass  kelas warna/blur latar
++ *   containerClass kelas flex penataan posisi (override default per varian)
++ *   panelClass     kelas panel
++ *   swipe          boolean — izinkan swipe-turun (default: true untuk sheet & responsive)
++ *   closeOnBackdrop boolean (default true)
++ *   ignoreKeyboard boolean — jangan ikut memendek saat keypad nominal terpasang (mis. kalkulator)
++ */
++const MOTION = {
++  sheet: { on: 'translate-none', off: 'translate-y-full', tr: 'transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]', ms: 300 },
++  responsive: { on: 'translate-none md:scale-none md:opacity-100', off: 'translate-y-full md:translate-y-0 md:scale-95 md:opacity-0', tr: 'transition-[transform,translate,scale,opacity] duration-300 ease-[cubic-bezier(0.2,0,0,1)]', ms: 300 },
++  center: { on: 'scale-none opacity-100', off: 'scale-95 opacity-0', tr: 'transition-[transform,scale,opacity] duration-200 ease-out', ms: 200 },
++  right: { on: 'translate-none', off: 'translate-x-full', tr: 'transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]', ms: 300 },
++  top: { on: 'translate-none', off: '-translate-y-full', tr: 'transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]', ms: 300 },
++};
++const LAYOUT = {
++  sheet: 'items-end justify-center',
++  responsive: 'items-end md:items-center justify-center md:p-4',
++  center: 'items-center justify-center p-4',
++  right: 'justify-end',
++  top: 'flex-col',
++};
++const DEFAULT_BACKDROP = 'bg-black/60 backdrop-blur-sm';
++
++function swipeBlocked(target, panel) {
++  for (let el = target; el && el !== panel; el = el.parentElement) {
++    if (el.dataset && el.dataset.noSwipe !== undefined) return true;
++    if (el.scrollTop > 0) return true; // daftar di dalam sedang tergulir ke bawah
++  }
++  return panel.scrollTop > 0;
++}
++
++function useSwipeDown(panelRef, backdropRef, { enabled, responsive, onClose }) {
++  const closeRef = useRef(onClose);
++  closeRef.current = onClose;
++
++  useEffect(() => {
++    const el = panelRef.current;
++    if (!el || !enabled) return undefined;
++    const s = { on: false, decided: false, x: 0, y: 0, t: 0, dy: 0 };
++    const backdrop = () => backdropRef.current;
++
++    const onStart = (e) => {
++      if (e.touches.length !== 1) return;
++      if (responsive && window.matchMedia('(min-width: 768px)').matches) return;
++      if (swipeBlocked(e.target, el)) return;
++      s.on = true; s.decided = false; s.dy = 0;
++      s.x = e.touches[0].clientX; s.y = e.touches[0].clientY; s.t = performance.now();
++    };
++    const onMove = (e) => {
++      if (!s.on) return;
++      const dy = e.touches[0].clientY - s.y;
++      const dx = e.touches[0].clientX - s.x;
++      if (!s.decided) {
++        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
++        s.decided = true;
++        if (dy <= 0 || Math.abs(dx) > Math.abs(dy)) { s.on = false; return; }
++        el.style.transition = 'none';
++        if (backdrop()) backdrop().style.transition = 'none';
++      }
++      s.dy = Math.max(0, dy);
++      el.style.translate = `0 ${s.dy}px`;
++      if (backdrop()) backdrop().style.opacity = String(Math.max(0, 1 - s.dy / Math.max(1, el.offsetHeight)));
++    };
++    const onEnd = () => {
++      if (!s.on) return;
++      s.on = false;
++      if (!s.decided) return;
++      const velocity = s.dy / Math.max(1, performance.now() - s.t); // px/ms
++      el.style.transition = '';
++      if (backdrop()) backdrop().style.transition = '';
++      if (s.dy > 110 || (s.dy > 30 && velocity > 0.5)) {
++        el.style.translate = '0 100%';
++        if (backdrop()) backdrop().style.opacity = '0';
++        closeRef.current?.();
++        // Kalau induk menolak menutup, kembalikan panel.
++        setTimeout(() => {
++          if (!el.isConnected) return;
++          el.style.translate = '';
++          if (backdrop()) backdrop().style.opacity = '';
++        }, 450);
++      } else {
++        el.style.translate = '0 0';
++        if (backdrop()) backdrop().style.opacity = '';
++        setTimeout(() => { if (el.isConnected) el.style.translate = ''; }, 320);
++      }
++    };
++
++    el.addEventListener('touchstart', onStart, { passive: true });
++    el.addEventListener('touchmove', onMove, { passive: true });
++    el.addEventListener('touchend', onEnd, { passive: true });
++    el.addEventListener('touchcancel', onEnd, { passive: true });
++    return () => {
++      el.removeEventListener('touchstart', onStart);
++      el.removeEventListener('touchmove', onMove);
++      el.removeEventListener('touchend', onEnd);
++      el.removeEventListener('touchcancel', onEnd);
++    };
++  }, [panelRef, backdropRef, enabled, responsive]);
++}
++
++export default function Overlay(props) {
++  const { open } = props;
++  // Bekukan props terakhir saat terbuka -> dipakai selama animasi keluar.
++  const frozen = useRef(props);
++  if (open) frozen.current = props;
++  const p = open ? props : frozen.current;
++  const {
++    variant = 'center', z = 'z-[60]', backdropClass = DEFAULT_BACKDROP, containerClass, panelClass = '',
++    onClose, closeOnBackdrop = true, ignoreKeyboard = false, children,
++  } = p;
++  const motion = MOTION[variant] ?? MOTION.center;
++  const swipe = p.swipe ?? (variant === 'sheet' || variant === 'responsive');
++
++  const [mounted, setMounted] = useState(open);
++  const [entered, setEntered] = useState(false);
++  const panelRef = useRef(null);
++  const backdropRef = useRef(null);
++
++  useEffect(() => {
++    if (open) {
++      setMounted(true);
++      let r2;
++      const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => setEntered(true)); });
++      return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
++    }
++    setEntered(false);
++    const t = setTimeout(() => setMounted(false), motion.ms + 30);
++    return () => clearTimeout(t);
++  }, [open, motion.ms]);
++
++  useSwipeDown(panelRef, backdropRef, {
++    enabled: swipe && open && Boolean(onClose),
++    responsive: variant === 'responsive',
++    onClose,
++  });
++
++  if (!open && !mounted) return null;
++
++  return (
++    <div
++      className={`fixed inset-0 ${z} flex ${containerClass ?? LAYOUT[variant] ?? LAYOUT.center} ${open ? '' : 'pointer-events-none'}`}
++      data-kb-ignore={ignoreKeyboard ? '' : undefined}
++      onClick={(e) => e.stopPropagation()}
++    >
++      <div
++        ref={backdropRef}
++        onClick={() => { if (closeOnBackdrop && onClose) onClose(); }}
++        className={`absolute inset-0 transition-opacity duration-300 ${backdropClass} ${entered ? 'opacity-100' : 'opacity-0'}`}
++      />
++      <div ref={panelRef} className={`relative ${motion.tr} ${entered ? motion.on : motion.off} ${panelClass}`}>
++        {children}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/features/pos/CartDrawer.jsx b/src/features/pos/CartDrawer.jsx
+index fe10451..1603e70 100644
+--- a/src/features/pos/CartDrawer.jsx
++++ b/src/features/pos/CartDrawer.jsx
+@@ -5,6 +5,7 @@ import {
+ import { usePosStore } from '../../store/usePosStore';
+ import { computeOrderTotals } from './posMath';
+ import useBackLayer from '../../hook/useBackLayer';
++import Overlay from '../../components/ui/Overlay';
+ import CustomerPickerModal from './CustomerPicker';
+ import NominalInput from '../../components/ui/NominalInput';
+ 
+@@ -84,12 +85,15 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+ 
+   useBackLayer(isCartOpen, () => setIsCartOpen(false));
+ 
+-  if (!isCartOpen) return null;
++  if (!isCartOpen) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
+ 
+   return (
+-    <div className="fixed inset-0 z-50 flex justify-center">
+-      <div className="absolute inset-0 bg-slate-500/40 dark:bg-slate-800/40 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsCartOpen(false)} />
+-      <div className="w-full md:w-[420px] bg-white dark:bg-slate-900 h-full flex flex-col shadow-2xl relative animate-in slide-in-from-right duration-300 ease-out">
++    <Overlay
++      open variant="right" z="z-50" containerClass="justify-center" onClose={() => setIsCartOpen(false)}
++      backdropClass="bg-slate-500/40 dark:bg-slate-800/40 backdrop-blur-sm"
++      panelClass="w-full md:w-[420px] bg-white dark:bg-slate-900 h-full flex flex-col shadow-2xl"
++    >
++      <>
+ 
+         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
+           <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+@@ -265,7 +269,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
+             </button>
+           </div>
+         )}
+-      </div>
+-    </div>
++      </>
++    </Overlay>
+   );
+ }
+diff --git a/src/features/pos/CustomerPicker.jsx b/src/features/pos/CustomerPicker.jsx
+index 0cfcff0..5bd0974 100644
+--- a/src/features/pos/CustomerPicker.jsx
++++ b/src/features/pos/CustomerPicker.jsx
+@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
+ import { X, Search, UserPlus, User } from 'lucide-react';
+ import { usePosStore } from '../../store/usePosStore';
+ import useBackLayer from '../../hook/useBackLayer';
++import Overlay from '../../components/ui/Overlay';
+ 
+ /**
+  * CustomerPickerModal — di-port dari mamam-global dengan alasan desain
+@@ -36,7 +37,7 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
+   // Back = sama dengan tombol X (handleClose): kosongkan pencarian lalu tutup.
+   useBackLayer(isOpen, () => { setQuery(''); setNewPhone(''); onClose(); });
+ 
+-  if (!isOpen) return null;
++  if (!isOpen) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
+ 
+   const handleClose = () => { setQuery(''); setNewPhone(''); onClose(); };
+ 
+@@ -79,8 +80,12 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
+   };
+ 
+   return (
+-    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center bg-black/40 backdrop-blur-md transition-opacity duration-300" onClick={handleClose}>
+-      <div className="w-full md:max-w-md bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-2xl shadow-xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom md:zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
++    <Overlay
++      open variant="responsive" z="z-[70]" containerClass="items-end md:items-center justify-center" onClose={handleClose}
++      backdropClass="bg-black/40 backdrop-blur-md"
++      panelClass="w-full md:max-w-md bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-2xl shadow-xl max-h-[85vh] flex flex-col"
++    >
++      <>
+         <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+           <h3 className="font-bold text-slate-800 dark:text-slate-100">Pilih Pelanggan</h3>
+           <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"><X className="w-5 h-5" /></button>
+@@ -139,7 +144,7 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
+             </div>
+           </div>
+         )}
+-      </div>
+-    </div>
++      </>
++    </Overlay>
+   );
+ }
+diff --git a/src/features/pos/PaymentModal.jsx b/src/features/pos/PaymentModal.jsx
+index c7823a4..6f9719f 100644
+--- a/src/features/pos/PaymentModal.jsx
++++ b/src/features/pos/PaymentModal.jsx
+@@ -7,6 +7,7 @@ import { computeOrderTotals, cashChange, splitStatus } from './posMath';
+ import { checkout } from './useCheckout';
+ import useBackLayer from '../../hook/useBackLayer';
+ import NominalInput from '../../components/ui/NominalInput';
++import Overlay from '../../components/ui/Overlay';
+ 
+ /**
+  * PaymentModal — di-port dari mamam-global. Bagian bayar-tunai/QRIS/
+@@ -44,7 +45,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+ 
+   useBackLayer(paymentModal.isOpen, () => setPaymentModal({ ...paymentModal, isOpen: false }));
+ 
+-  if (!paymentModal.isOpen) return null;
++  if (!paymentModal.isOpen) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
+ 
+   const appliedVoucher = vouchers.find(v => v.code === voucherCode) || null;
+   const totals = computeOrderTotals({ cart, voucher: appliedVoucher, manualDiscount, orderType, deliveryFee });
+@@ -91,8 +92,11 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+   };
+ 
+   return (
+-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md transition-opacity duration-300">
+-      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300 ease-out">
++    <Overlay
++      open variant="center" z="z-[70]" backdropClass="bg-black/40 backdrop-blur-md" closeOnBackdrop={false}
++      panelClass="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
++    >
++      <>
+         <div className="p-5 border-b flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+           <div>
+             <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Pembayaran</h2>
+@@ -263,7 +267,7 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+             </button>
+           )}
+         </div>
+-      </div>
+-    </div>
++      </>
++    </Overlay>
+   );
+ }
+diff --git a/src/features/pos/ReceiptModal.jsx b/src/features/pos/ReceiptModal.jsx
+index 64f23ae..5faa698 100644
+--- a/src/features/pos/ReceiptModal.jsx
++++ b/src/features/pos/ReceiptModal.jsx
+@@ -1,5 +1,6 @@
+ import { CheckCircle2, X } from 'lucide-react';
+ import useBackLayer from '../../hook/useBackLayer';
++import Overlay from '../../components/ui/Overlay';
+ 
+ /**
+  * ReceiptModal — versi ringkas untuk gelombang 1. Menampilkan ringkasan
+@@ -10,10 +11,13 @@ import useBackLayer from '../../hook/useBackLayer';
+ export default function ReceiptModal({ result, onClose, formatRupiah }) {
+   useBackLayer(Boolean(result), onClose);
+ 
+-  if (!result) return null;
++  if (!result) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
+   return (
+-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+-      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl p-6 text-center animate-in zoom-in-95 duration-300">
++    <Overlay
++      open variant="center" z="z-[80]" closeOnBackdrop={false} backdropClass="bg-black/40 backdrop-blur-md"
++      panelClass="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl p-6 text-center"
++    >
++      <>
+         <button onClick={onClose} className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-5 h-5" /></button>
+         <CheckCircle2 className="w-14 h-14 text-emerald-500 dark:text-emerald-400 mx-auto mb-3" />
+         <h2 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">Transaksi Berhasil</h2>
+@@ -29,7 +33,7 @@ export default function ReceiptModal({ result, onClose, formatRupiah }) {
+           )}
+         </div>
+         <button onClick={onClose} className="w-full py-3 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold hover:bg-accent-700 dark:hover:bg-accent-600 transition-colors">Transaksi Baru</button>
+-      </div>
+-    </div>
++      </>
++    </Overlay>
+   );
+ }
+diff --git a/src/features/pos/VariantSelectionModal.jsx b/src/features/pos/VariantSelectionModal.jsx
+index f089af5..676f24d 100644
+--- a/src/features/pos/VariantSelectionModal.jsx
++++ b/src/features/pos/VariantSelectionModal.jsx
+@@ -1,6 +1,7 @@
+ import { X, CheckCircle2 } from 'lucide-react';
+ import { usePosStore } from '../../store/usePosStore';
+ import useBackLayer from '../../hook/useBackLayer';
++import Overlay from '../../components/ui/Overlay';
+ 
+ /**
+  * VariantSelectionModal — di-port hampir 100% dari mamam-global. Murni
+@@ -26,7 +27,7 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
+     setEditingCartItemId(null);
+   });
+ 
+-  if (!selectedMenuForVariant) return null;
++  if (!selectedMenuForVariant) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
+ 
+   const menuVariants = variantGroups.filter(vg =>
+     selectedMenuForVariant.variantGroupIds.includes(vg.id)
+@@ -70,9 +71,12 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
+   };
+ 
+   return (
+-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40 backdrop-blur-sm transition-opacity duration-300">
+-      <div className="bg-white dark:bg-slate-900 w-full md:w-[450px] rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full md:zoom-in-95 duration-300 ease-out max-h-[90vh] flex flex-col">
+-
++    <Overlay
++      open variant="responsive" z="z-50" containerClass="items-end md:items-center justify-center" onClose={handleCloseModal}
++      backdropClass="bg-black/40 backdrop-blur-sm"
++      panelClass="bg-white dark:bg-slate-900 w-full md:w-[450px] rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
++    >
++      <>
+         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 sticky top-0 z-10">
+           <div>
+             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 text-lg leading-tight">
+@@ -143,7 +147,7 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
+             {editingCartItemId ? 'Simpan Perubahan Varian' : (isSelectionValid ? 'Tambah ke Keranjang' : 'Lengkapi Pilihan Wajib')}
+           </button>
+         </div>
+-      </div>
+-    </div>
++      </>
++    </Overlay>
+   );
+ }
+diff --git a/src/index.css b/src/index.css
+index d84d1c5..ca92fba 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -188,7 +188,7 @@ html.nominal-open * {
+ html {
+   transition: --kb-h 280ms cubic-bezier(0.2, 0, 0, 1);
+ }
+-html.nominal-dock .fixed.inset-0 {
++html.nominal-dock .fixed.inset-0:not([data-kb-ignore]) {
+   bottom: var(--kb-h, 0px);
+ }
+ html.nominal-dock .fixed.inset-0[data-app-shell] {

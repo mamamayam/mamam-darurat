@@ -82,7 +82,8 @@ export const usePosStore = create(
 
 
       // ─── CART ACTIONS ────────────────────────────────────────────────
-      addToCart: (menu, variantSelectedOptions = {}, variantGroups = []) => set((state) => {
+      addToCart: (menu, variantSelectedOptions = {}, variantGroups = [], qty = 1) => set((state) => {
+        const addQty = Math.max(1, Math.floor(Number(qty)) || 1);
         let extraPriceTotal = 0;
         const variantNames = [];
         const selectedVariantDetails = [];
@@ -105,7 +106,7 @@ export const usePosStore = create(
 
         const existingItem = state.cart.find(i => i.cartItemId === cartItemId);
         if (existingItem) {
-          return { cart: state.cart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty + 1 } : i) };
+          return { cart: state.cart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty + addQty } : i) };
         }
 
         const newItem = {
@@ -114,7 +115,7 @@ export const usePosStore = create(
           name: menu.name,
           price: (menu.price || 0) + extraPriceTotal,
           hpp: menu.hpp || 0,
-          qty: 1,
+          qty: addQty,
           note: '',
           variantName,
           variantSelectedOptions,

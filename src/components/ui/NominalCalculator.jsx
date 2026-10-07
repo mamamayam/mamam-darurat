@@ -17,12 +17,13 @@ import {
  *   suffix         string
  *   allowNegative  boolean  — kalau false, hasil minus tidak bisa dimasukkan
  *   onApply(digits)         — dipanggil dengan string digit hasil akhir
+ *   open           boolean  — dikontrol pemanggil (default true) agar animasi keluar sempat jalan
  *   onClose()
  */
 const KEY = 'h-14 rounded-2xl text-xl font-medium bg-[#262626] text-[#ECECEC] active:bg-[#3A3A3C] select-none';
 const OP = 'h-14 rounded-2xl text-xl font-semibold bg-[#262626] text-[#FF9F0A] active:bg-[#3A3A3C] select-none';
 
-export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix = '', allowNegative = false, onApply, onClose }) {
+export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix = '', allowNegative = false, open = true, onApply, onClose }) {
   const [s, setS] = useState(() => calcInit(initialDigits));
 
   const fmt = (n) => formatNominal(n, { prefix, suffix });
@@ -38,7 +39,7 @@ export default function NominalCalculator({ initialDigits, prefix = 'Rp', suffix
   const op = (o) => () => setS((cur) => calcOperator(cur, o));
 
   return (
-    <NominalOverlay z="z-[120]" onClose={onClose}>
+    <NominalOverlay z="z-[120]" open={open} onClose={onClose}>
       <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
       <div className="bg-black rounded-3xl px-4 pt-[18px] pb-4">
         <div className="text-sm font-bold text-[#8E8E93] uppercase tracking-wider text-center mb-3">Kalkulator</div>
