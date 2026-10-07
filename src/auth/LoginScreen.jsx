@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Delete, Lock } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { isLocked, secondsLeft, attemptsLeft } from './authLogic';
+import { versionLabel } from '../lib/appVersion';
 
 /** Layar PIN 4 digit. Otomatis masuk saat digit ke-4 diisi. */
 export default function LoginScreen() {
@@ -82,6 +83,8 @@ export default function LoginScreen() {
         <button onClick={back} disabled={locked} aria-label="Hapus"
           className="h-14 rounded-2xl flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-95 disabled:opacity-40 transition-all"><Delete className="w-6 h-6" /></button>
       </div>
+
+      <p className="text-[11px] text-slate-300 dark:text-slate-600" data-testid="app-version">{versionLabel()}</p>
     </div>
   );
 }

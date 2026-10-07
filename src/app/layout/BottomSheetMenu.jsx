@@ -2,6 +2,7 @@ import React from 'react';
 import { LogOut } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import { roleLabel } from '../../auth/permissions';
+import { versionLabel } from '../../lib/appVersion';
 
 /**
  * BottomSheetMenu — swipe-up sheet, ported dari test-app-baru (mamam-global).
@@ -64,6 +65,7 @@ export default function BottomSheetMenu({
             <LogOut className="w-4 h-4" />
             Keluar
           </button>
+          <p className="text-center text-[11px] text-slate-300 dark:text-slate-600" data-testid="app-version">{versionLabel()}</p>
         </div>
       </div>
     </Modal>

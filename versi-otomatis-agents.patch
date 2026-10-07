@@ -1,0 +1,584 @@
+diff --git a/.github/workflows/versioning.yml b/.github/workflows/versioning.yml
+new file mode 100644
+index 0000000..c765337
+--- /dev/null
++++ b/.github/workflows/versioning.yml
+@@ -0,0 +1,51 @@
++# Versi otomatis: tiap push ke main, naikkan versi di package.json sesuai awalan pesan commit
++# (feat -> minor, feat! / BREAKING CHANGE -> major, lainnya -> patch), lalu beri tag vX.Y.Z.
++# Aturan lengkap: docs/versioning.md. Jangan naikkan versi manual.
++name: Versi otomatis
++
++on:
++  push:
++    branches: [main]
++
++# Satu per satu, supaya dua push beruntun tidak saling menimpa nomor versi.
++concurrency:
++  group: versi-otomatis
++  cancel-in-progress: false
++
++permissions:
++  contents: write
++
++jobs:
++  bump:
++    # Commit rilis buatan Action ini tidak boleh memicu putaran baru.
++    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          ref: main
++          fetch-depth: 0
++
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 22
++
++      - name: Hitung versi baru
++        id: bump
++        env:
++          BEFORE: ${{ github.event.before }}
++          AFTER: ${{ github.sha }}
++        run: node scripts/bump-version.mjs --range "$BEFORE..$AFTER"
++
++      - name: Commit dan tag versi
++        if: steps.bump.outputs.bumped == 'true'
++        env:
++          VERSION: ${{ steps.bump.outputs.version }}
++        run: |
++          git config user.name "github-actions[bot]"
++          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
++          git add package.json package-lock.json
++          git commit -m "chore(release): v$VERSION"
++          git tag "v$VERSION"
++          git pull --rebase origin main
++          git push origin main --follow-tags
+diff --git a/AGENTS.md b/AGENTS.md
+new file mode 100644
+index 0000000..1c8c2c9
+--- /dev/null
++++ b/AGENTS.md
+@@ -0,0 +1,62 @@
++# Panduan untuk agent — mamam-darurat
++
++Baca ini dulu sebelum mengubah apa pun. Berlaku untuk agent apa pun (Claude, Codex, Cursor, dll).
++Pemilik repo: Mamam. Bahasa kerja: **Indonesia** (teks tampilan, komentar kode, pesan ke pemilik).
++
++## Aplikasi ini
++
++- **Mamam Darurat ("Aplikasi C")**: POS + admin untuk usaha F&B MamamAyam, dipangkas dari
++  `mamam-global`. Kasir, Dompet/Shift, Pelanggan, Pengeluaran, Karyawan, Absensi, Riwayat, Laporan, Penggajian, Menu.
++- Stack: React 19 + Vite + Tailwind 4, Supabase (Postgres), PWA tulis tangan (`public/sw.js`, tanpa VitePWA). Dites dengan Vitest.
++- **Online-first**: data langsung ke Supabase. Service worker hanya menyimpan cangkang app, **tidak pernah data**.
++- Absensi dibaca (baca-saja) dari project Supabase terpisah; kunci ada di `.env.local` (lihat `.env.example`), jangan pernah menaruh kunci di repo atau chat.
++- Skema database: `supabase/schema.sql` + `supabase/migrations/NNN_*.sql` (dijalankan manual di SQL Editor, aman diulang).
++
++## Cara kerja dengan pemilik (PENTING)
++
++- Pemilik **menerapkan perubahan sendiri**: agent menyerahkan file `.patch` dan perintah `git apply`; pemilik yang commit dan push.
++  Agent biasanya **tidak punya akses push** ke repo ini. Jangan memaksa push; serahkan patch.
++- Sebelum membuat patch, ambil `main` terbaru (`git fetch origin main`, rebase) karena pemilik sering push di sela-sela.
++  Cek patch bisa di-apply bersih ke `origin/main` (`git apply --check`) dan tes + build lolos.
++- Ambil keputusan yang masuk akal sendiri dan sebutkan asumsinya. Untuk perubahan tampilan, tunjukkan preview dulu bila memungkinkan.
++- Setelah `git apply`, pemilik harus `git pull` sebelum push berikutnya, karena Action versi menambah commit di `main` (lihat bawah).
++
++## Versi otomatis
++
++Versi di `package.json` **dinaikkan otomatis** oleh GitHub Action tiap push ke `main`. **Jangan ubah `version` manual** dan jangan
++membuat commit `chore(release): ...`. Besar-kecilnya ditentukan dari awalan pesan commit:
++
++| Awalan pesan commit | Naik | Contoh |
++|---|---|---|
++| `feat!:` / `feat(x)!:` / baris `BREAKING CHANGE:` | major | 1.4.7 → 2.0.0 |
++| `feat:` | minor | 1.4.7 → 1.5.0 |
++| `fix:` `refactor:` `chore:` `docs:` `perf:` `test:` `style:` atau tanpa awalan | patch | 1.4.7 → 1.4.8 |
++
++Agent **wajib** menulis pesan commit/patch dengan awalan ini, kalimat Indonesia setelah titik dua: `fix: kategori pengeluaran jadi dropdown`.
++Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`src/lib/appVersion.js`).
++
++## Aturan kode
++
++- **Izin per peran** hanya di `src/auth/permissions.js` (peran: `owner`, `staff`). Izin tak terdaftar ditolak untuk semua. Layar terkunci lewat `VIEW_PERMISSION`;
++  menu Lainnya otomatis menyembunyikan layar yang tak boleh dibuka. Ini pagar tampilan (PIN hardcoded di `pins.js`), bukan keamanan data.
++- Uang = integer rupiah. Tanggal pengeluaran = string `YYYY-MM-DD` apa adanya (jangan di-parse sebagai UTC). Rumus murni ditaruh di berkas `*Math.js` / engine dan **dites**.
++- Hapus = hard delete (tanpa recycle bin). Tampilan mengikuti pola komponen di `src/components/ui/` (Card, Select, Badge, SegmentedControl, dst).
++- Setelah mengubah kode: `npm test` dan `npm run build` harus lolos. Tambah/ubah tes untuk logika yang berubah.
++- **Folder `mamam-darurat/` di dalam repo adalah salinan lama (duplikat `src`)** yang ikut terbawa dan ikut dijalankan Vitest. Jangan jadikan acuan dan jangan
++  diedit untuk fitur. Satu pengecualian: tes izin (`src/auth/auth.test.js`) membaca kode `src/` lalu mencocokkannya dengan daftar izin di salinan itu,
++  jadi **kalau mengubah `permissions.js`, ubah juga `mamam-darurat/src/auth/permissions.js`** supaya tes tidak merah. Idealnya folder salinan itu dihapus
++  (tanya pemilik dulu).
++
++## Keputusan produk yang sudah ditetapkan pemilik
++
++**Laporan** (`src/features/reports/`) punya dua tab dengan filter periode yang sama (Hari Ini, Kemarin, Bulan Ini, Semua, Tanggal Terpilih):
++- **Laba Rugi**: Total Penjualan, Laba Kotor, Pengeluaran (3 kartu, tanpa HPP), lalu per metode bayar, per tipe pesanan, menu terlaris.
++  **Laba Kotor = Total Penjualan − Pengeluaran.** Pengeluaran = SEMUA catatan pengeluaran apa pun kategorinya (belanja, bayar ayam, kasbon,
++  gaji, dll; tunai dan non-tunai). Tidak ada kategori yang dikecualikan dan tidak ada "laba bersih" di sini.
++- **Rincian Pengeluaran** (owner-only): total, per kategori, dan daftar semua catatan pengeluaran.
++
++**Pengeluaran**: kolom Kategori adalah dropdown; kategori baru ditambah lewat ikon gerigi (Kelola Kategori).
++
++**Staf** tidak boleh melihat/membuka **Riwayat** dan **Laporan** (owner-only).
++
++**Gaji** mengikuti aturan hitung mamam-kasir (B): `docs/payroll-rules.md`. Jangan diubah diam-diam.
+diff --git a/CLAUDE.md b/CLAUDE.md
+new file mode 100644
+index 0000000..43c994c
+--- /dev/null
++++ b/CLAUDE.md
+@@ -0,0 +1 @@
++@AGENTS.md
+diff --git a/docs/versioning.md b/docs/versioning.md
+new file mode 100644
+index 0000000..b200135
+--- /dev/null
++++ b/docs/versioning.md
+@@ -0,0 +1,66 @@
++# Versi otomatis
++
++Tiap push ke `main` menaikkan versi app sendiri. Tidak ada yang perlu diatur manual.
++
++## Alurnya
++
++1. Pemilik push ke `main`.
++2. GitHub Action `.github/workflows/versioning.yml` membaca pesan commit di push itu
++   dan menentukan kenaikan (tabel di bawah). Satu push berisi banyak commit memakai kenaikan **tertinggi**.
++3. Versi baru ditulis ke `package.json` dan `package-lock.json`, di-commit sebagai
++   `chore(release): vX.Y.Z` oleh bot, diberi tag `vX.Y.Z`, lalu di-push ke `main`.
++4. Hosting (Vercel) membangun ulang dari commit itu. Saat build, `vite.config.js` menyuntikkan
++   versi, hash commit, dan waktu build ke app. Hasilnya tampil, misalnya, `v0.2.0 · 7 Okt 09.30 · ab12cd3`
++   di bawah tombol Keluar (menu Lainnya) dan di bawah keypad layar login.
++
++Karena langkah 3 menambah commit di `main`, **jalankan `git pull` sebelum push berikutnya**.
++Push pertama setelah itu sempat membangun dengan versi lama; build kedua (dari commit bot) menampilkan versi yang benar.
++
++## Besar atau kecil: dari awalan pesan commit
++
++| Awalan pesan commit | Naik | Contoh |
++|---|---|---|
++| `feat!:` / `feat(x)!:` / baris `BREAKING CHANGE:` di badan pesan | **major** | 1.4.7 → 2.0.0 |
++| `feat:` / `feat(x):` | **minor** | 1.4.7 → 1.5.0 |
++| `fix:` `refactor:` `chore:` `docs:` `perf:` `test:` `style:`, atau tanpa awalan | **patch** | 1.4.7 → 1.4.8 |
++
++- Yang menentukan hanya **baris pertama** pesan (kecuali baris `BREAKING CHANGE:`).
++- Setiap push minimal naik patch, jadi pesan lama seperti `push 7/10 v2` tetap dihitung (patch).
++- Commit `chore(release): ...` milik bot tidak dihitung dan tidak memicu putaran baru.
++- Hasil nyata mengikuti kebiasaan menulis pesan: kalau mau perubahan dihitung "fitur", tulis `feat:`.
++
++Kapan memakai apa: **feat** = kemampuan baru yang terlihat pemakai (tab baru, layar baru). **fix** = perbaikan atau penyesuaian kecil.
++**major** = perubahan yang mengubah cara kerja lama secara mendasar (mis. skema database tidak kompatibel, ganti sistem login).
++
++## Komponen
++
++| Berkas | Fungsi |
++|---|---|
++| `scripts/versioning.mjs` | Aturan murni: awalan pesan → level, naikkan versi. Dites di `scripts/versioning.test.js`. |
++| `scripts/bump-version.mjs` | Membaca commit dari git, menulis `package.json` + `package-lock.json`. |
++| `.github/workflows/versioning.yml` | Menjalankan skrip tiap push ke `main`, lalu commit + tag + push. |
++| `vite.config.js` | Menyuntikkan `__APP_VERSION__` dan `__APP_BUILD__` (hash commit dari `VERCEL_GIT_COMMIT_SHA`, `GITHUB_SHA`, atau git lokal). |
++| `src/lib/appVersion.js` | Memformat label versi (waktu ditampilkan dalam WIB). |
++
++## Mencoba di laptop
++
++```bash
++node scripts/bump-version.mjs --message "feat: coba" --dry-run     # hanya tampilkan hasil
++node scripts/bump-version.mjs --range origin/main..HEAD --dry-run  # dari commit yang belum di-push
++```
++
++Tanpa `--dry-run`, skrip menulis file; jangan dijalankan manual di repo kerja kecuali memang mau menaikkan versi
++(Action akan menaikkan lagi saat push).
++
++## Menggeser angka awal
++
++Versi sekarang dimulai dari `0.1.0`. Ingin mulai dari angka lain (mis. `1.0.0`): ubah `version` di `package.json` dan di dua tempat
++`package-lock.json` (baris 3 dan 9), commit dengan awalan `chore:`. Setelah itu otomatis berjalan dari angka itu.
++
++## Catatan
++
++- Kalau push ditolak karena berisi perubahan di `.github/workflows/`, token/kredensial Git perlu izin `workflow`
++  (atau tambahkan berkas workflow lewat web GitHub sekali saja).
++- Kalau suatu saat dibuat APK (Capacitor), `versionName`/`versionCode` Android harus disambungkan ke `package.json` supaya nomornya sama.
++- Service worker memakai jaringan-dulu untuk halaman utama, jadi versi baru langsung terpakai saat app dibuka lagi dalam keadaan online;
++  label versi di menu dipakai untuk memastikan HP sudah memakai build terbaru.
+diff --git a/package-lock.json b/package-lock.json
+index 7091095..0aed9ff 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "mamam-darurat",
+-  "version": "0.0.0",
++  "version": "0.1.0",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "mamam-darurat",
+-      "version": "0.0.0",
++      "version": "0.1.0",
+       "dependencies": {
+         "@dnd-kit/core": "^6.3.1",
+         "@dnd-kit/sortable": "^10.0.0",
+diff --git a/package.json b/package.json
+index c7ae0de..f1326d0 100644
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "mamam-darurat",
+   "private": true,
+-  "version": "0.0.0",
++  "version": "0.1.0",
+   "type": "module",
+   "scripts": {
+     "dev": "vite",
+diff --git a/scripts/bump-version.mjs b/scripts/bump-version.mjs
+new file mode 100644
+index 0000000..37c1211
+--- /dev/null
++++ b/scripts/bump-version.mjs
+@@ -0,0 +1,75 @@
++#!/usr/bin/env node
++/**
++ * bump-version — naikkan versi di package.json (+ package-lock.json) dari pesan commit.
++ * Dijalankan GitHub Action tiap push ke main; bisa juga dicoba manual di laptop.
++ *
++ *   node scripts/bump-version.mjs --range <sebelum>..<sesudah>   commit dalam rentang itu
++ *   node scripts/bump-version.mjs --message "feat: tambah X"      satu pesan langsung (uji coba)
++ *   tambahkan --dry-run untuk hanya menampilkan hasil tanpa menulis file
++ *
++ * Aturan kenaikan ada di scripts/versioning.mjs. Kalau berjalan di GitHub Actions,
++ * hasilnya ditulis ke $GITHUB_OUTPUT (bumped, version, level).
++ */
++import { execFileSync } from 'node:child_process';
++import { appendFileSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
++import { fileURLToPath } from 'node:url';
++import { planBump } from './versioning.mjs';
++
++const root = fileURLToPath(new URL('..', import.meta.url));
++const ZERO = /^0{40}$/;
++
++const args = process.argv.slice(2);
++const opt = (name) => { const i = args.indexOf(name); return i === -1 ? null : args[i + 1] ?? null; };
++const dryRun = args.includes('--dry-run');
++
++const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
++
++function messagesFromRange(range) {
++  const [before, after] = range.split('..');
++  if (!after) throw new Error(`--range harus berbentuk <sebelum>..<sesudah>, dapat "${range}"`);
++  // Push pertama / force-push: commit "sebelum" tidak ada atau nol semua -> hitung commit terakhir saja.
++  const usable = before && !ZERO.test(before) && (() => { try { git('cat-file', '-e', `${before}^{commit}`); return true; } catch { return false; } })();
++  const log = usable ? git('log', '--format=%B%x00', `${before}..${after}`) : git('log', '-1', '--format=%B%x00', after);
++  return log.split('\0').map((s) => s.trim()).filter(Boolean);
++}
++
++function readJson(file) { return JSON.parse(readFileSync(file, 'utf8')); }
++function writeJson(file, data, original) {
++  const trailing = /\n$/.test(original) ? '\n' : '';
++  writeFileSync(file, JSON.stringify(data, null, 2) + trailing);
++}
++
++function setOutput(values) {
++  if (!process.env.GITHUB_OUTPUT) return;
++  appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(values).map(([k, v]) => `${k}=${v}\n`).join(''));
++}
++
++const range = opt('--range');
++const message = opt('--message');
++if (!range && message == null) { console.error('Pakai --range <a..b> atau --message "<teks>"'); process.exit(2); }
++
++const messages = message != null ? [message] : messagesFromRange(range);
++const pkgPath = `${root}package.json`;
++const pkgText = readFileSync(pkgPath, 'utf8');
++const pkg = JSON.parse(pkgText);
++const plan = planBump(pkg.version, messages);
++
++if (!plan) {
++  console.log(`Tidak ada kenaikan versi (tetap ${pkg.version}).`);
++  setOutput({ bumped: 'false', version: pkg.version });
++  process.exit(0);
++}
++
++console.log(`${pkg.version} -> ${plan.next} (${plan.level})${dryRun ? ' [dry-run]' : ''}`);
++if (!dryRun) {
++  writeJson(pkgPath, { ...pkg, version: plan.next }, pkgText);
++  const lockPath = `${root}package-lock.json`;
++  if (existsSync(lockPath)) {
++    const lockText = readFileSync(lockPath, 'utf8');
++    const lock = JSON.parse(lockText);
++    lock.version = plan.next;
++    if (lock.packages && lock.packages['']) lock.packages[''].version = plan.next;
++    writeJson(lockPath, lock, lockText);
++  }
++}
++setOutput({ bumped: 'true', version: plan.next, level: plan.level });
+diff --git a/scripts/versioning.mjs b/scripts/versioning.mjs
+new file mode 100644
+index 0000000..160905e
+--- /dev/null
++++ b/scripts/versioning.mjs
+@@ -0,0 +1,58 @@
++/**
++ * versioning — aturan penomoran versi otomatis. FUNGSI MURNI (tanpa git / file).
++ * Dipakai scripts/bump-version.mjs, yang dijalankan GitHub Action tiap push ke main
++ * (.github/workflows/versioning.yml). Penjelasan lengkap: docs/versioning.md.
++ *
++ * Besar-kecilnya kenaikan ditentukan dari AWALAN pesan commit (Conventional Commits):
++ *   feat!: ... / feat(x)!: ... / ada baris "BREAKING CHANGE: ..."  -> major  (1.4.7 -> 2.0.0)
++ *   feat: ...                                                      -> minor  (1.4.7 -> 1.5.0)
++ *   fix: / refactor: / chore: / ... / pesan tanpa awalan           -> patch  (1.4.7 -> 1.4.8)
++ * Satu push berisi banyak commit memakai kenaikan TERTINGGI di antara commit-commitnya.
++ * Setiap push minimal menaikkan patch, jadi pesan seperti "push 7/10 v2" tetap dihitung.
++ */
++
++const LEVEL_RANK = { patch: 1, minor: 2, major: 3 };
++const HEADER = /^(\w+)(\([^)]*\))?(!)?:\s/;
++const RELEASE_COMMIT = /^chore\(release\):/i;
++
++/** Commit yang dibuat otomatis oleh Action ini; tidak boleh dihitung lagi. */
++export const isReleaseCommit = (message) => RELEASE_COMMIT.test(String(message ?? '').trim());
++
++/** 'major' | 'minor' | 'patch' untuk satu pesan commit, atau null kalau tidak dihitung. */
++export function commitLevel(message) {
++  const text = String(message ?? '').trim();
++  if (!text || isReleaseCommit(text)) return null;
++  const subject = text.split(/\r?\n/)[0];
++  const m = HEADER.exec(subject);
++  if (/^BREAKING[ -]CHANGE:/m.test(text) || (m && m[3])) return 'major';
++  if (m && m[1].toLowerCase() === 'feat') return 'minor';
++  return 'patch';
++}
++
++/** Kenaikan tertinggi dari banyak pesan commit; null kalau tidak ada yang dihitung. */
++export function highestLevel(messages) {
++  let best = null;
++  for (const msg of messages) {
++    const lv = commitLevel(msg);
++    if (lv && (!best || LEVEL_RANK[lv] > LEVEL_RANK[best])) best = lv;
++  }
++  return best;
++}
++
++/** '1.4.7' + 'minor' -> '1.5.0'. Akhiran pra-rilis (-beta.1) dibuang. */
++export function bumpVersion(version, level) {
++  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(version ?? '').trim());
++  if (!m) throw new Error(`Versi tidak valid: "${version}"`);
++  let [major, minor, patch] = [Number(m[1]), Number(m[2]), Number(m[3])];
++  if (level === 'major') { major += 1; minor = 0; patch = 0; }
++  else if (level === 'minor') { minor += 1; patch = 0; }
++  else if (level === 'patch') { patch += 1; }
++  else throw new Error(`Level tidak dikenal: "${level}"`);
++  return `${major}.${minor}.${patch}`;
++}
++
++/** { level, next } untuk versi sekarang + pesan-pesan commit, atau null kalau tidak perlu naik. */
++export function planBump(current, messages) {
++  const level = highestLevel(messages);
++  return level ? { level, next: bumpVersion(current, level) } : null;
++}
+diff --git a/scripts/versioning.test.js b/scripts/versioning.test.js
+new file mode 100644
+index 0000000..4246a17
+--- /dev/null
++++ b/scripts/versioning.test.js
+@@ -0,0 +1,62 @@
++import { describe, it, expect } from 'vitest';
++import { commitLevel, highestLevel, bumpVersion, planBump, isReleaseCommit } from './versioning.mjs';
++
++describe('commitLevel (awalan pesan commit -> besar/kecil)', () => {
++  it('feat = minor', () => { expect(commitLevel('feat: tambah Rincian Pengeluaran')).toBe('minor'); expect(commitLevel('feat(laporan): tab baru')).toBe('minor'); });
++  it('tanda ! atau BREAKING CHANGE = major', () => {
++    expect(commitLevel('feat!: ganti skema')).toBe('major');
++    expect(commitLevel('refactor(db)!: ubah tabel')).toBe('major');
++    expect(commitLevel('fix: x\n\nBREAKING CHANGE: PIN diganti')).toBe('major');
++    expect(commitLevel('fix: x\n\nBREAKING-CHANGE: PIN diganti')).toBe('major');
++  });
++  it('fix, refactor, chore, docs, dll = patch', () => {
++    for (const m of ['fix: bug kasbon', 'refactor: rapikan', 'chore: bersih-bersih', 'docs: catatan', 'perf: cepat', 'style: spasi', 'test: tambah']) expect(commitLevel(m)).toBe('patch');
++  });
++  it('pesan tanpa awalan (mis. "push 7/10 v2") tetap patch', () => {
++    expect(commitLevel('push 7/10 v2')).toBe('patch');
++    expect(commitLevel('Merge branch main')).toBe('patch');
++  });
++  it('awalan huruf besar tetap dikenali; "feature" bukan feat', () => {
++    expect(commitLevel('Feat: x')).toBe('minor');
++    expect(commitLevel('feature: x')).toBe('patch');
++  });
++  it('commit rilis otomatis & pesan kosong tidak dihitung', () => {
++    expect(commitLevel('chore(release): v1.2.3')).toBeNull();
++    expect(commitLevel('')).toBeNull(); expect(commitLevel(null)).toBeNull(); expect(commitLevel('   ')).toBeNull();
++    expect(isReleaseCommit('chore(release): v1.2.3')).toBe(true); expect(isReleaseCommit('chore: x')).toBe(false);
++  });
++  it('hanya baris pertama yang menentukan awalan', () => {
++    expect(commitLevel('push 7/10\n\nfeat: di badan pesan')).toBe('patch');
++  });
++});
++
++describe('highestLevel (satu push, banyak commit)', () => {
++  it('ambil yang tertinggi', () => {
++    expect(highestLevel(['fix: a', 'feat: b', 'chore: c'])).toBe('minor');
++    expect(highestLevel(['fix: a', 'feat!: b', 'feat: c'])).toBe('major');
++    expect(highestLevel(['fix: a', 'push 7/10'])).toBe('patch');
++  });
++  it('commit rilis diabaikan; kosong = null', () => {
++    expect(highestLevel(['chore(release): v1.0.1'])).toBeNull();
++    expect(highestLevel([])).toBeNull();
++    expect(highestLevel(['chore(release): v1.0.1', 'fix: a'])).toBe('patch');
++  });
++});
++
++describe('bumpVersion', () => {
++  it('patch / minor / major mengosongkan angka di bawahnya', () => {
++    expect(bumpVersion('1.4.7', 'patch')).toBe('1.4.8');
++    expect(bumpVersion('1.4.7', 'minor')).toBe('1.5.0');
++    expect(bumpVersion('1.4.7', 'major')).toBe('2.0.0');
++  });
++  it('angka dua digit naik normal (bukan desimal)', () => { expect(bumpVersion('0.9.99', 'patch')).toBe('0.9.100'); expect(bumpVersion('0.9.9', 'minor')).toBe('0.10.0'); });
++  it('akhiran pra-rilis dibuang; versi / level tidak valid melempar galat', () => {
++    expect(bumpVersion('1.2.3-beta.1', 'patch')).toBe('1.2.4');
++    expect(() => bumpVersion('abc', 'patch')).toThrow(); expect(() => bumpVersion('1.2.3', 'mega')).toThrow(); expect(() => bumpVersion(undefined, 'patch')).toThrow();
++  });
++});
++
++describe('planBump', () => {
++  it('menghasilkan level + versi berikutnya', () => { expect(planBump('0.1.0', ['feat: x'])).toEqual({ level: 'minor', next: '0.2.0' }); });
++  it('tanpa commit yang dihitung = null (tidak naik)', () => { expect(planBump('0.1.0', ['chore(release): v0.1.0'])).toBeNull(); });
++});
+diff --git a/src/app/layout/BottomSheetMenu.jsx b/src/app/layout/BottomSheetMenu.jsx
+index 4ccccb2..4ae4d3f 100644
+--- a/src/app/layout/BottomSheetMenu.jsx
++++ b/src/app/layout/BottomSheetMenu.jsx
+@@ -2,6 +2,7 @@ import React from 'react';
+ import { LogOut } from 'lucide-react';
+ import Modal from '../../components/ui/Modal';
+ import { roleLabel } from '../../auth/permissions';
++import { versionLabel } from '../../lib/appVersion';
+ 
+ /**
+  * BottomSheetMenu — swipe-up sheet, ported dari test-app-baru (mamam-global).
+@@ -64,6 +65,7 @@ export default function BottomSheetMenu({
+             <LogOut className="w-4 h-4" />
+             Keluar
+           </button>
++          <p className="text-center text-[11px] text-slate-300 dark:text-slate-600" data-testid="app-version">{versionLabel()}</p>
+         </div>
+       </div>
+     </Modal>
+diff --git a/src/auth/LoginScreen.jsx b/src/auth/LoginScreen.jsx
+index ffd0bd4..0a21a3b 100644
+--- a/src/auth/LoginScreen.jsx
++++ b/src/auth/LoginScreen.jsx
+@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
+ import { Delete, Lock } from 'lucide-react';
+ import { useAuth } from './AuthContext';
+ import { isLocked, secondsLeft, attemptsLeft } from './authLogic';
++import { versionLabel } from '../lib/appVersion';
+ 
+ /** Layar PIN 4 digit. Otomatis masuk saat digit ke-4 diisi. */
+ export default function LoginScreen() {
+@@ -82,6 +83,8 @@ export default function LoginScreen() {
+         <button onClick={back} disabled={locked} aria-label="Hapus"
+           className="h-14 rounded-2xl flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-95 disabled:opacity-40 transition-all"><Delete className="w-6 h-6" /></button>
+       </div>
++
++      <p className="text-[11px] text-slate-300 dark:text-slate-600" data-testid="app-version">{versionLabel()}</p>
+     </div>
+   );
+ }
+diff --git a/src/lib/appVersion.js b/src/lib/appVersion.js
+new file mode 100644
+index 0000000..d9ab98a
+--- /dev/null
++++ b/src/lib/appVersion.js
+@@ -0,0 +1,29 @@
++/**
++ * appVersion — versi app untuk ditampilkan. Nilainya disuntik saat build oleh
++ * vite.config.js (define): __APP_VERSION__ dari package.json, __APP_BUILD__ berisi
++ * hash commit dan waktu build. Di luar build (mis. tes) jatuh ke 'dev'.
++ */
++const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
++const two = (n) => String(n).padStart(2, '0');
++
++/** ISO UTC -> "7 Okt 09.30" dalam WIB (UTC+7), tanpa bergantung pada pengaturan zona perangkat. */
++export function formatBuildTime(iso) {
++  const t = Date.parse(iso);
++  if (Number.isNaN(t)) return '';
++  const d = new Date(t + 7 * 3600 * 1000);
++  return `${d.getUTCDate()} ${BULAN[d.getUTCMonth()]} ${two(d.getUTCHours())}.${two(d.getUTCMinutes())}`;
++}
++
++/** "v0.1.0 · 7 Okt 09.30 · ab12cd3" — bagian yang tidak tersedia dilewati. */
++export function formatVersionLabel(version, build = {}) {
++  const parts = [version && version !== 'dev' ? `v${version}` : 'dev'];
++  const when = formatBuildTime(build.at);
++  if (when) parts.push(when);
++  if (build.sha) parts.push(build.sha);
++  return parts.join(' · ');
++}
++
++export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
++const BUILD = typeof __APP_BUILD__ !== 'undefined' ? __APP_BUILD__ : {};
++
++export const versionLabel = () => formatVersionLabel(APP_VERSION, BUILD);
+diff --git a/src/lib/appVersion.test.js b/src/lib/appVersion.test.js
+new file mode 100644
+index 0000000..2d95713
+--- /dev/null
++++ b/src/lib/appVersion.test.js
+@@ -0,0 +1,21 @@
++import { describe, it, expect } from 'vitest';
++import { formatBuildTime, formatVersionLabel } from './appVersion.js';
++
++describe('formatBuildTime (WIB)', () => {
++  it('UTC -> WIB (+7), tanggal ikut berganti lewat tengah malam', () => {
++    expect(formatBuildTime('2026-10-07T02:30:00.000Z')).toBe('7 Okt 09.30');
++    expect(formatBuildTime('2026-10-07T18:05:00.000Z')).toBe('8 Okt 01.05');
++    expect(formatBuildTime('2026-12-31T17:00:00.000Z')).toBe('1 Jan 00.00');
++  });
++  it('tanggal tidak valid / kosong = string kosong', () => { expect(formatBuildTime('')).toBe(''); expect(formatBuildTime(undefined)).toBe(''); expect(formatBuildTime('bukan tanggal')).toBe(''); });
++});
++
++describe('formatVersionLabel', () => {
++  it('versi + waktu + hash', () => { expect(formatVersionLabel('0.1.0', { at: '2026-10-07T02:30:00.000Z', sha: 'ab12cd3' })).toBe('v0.1.0 · 7 Okt 09.30 · ab12cd3'); });
++  it('bagian yang tidak ada dilewati; tanpa versi = dev', () => {
++    expect(formatVersionLabel('1.2.3', {})).toBe('v1.2.3');
++    expect(formatVersionLabel('1.2.3', { sha: 'ab12cd3' })).toBe('v1.2.3 · ab12cd3');
++    expect(formatVersionLabel('dev')).toBe('dev');
++    expect(formatVersionLabel(undefined)).toBe('dev');
++  });
++});
+diff --git a/vite.config.js b/vite.config.js
+index fab368e..3453106 100644
+--- a/vite.config.js
++++ b/vite.config.js
+@@ -2,6 +2,16 @@ import { defineConfig } from 'vite'
+ import react from '@vitejs/plugin-react'
+ import tailwindcss from '@tailwindcss/vite'
+ import { fileURLToPath, URL } from 'url'
++import { readFileSync } from 'fs'
++import { execSync } from 'child_process'
++
++// Versi app: nomor dari package.json (dinaikkan otomatis, lihat docs/versioning.md),
++// plus hash commit & waktu build. Tampil di menu Lainnya dan layar login (src/lib/appVersion.js).
++const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
++const gitSha = () => {
++  try { return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return '' }
++}
++const sha = (process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || gitSha()).slice(0, 7)
+ 
+ // Vite config C — dipangkas dari mamam-global: TANPA plugin VitePWA.
+ // PWA-nya ditulis tangan di public/ (manifest.webmanifest, sw.js, icons/) dan didaftarkan
+@@ -13,6 +23,10 @@ export default defineConfig({
+     react(),
+     tailwindcss(),
+   ],
++  define: {
++    __APP_VERSION__: JSON.stringify(pkg.version),
++    __APP_BUILD__: JSON.stringify({ sha, at: new Date().toISOString() }),
++  },
+   resolve: {
+     alias: {
+       '@': fileURLToPath(new URL('./src', import.meta.url))
