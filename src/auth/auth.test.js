@@ -66,11 +66,10 @@ describe('izin', () => {
   it('owner boleh semua izin yang terdaftar', () => { for (const p of OWNER_ONLY) expect(can('owner', p)).toBe(true); });
   it('staf DITOLAK untuk semua izin yang terdaftar (daftar default = owner-only)', () => { for (const p of OWNER_ONLY) expect(can('staff', p)).toBe(false); });
   it('izin yang tidak terdaftar ditolak untuk semua (aman secara bawaan)', () => { expect(can('owner', 'izin.ngawur')).toBe(false); expect(can('staff', 'izin.ngawur')).toBe(false); });
-  it('tanpa peran / peran asing ditolak', () => { expect(can(null, 'laporan.labaRugi')).toBe(false); expect(can('admin', 'laporan.labaRugi')).toBe(false); expect(can(undefined, 'beranda.laba')).toBe(false); });
-  it('layar: Penggajian & Manajemen Menu owner-only; layar lain terbuka untuk semua yang login', () => {
-    expect(canOpenView('staff', 'penggajian')).toBe(false); expect(canOpenView('staff', 'menu')).toBe(false);
-    expect(canOpenView('owner', 'penggajian')).toBe(true); expect(canOpenView('owner', 'menu')).toBe(true);
-    for (const v of ['beranda', 'kasir', 'dompet', 'pelanggan', 'pengeluaran', 'karyawan', 'absensi', 'laporan']) { expect(canOpenView('staff', v)).toBe(true); expect(canOpenView('owner', v)).toBe(true); }
+  it('tanpa peran / peran asing ditolak', () => { expect(can(null, 'laporan.rincianPengeluaran')).toBe(false); expect(can('admin', 'laporan.rincianPengeluaran')).toBe(false); expect(can(undefined, 'beranda.laba')).toBe(false); });
+  it('layar: Penggajian, Manajemen Menu, Riwayat, Laporan owner-only; layar lain terbuka untuk semua yang login', () => {
+    for (const v of ['penggajian', 'menu', 'riwayat', 'laporan']) { expect(canOpenView('staff', v)).toBe(false); expect(canOpenView('owner', v)).toBe(true); }
+    for (const v of ['beranda', 'kasir', 'dompet', 'pelanggan', 'pengeluaran', 'karyawan', 'absensi']) { expect(canOpenView('staff', v)).toBe(true); expect(canOpenView('owner', v)).toBe(true); }
   });
   it('setiap layar terbatas merujuk izin yang benar-benar ada', () => { for (const perm of Object.values(VIEW_PERMISSION)) expect(PERMISSIONS[perm]).toBeDefined(); });
   it('peran & label', () => { expect(ROLES).toEqual(['owner', 'staff']); expect(roleLabel('owner')).toBe('Owner'); expect(roleLabel('staff')).toBe('Staf'); });

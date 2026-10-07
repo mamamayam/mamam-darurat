@@ -12,8 +12,10 @@ export const ROLES = ['owner', 'staff'];
 export const PERMISSIONS = {
   'screen.penggajian': ['owner'],        // layar Penggajian (gaji semua karyawan)
   'screen.menu': ['owner'],              // layar Manajemen Menu (ubah harga & HPP)
-  'laporan.labaRugi': ['owner'],         // tab Laba Rugi
-  'laporan.labaKotor': ['owner'],        // kartu HPP & Laba Kotor di Ringkasan
+  'screen.riwayat': ['owner'],           // layar Riwayat (daftar semua transaksi)
+  'screen.laporan': ['owner'],           // layar Laporan (Laba Rugi, Rincian Pengeluaran)
+  'laporan.rincianPengeluaran': ['owner'], // tab Rincian Pengeluaran di Laporan
+  'laporan.labaKotor': ['owner'],        // kartu Laba Kotor di tab Laba Rugi
   'laporan.hapusTransaksi': ['owner'],   // tombol hapus transaksi di Riwayat
   'beranda.laba': ['owner'],             // kartu Laba Kotor di Beranda
   'pengeluaran.ubah': ['owner'],         // edit & hapus pengeluaran (mencatat baru boleh semua)
@@ -26,6 +28,8 @@ export const PERMISSIONS = {
 export const VIEW_PERMISSION = {
   penggajian: 'screen.penggajian',
   menu: 'screen.menu',
+  riwayat: 'screen.riwayat',
+  laporan: 'screen.laporan',
 };
 
 export const can = (role, permission) =>

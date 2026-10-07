@@ -59,7 +59,7 @@ export function useExpenseData() {
     if (!amt || amt <= 0) throw new Error('Masukkan nominal pengeluaran yang valid!');
     if (!date) throw new Error('Pilih tanggal pengeluaran!');
     const cat = String(category || '').trim();
-    if (!cat) throw new Error('Pilih atau ketik kategori pengeluaran!');
+    if (!cat) throw new Error('Pilih kategori pengeluaran!');
     // Kategori yang diketik baru langsung masuk daftar kategori (sudah ada = tidak ngapa-ngapain).
     await ensureCategory(cat);
 

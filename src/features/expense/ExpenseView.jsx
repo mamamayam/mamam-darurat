@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { TrendingDown, Save, Pencil, Trash2, Settings2, History, ArrowUpDown, Plus } from 'lucide-react';
 import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar, Modal, BulletListInput } from '../../components/ui';
-import { base as fieldBase } from '../../components/ui/Input';
 import CategoryModal from '../../components/CategoryModal';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -259,7 +258,7 @@ const ExpenseView = () => {
       <Modal isOpen={isFormOpen} onClose={closeForm} sheet size="lg" maxHeight title={editingId ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}>
         <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <div className="grid grid-cols-2 gap-4 items-start">
-            <CategoryCombobox value={category} onChange={setCategory} options={categories} onManage={() => setIsCategoryModalOpen(true)} />
+            <CategorySelect value={category} onChange={setCategory} options={categories} onManage={() => setIsCategoryModalOpen(true)} />
             <Select label="Sumber Dana" value={paymentMethod}
               onChange={e => { setPaymentMethod(e.target.value); if (e.target.value === 'Non-Tunai') setCashHolderId('kasir'); }}>
               <option value="Tunai">Tunai</option>
@@ -319,14 +318,12 @@ const ExpenseView = () => {
 };
 
 /**
- * Kategori: ketik bebas ATAU ketuk salah satu saran. Nama yang belum ada otomatis
- * dibuat saat disimpan (lihat saveExpense). Ikon gerigi = Kelola Kategori.
+ * Kategori: dropdown dari daftar kategori. Kategori baru ditambah lewat ikon gerigi
+ * (Kelola Kategori). Kategori lama di catatan yang sedang diedit tetap muncul di
+ * pilihan meski sudah tidak ada di daftar, supaya tidak hilang diam-diam.
  */
-function CategoryCombobox({ value, onChange, options, onManage }) {
-  const [focused, setFocused] = useState(false);
-  const q = value.trim().toLowerCase();
-  const matches = options.filter(o => !q || o.toLowerCase().includes(q)).slice(0, 8);
-  const isNew = q !== '' && !options.some(o => o.toLowerCase() === q);
+function CategorySelect({ value, onChange, options, onManage }) {
+  const extra = value && !options.includes(value) ? [value] : [];
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
@@ -334,19 +331,10 @@ function CategoryCombobox({ value, onChange, options, onManage }) {
         <button type="button" onClick={onManage} aria-label="Kelola Kategori" title="Kelola Kategori"
           className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 active:scale-90 transition-all"><Settings2 className="w-3.5 h-3.5" /></button>
       </div>
-      <input
-        value={value} onChange={e => onChange(e.target.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-        placeholder="Pilih atau ketik baru" autoComplete="off" data-testid="category-input" className={fieldBase('default')}
-      />
-      {focused && matches.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {matches.map(o => (
-            <button key={o} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { onChange(o); document.activeElement?.blur?.(); }}
-              className="px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-all">{o}</button>
-          ))}
-        </div>
-      )}
-      {isNew && <p className="text-xs text-accent-600 dark:text-accent-400">Kategori baru, dibuat saat disimpan.</p>}
+      <Select value={value} onChange={e => onChange(e.target.value)} data-testid="category-select">
+        <option value="">Pilih kategori</option>
+        {[...options, ...extra].map(o => <option key={o} value={o}>{o}</option>)}
+      </Select>
     </div>
   );
 }

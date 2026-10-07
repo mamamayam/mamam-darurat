@@ -17,7 +17,7 @@ const fail = (error, aksi) => { throw new Error(`${aksi}: ${error.message}`); };
 const SALE_COLUMNS = 'id, display_number, order_type, customer_name, status, subtotal, voucher_discount, manual_discount_amount, tax_amount, service_amount, delivery_fee, total, payment_method, ojol_platform, ojol_order_number, split_payments_json, paid_at, created_at';
 const ITEM_COLUMNS = 'menu_item_id, name, variant_name, note, qty, price, hpp';
 
-export function useReportData({ fromDate, toDate, withExpenses = true }) {
+export function useReportData({ fromDate, toDate, withSales = true, withExpenses = true }) {
   const [sales, setSales] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,14 +27,15 @@ export function useReportData({ fromDate, toDate, withExpenses = true }) {
   const reload = useCallback(async () => {
     try {
       const [salesRows, expenseRows] = await Promise.all([
-        fetchAllPages((from, to) => {
+        // Rincian Pengeluaran (withSales=false) tidak butuh penjualan: lewati query-nya.
+        withSales ? fetchAllPages((from, to) => {
           let q = supabase.from('transactions')
             .select(`${SALE_COLUMNS}, items:transaction_items(${ITEM_COLUMNS})`)
             .eq('status', 'paid');
           if (fromDate) q = q.gte('paid_at', dayStartISO(fromDate));
           if (toDate) q = q.lt('paid_at', nextDayStartISO(toDate));
           return q.order('paid_at', { ascending: false }).order('id').range(from, to);
-        }, 'penjualan'),
+        }, 'penjualan') : Promise.resolve([]),
         // Riwayat (withExpenses=false) tidak butuh pengeluaran: lewati query-nya.
         withExpenses ? fetchAllPages((from, to) => {
           let q = supabase.from('expenses').select('*').eq('direction', 'pengeluaran');
@@ -52,7 +53,7 @@ export function useReportData({ fromDate, toDate, withExpenses = true }) {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, withExpenses]);
+  }, [fromDate, toDate, withSales, withExpenses]);
 
   useEffect(() => { setLoading(true); reload(); }, [reload]);
 

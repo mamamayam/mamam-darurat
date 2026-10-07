@@ -4,7 +4,7 @@ import { absensiClient } from '../lib/absensiClient';
 import { computePayroll } from '../features/payroll/payrollEngine';
 import { loadAttendance } from '../features/payroll/attendanceProvider';
 import { toLocalDateString } from '../utils/formatters';
-import { employeeGrossCost } from '../features/reports/reportsMath';
+import { employeeGrossCost } from '../features/payroll/payrollCost';
 import { prepareLogs, nowMinutesOf } from '../features/attendance/dayRules';
 import { fetchOverrides } from './attendanceOverrides';
 
