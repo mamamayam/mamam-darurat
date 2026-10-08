@@ -6,11 +6,17 @@
  * Prinsip: semua orang bisa membuka aplikasi dan bekerja (kasir, dompet,
  * pelanggan, absensi, catat pengeluaran). Owner-only hanya hal yang
  * menyangkut laba, gaji, upah, HPP, dan aksi yang menghapus/mengubah uang.
+ *
+ * Penggajian: layarnya terbuka untuk staf, tapi isinya berbeda. Staf melihat
+ * kunci PIN karyawan, lalu HANYA gaji karyawan yang PIN-nya dimasukkan
+ * (lihat features/payroll/MyPayroll.jsx). Daftar semua gaji = 'penggajian.semua'.
  */
 export const ROLES = ['owner', 'staff'];
 
 export const PERMISSIONS = {
-  'screen.penggajian': ['owner'],        // layar Penggajian (gaji semua karyawan)
+  'screen.karyawan': ['owner'],          // layar Karyawan (data diri, upah) — disembunyikan dari staf
+  'screen.pengaturan': ['owner'],        // layar Pengaturan (login, PIN, PIN karyawan)
+  'penggajian.semua': ['owner'],         // Penggajian penuh (semua karyawan, edit). Staf hanya lihat gaji sendiri lewat PIN karyawan
   'screen.menu': ['owner'],              // layar Manajemen Menu (ubah harga & HPP)
   'screen.riwayat': ['owner'],           // layar Riwayat (daftar semua transaksi)
   'screen.laporan': ['owner'],           // layar Laporan (Laba Rugi, Rincian Pengeluaran)
@@ -26,7 +32,8 @@ export const PERMISSIONS = {
 
 /** Layar yang butuh izin tertentu untuk dibuka (id layar -> izin). */
 export const VIEW_PERMISSION = {
-  penggajian: 'screen.penggajian',
+  karyawan: 'screen.karyawan',
+  pengaturan: 'screen.pengaturan',
   menu: 'screen.menu',
   riwayat: 'screen.riwayat',
   laporan: 'screen.laporan',

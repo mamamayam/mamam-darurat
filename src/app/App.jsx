@@ -8,6 +8,7 @@ import { AppContext } from '../context/AppContext';
 import { formatRupiah } from '../utils/formatters';
 import { useAuth } from '../auth/AuthContext';
 import LoginScreen from '../auth/LoginScreen';
+import ResetPinScreen from '../auth/ResetPinScreen';
 import { VIEW_PERMISSION } from '../auth/permissions';
 import { backStack } from '../lib/backStack';
 
@@ -22,6 +23,7 @@ import {
   History,
   Users,
   UserCog,
+  Settings,
 } from 'lucide-react';
 
 /**
@@ -50,7 +52,7 @@ import {
  * apa pun soal data bisnis).
  */
 export default function App() {
-  const { role, logout, can: allowed } = useAuth();
+  const { role, logout, can: allowed, ready, recovery } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Modal konfirmasi generik — dipakai BottomSheetMenu (logout admin) dan
@@ -130,7 +132,7 @@ export default function App() {
     [triggerAlert, triggerConfirm, navigate, navigateToSub, navigateBack]
   );
 
-  // --- Menu untuk BottomSheetMenu — 9 fitur gelombang 1 Aplikasi C ---
+  // --- Menu untuk BottomSheetMenu — fitur gelombang 1 Aplikasi C + Pengaturan ---
   // NB: 'laporan' sudah termasuk Laba Rugi (bukan menu terpisah seperti
   // 'labarugi' di test-app-baru) — lihat ReportsView.
   const menuItems = useMemo(() => [
@@ -144,6 +146,7 @@ export default function App() {
     { id: 'penggajian',  icon: Briefcase,    label: 'Penggajian' },
     { id: 'riwayat',     icon: History,      label: 'Riwayat' },
     { id: 'laporan',     icon: BarChart3,    label: 'Laporan' },
+    { id: 'pengaturan',  icon: Settings,     label: 'Pengaturan' },
   ], []);
 
   // Menu yang butuh izin khusus (mis. Penggajian, Manajemen Menu) disembunyikan
@@ -173,6 +176,10 @@ export default function App() {
   // App.jsx bisa dirender & ditest independen dari data layer.
   const currentShift = false;
 
+  // Mode Supabase Auth: tunggu sesi dicek dulu (sekejap) supaya layar login tidak berkedip.
+  if (!ready) return <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950" data-testid="auth-loading" />;
+  // Dibuka dari tautan "Lupa PIN" di email: buat PIN baru.
+  if (recovery) return <ResetPinScreen />;
   // Belum masuk: tampilkan layar PIN saja (tidak ada data yang dimuat).
   if (!role) return <LoginScreen />;
 

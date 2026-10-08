@@ -1,0 +1,511 @@
+diff --git a/src/app/layout/BottomNav.jsx b/src/app/layout/BottomNav.jsx
+index bee57cf..18cb74c 100644
+--- a/src/app/layout/BottomNav.jsx
++++ b/src/app/layout/BottomNav.jsx
+@@ -12,7 +12,6 @@ import { Home, ShoppingCart, Menu } from "lucide-react";
+ //    tombol tidak ketutup tapi bar tetap mentok di tepi layar
+ // Elemen lain yang melayang di atas bar (FAB keranjang, ExitToast) memakai
+ // offset yang sama: tinggi bar + safe-area.
+-const LABEL = "text-xs short:text-xs leading-none font-bold transition-colors duration-300";
+ 
+ export default function BottomNav({
+     currentView,
+@@ -35,32 +34,24 @@ export default function BottomNav({
+             <div className="flex items-stretch h-16 short:h-12">
+ 
+                 {/* Tombol Beranda */}
+-                <button onClick={() => navigate('beranda')} className={tabClass(currentView === 'beranda')}>
+-                    <Home className="w-5 h-5 short:w-4 short:h-4" />
+-                    <span className={LABEL}>Beranda</span>
++                <button onClick={() => navigate('beranda')} aria-label="Beranda" aria-current={currentView === 'beranda' ? 'page' : undefined} className={tabClass(currentView === 'beranda')}>
++                    <Home className="w-6 h-6 short:w-5 short:h-5" />
+                 </button>
+ 
+                 {/* Tombol Kasir (aksen di tengah, tetap di dalam bar) */}
+                 <button
+                     onClick={() => navigate('kasir')}
++                    aria-label="Kasir" aria-current={currentView === 'kasir' ? 'page' : undefined}
+                     className="group flex-1 min-w-0 flex flex-col items-center justify-center gap-1 short:gap-0.5"
+                 >
+                     <span className="w-11 h-11 short:w-8 short:h-8 rounded-2xl short:rounded-xl flex items-center justify-center shadow-[0_8px_20px_rgba(var(--color-accent-500),0.4)] transition-transform duration-300 group-active:scale-95 bg-gradient-to-br from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600">
+-                        <ShoppingCart className="w-5 h-5 short:w-4 short:h-4 text-white" />
+-                    </span>
+-                    <span className={`${LABEL} ${
+-                        currentView === 'kasir'
+-                            ? 'text-accent-600 dark:text-accent-400'
+-                            : 'text-slate-600 dark:text-slate-300'
+-                    }`}>
+-                        Kasir
++                        <ShoppingCart className="w-6 h-6 short:w-4 short:h-4 text-white" />
+                     </span>
+                 </button>
+ 
+                 {/* Tombol Menu — buka BottomSheetMenu */}
+-                <button onClick={onOpenMenu} className={tabClass(false)}>
+-                    <Menu className="w-5 h-5 short:w-4 short:h-4" />
+-                    <span className={LABEL}>Menu</span>
++                <button onClick={onOpenMenu} aria-label="Menu" className={tabClass(false)}>
++                    <Menu className="w-6 h-6 short:w-5 short:h-5" />
+                 </button>
+ 
+             </div>
+diff --git a/src/components/CategorySelect.jsx b/src/components/CategorySelect.jsx
+new file mode 100644
+index 0000000..3e09a95
+--- /dev/null
++++ b/src/components/CategorySelect.jsx
+@@ -0,0 +1,25 @@
++import { Settings2 } from 'lucide-react';
++import { Select } from './ui';
++
++/**
++ * CategorySelect — dropdown kategori + ikon gerigi "Kelola Kategori" (dipakai form
++ * Pengeluaran dan Penggajian). Kategori baru ditambah lewat Kelola Kategori. Nilai lama
++ * pada catatan yang sedang diedit tetap muncul di pilihan walau sudah tidak ada di daftar,
++ * supaya tidak hilang diam-diam.
++ */
++export default function CategorySelect({ value, onChange, options, onManage, label = 'Kategori', placeholder = 'Pilih kategori' }) {
++  const extra = value && !options.includes(value) ? [value] : [];
++  return (
++    <div className="flex flex-col gap-1.5">
++      <div className="flex items-center justify-between">
++        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">{label}</label>
++        <button type="button" onClick={onManage} aria-label="Kelola Kategori" title="Kelola Kategori"
++          className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 active:scale-90 transition-all"><Settings2 className="w-3.5 h-3.5" /></button>
++      </div>
++      <Select value={value} onChange={e => onChange(e.target.value)} data-testid="category-select">
++        <option value="">{placeholder}</option>
++        {[...options, ...extra].map(o => <option key={o} value={o}>{o}</option>)}
++      </Select>
++    </div>
++  );
++}
+diff --git a/src/features/customer/CustomerView.jsx b/src/features/customer/CustomerView.jsx
+index ee32d79..93ddf22 100644
+--- a/src/features/customer/CustomerView.jsx
++++ b/src/features/customer/CustomerView.jsx
+@@ -1,5 +1,5 @@
+ import { useState, useMemo } from 'react';
+-import { Users, Plus, Pencil, Trash2, Search } from 'lucide-react';
++import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+ import { Card, Input, Button, EmptyState, BulkSelectBar, Modal } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { useCustomerData } from '../../hook/useCustomerData';
+@@ -69,11 +69,6 @@ const CustomerView = () => {
+ 
+   return (
+     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col min-h-0 relative animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+-      <div className="flex items-center gap-2 mb-6 shrink-0">
+-        <Users className="w-6 h-6 text-accent-500 dark:text-accent-400" />
+-        <h2 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100">Pelanggan</h2>
+-      </div>
+-
+       <Card padding="none" className="flex flex-col flex-1 min-h-0 max-w-2xl w-full">
+         <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 flex gap-2 items-center">
+           <div className="relative flex-1">
+diff --git a/src/features/employee/EmployeeView.jsx b/src/features/employee/EmployeeView.jsx
+index 9b00b9e..7a94dc3 100644
+--- a/src/features/employee/EmployeeView.jsx
++++ b/src/features/employee/EmployeeView.jsx
+@@ -1,5 +1,5 @@
+-import { useState, useMemo, useRef } from 'react';
+-import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown, Upload } from 'lucide-react';
++import { useState, useMemo } from 'react';
++import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown } from 'lucide-react';
+ import { Card, Button, Input, NominalInput, Select, IconButton, Badge, SortModal, EmptyState, Modal } from '../../components/ui';
+ import { useAppContext } from '../../context/AppContext';
+ import { useAuth } from '../../auth/AuthContext';
+@@ -18,9 +18,8 @@ import {
+  * BEDA yang disengaja:
+  *  - Data langsung ke Supabase; kalau gagal, user diberi tahu jelas
+  *  - Hapus = permanen (histori transaksi/pengeluaran/dompet tetap utuh)
+- *  - Ada tombol "Impor dari mamam-global": baca file backup JSON dari menu
+- *    Backup di mamam-global. Diproses di browser, tidak ada kunci/akses ke
+- *    database lama yang dibutuhkan.
++ *  - Tombol/kartu "Impor dari mamam-global" sudah dihapus dari layar ini (logika
++ *    impor masih ada di backupImport.js + useEmployeeData kalau suatu saat dibutuhkan).
+  */
+ const emptyForm = () => ({
+   id: '', externalId: '', name: '', phone: '', address: '',
+@@ -35,7 +34,7 @@ export default function EmployeeView() {
+   const { can } = useAuth();
+   const canManage = can('karyawan.kelola');   // tambah / edit / hapus / impor
+   const canWage = can('karyawan.upah');        // melihat upah, bonus, tarif lembur
+-  const { employees, loading, error, reload, saveEmployee, deleteEmployee, importFromBackup } = useEmployeeData();
++  const { employees, loading, error, reload, saveEmployee, deleteEmployee } = useEmployeeData();
+ 
+   const [isEditing, setIsEditing] = useState(false);
+   const [form, setForm] = useState(emptyForm);
+@@ -44,7 +43,6 @@ export default function EmployeeView() {
+   const [statusFilter, setStatusFilter] = useState('semua');
+   const [roleFilter, setRoleFilter] = useState('semua');
+   const [busy, setBusy] = useState(false);
+-  const fileRef = useRef(null);
+ 
+   const run = async (fn) => {
+     if (busy) return;
+@@ -65,22 +63,6 @@ export default function EmployeeView() {
+       run(async () => { await deleteEmployee(emp.id); }));
+   };
+ 
+-  const handleFile = (e) => {
+-    const file = e.target.files?.[0];
+-    e.target.value = '';           // supaya file yang sama bisa dipilih lagi
+-    if (!file) return;
+-    run(async () => {
+-      let json;
+-      try { json = JSON.parse(await file.text()); }
+-      catch { throw new Error('File itu bukan JSON yang valid. Pakai file backup dari mamam-global (Backup → Export JSON).'); }
+-      const r = await importFromBackup(json);
+-      const dilewati = r.skipped.length
+-        ? `\nDilewati: ${r.skipped.slice(0, 5).map(s => `${s.name} (${s.reason})`).join(', ')}${r.skipped.length > 5 ? ', dst.' : ''}`
+-        : '';
+-      triggerAlert(`Impor selesai: ${r.added} karyawan baru, ${r.alreadyThere} sudah ada (tidak ditimpa).${dilewati}`);
+-    });
+-  };
+-
+   const sorted = useMemo(() => {
+     let list = statusFilter === 'semua' ? employees : employees.filter(e => e.status === statusFilter);
+     if (roleFilter !== 'semua') list = list.filter(e => e.role === roleFilter);
+@@ -132,22 +114,9 @@ export default function EmployeeView() {
+             </div>
+           </Card>
+ 
+-          {canManage && (
+-          <Card className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
+-            <div>
+-              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Impor dari mamam-global</p>
+-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pilih file backup JSON dari mamam-global (menu Backup → Export JSON). Karyawan yang sudah ada tidak ditimpa, jadi aman diulang.</p>
+-            </div>
+-            <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFile} data-testid="import-file" />
+-            <Button variant="secondary" className="w-full md:w-auto shrink-0" icon={<Upload className="w-4 h-4" />} disabled={busy} onClick={() => fileRef.current?.click()}>
+-              Pilih File Backup
+-            </Button>
+-          </Card>
+-          )}
+-
+           {sorted.length === 0 ? (
+             <EmptyState icon={<Briefcase className="w-12 h-12" />}
+-              title={employees.length === 0 ? (canManage ? 'Belum ada karyawan. Tambah manual atau impor dari backup mamam-global.' : 'Belum ada karyawan.') : 'Tidak ada karyawan dengan filter ini.'} />
++              title={employees.length === 0 ? (canManage ? 'Belum ada karyawan. Tambah lewat tombol di atas.' : 'Belum ada karyawan.') : 'Tidak ada karyawan dengan filter ini.'} />
+           ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-10">
+               {sorted.map(emp => (
+diff --git a/src/features/expense/ExpenseView.jsx b/src/features/expense/ExpenseView.jsx
+index a6e5ba6..50d663d 100644
+--- a/src/features/expense/ExpenseView.jsx
++++ b/src/features/expense/ExpenseView.jsx
+@@ -1,7 +1,8 @@
+ import { useState, useMemo } from 'react';
+-import { TrendingDown, Save, Pencil, Trash2, Settings2, History, ArrowUpDown, Plus } from 'lucide-react';
++import { TrendingDown, Save, Pencil, Trash2, History, ArrowUpDown, Plus } from 'lucide-react';
+ import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar, Modal, BulletListInput } from '../../components/ui';
+ import CategoryModal from '../../components/CategoryModal';
++import CategorySelect from '../../components/CategorySelect';
+ import { useAppContext } from '../../context/AppContext';
+ import { useAuth } from '../../auth/AuthContext';
+ import { useExpenseData } from '../../hook/useExpenseData';
+@@ -317,26 +318,4 @@ const ExpenseView = () => {
+   );
+ };
+ 
+-/**
+- * Kategori: dropdown dari daftar kategori. Kategori baru ditambah lewat ikon gerigi
+- * (Kelola Kategori). Kategori lama di catatan yang sedang diedit tetap muncul di
+- * pilihan meski sudah tidak ada di daftar, supaya tidak hilang diam-diam.
+- */
+-function CategorySelect({ value, onChange, options, onManage }) {
+-  const extra = value && !options.includes(value) ? [value] : [];
+-  return (
+-    <div className="flex flex-col gap-1.5">
+-      <div className="flex items-center justify-between">
+-        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Kategori</label>
+-        <button type="button" onClick={onManage} aria-label="Kelola Kategori" title="Kelola Kategori"
+-          className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 active:scale-90 transition-all"><Settings2 className="w-3.5 h-3.5" /></button>
+-      </div>
+-      <Select value={value} onChange={e => onChange(e.target.value)} data-testid="category-select">
+-        <option value="">Pilih kategori</option>
+-        {[...options, ...extra].map(o => <option key={o} value={o}>{o}</option>)}
+-      </Select>
+-    </div>
+-  );
+-}
+-
+ export default ExpenseView;
+diff --git a/src/features/payroll/PayrollView.jsx b/src/features/payroll/PayrollView.jsx
+index 7be7b6b..77f1240 100644
+--- a/src/features/payroll/PayrollView.jsx
++++ b/src/features/payroll/PayrollView.jsx
+@@ -1,8 +1,11 @@
+ import { useState, useMemo } from 'react';
+-import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
+-import { Card, Button, Input, NominalInput, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
++import { ChevronLeft, ChevronRight, Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
++import { Card, Button, Input, NominalInput, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
++import CategorySelect from '../../components/CategorySelect';
++import CategoryModal from '../../components/CategoryModal';
+ import { useAppContext } from '../../context/AppContext';
+ import { usePayrollData } from '../../hook/usePayrollData';
++import { usePayrollCategories } from '../../hook/usePayrollCategories';
+ import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
+ import { toLocalDateString } from '../../utils/formatters';
+ import AbsensiSetupCard from './AbsensiSetupCard';
+@@ -25,8 +28,9 @@ const clamp = (iso, a, b) => (iso < a ? a : iso > b ? b : iso);
+ const STATUS_LABEL = { hadir: 'Hadir', libur: 'Libur', belumAbsen: 'Belum absen', belumPulang: 'Belum pulang', perluKlarifikasi: 'Perlu klarifikasi' };
+ const STATUS_VARIANT = { hadir: 'success', libur: 'neutral', belumAbsen: 'neutral', belumPulang: 'warning', perluKlarifikasi: 'danger' };
+ 
+-const ADD_CATEGORIES = ['Bonus', 'THR', 'Tambahan'];
+-const DED_CATEGORIES = ['Kasbon', 'Denda', 'Potongan'];
++// Kategori Tambahan/Potongan kini bisa dikustomisasi (usePayrollCategories). Potongan berkategori
++// "Kasbon" dipisah jadi baris sendiri di rincian gaji.
++const isKasbon = (d) => String(d.category || '').trim().toLowerCase() === 'kasbon';
+ 
+ const shiftMonth = (key, delta) => {
+   const d = new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1 + delta, 1));
+@@ -43,6 +47,9 @@ export default function PayrollView() {
+   const period = useMemo(() => (mode === 'minggu' ? weekPeriodForDate(anchor) : monthPeriod(month)), [mode, anchor, month]);
+ 
+   const data = usePayrollData({ period });
++  const cats = usePayrollCategories();
++  const firstCat = (type) => (cats.categories[type] || [])[0] || '';
++  const [catModalOpen, setCatModalOpen] = useState(false);
+   const { loading, error, attendance, status, isLocked, closing, closeBlockers, results, totals } = data;
+ 
+   const [selectedId, setSelectedId] = useState(null);
+@@ -74,7 +81,7 @@ export default function PayrollView() {
+   };
+   const openDetail = (r) => {
+     setSelectedId(r.employee.id);
+-    setForm({ type: 'potongan', label: '', amount: '', date: clamp(today, period.start, period.end), category: 'Kasbon' });
++    setForm({ type: 'potongan', label: '', amount: '', date: clamp(today, period.start, period.end), category: firstCat('potongan') });
+     setOpeningInput(String(r.payroll.openingBalance || ''));
+   };
+ 
+@@ -95,8 +102,7 @@ export default function PayrollView() {
+   });
+ 
+   const handleClose = () => {
+-    const note = warnings.length ? `\n\nPerhatian: masih ada ${warnings.length} peringatan data (lihat kotak kuning di atas).` : '';
+-    triggerConfirm(`Tutup periode ${label}? Angka gaji ${results.length} karyawan (total ${formatRupiah(totals.net)}) dibekukan: perubahan upah atau absensi setelah ini tidak mengubahnya, dan tambahan/potongan di periode ini jadi terkunci. Bisa dibuka kembali kalau perlu koreksi.${note}`,
++    triggerConfirm(`Tutup periode ${label}? Angka gaji ${results.length} karyawan (total ${formatRupiah(totals.net)}) dibekukan: perubahan upah atau absensi setelah ini tidak mengubahnya, dan tambahan/potongan di periode ini jadi terkunci. Bisa dibuka kembali kalau perlu koreksi.`,
+       () => run(async () => { await data.closePeriod(); triggerAlert('Periode ditutup. Angka gaji sudah dibekukan.'); }));
+   };
+   const handleReopen = () => {
+@@ -104,20 +110,6 @@ export default function PayrollView() {
+       () => run(async () => { setSelectedId(null); await data.reopenPeriod(); }));
+   };
+ 
+-  const info = attendance.data;
+-  const warnings = [];
+-  if (info) {
+-    if (info.unknownEmployees.length) warnings.push(`Absensi dari ${info.unknownEmployees.length} orang belum ada di daftar Karyawan (${info.unknownEmployees.slice(0, 4).map(u => u.name).join(', ')}${info.unknownEmployees.length > 4 ? ', dst' : ''}). Impor dari mamam-global atau tambahkan ID Absensi-nya, kalau tidak gaji mereka tidak terhitung.`);
+-    if (info.withoutExternalId.length) warnings.push(`Belum punya ID Absensi, jadi absensinya tidak bisa dicocokkan: ${info.withoutExternalId.join(', ')}.`);
+-    if (info.staleLiburIgnored) warnings.push(`${info.staleLiburIgnored} catatan "libur" otomatis diabaikan karena karyawannya ternyata masuk hari itu.`);
+-    if (info.duplicatePulangIgnored) warnings.push(`${info.duplicatePulangIgnored} catatan pulang ganda diabaikan (dipakai yang terakhir).`);
+-    if (info.skippedInvalid) warnings.push(`${info.skippedInvalid} baris absensi rusak dilewati.`);
+-    const pr = data.prepared;
+-    if (pr?.autoPulangCount) warnings.push(`${pr.autoPulangCount} hari lupa absen pulang dihitung pulang otomatis jam 19:00 (tandai di Rincian Harian; bisa dikoreksi dengan tombol pensil).`);
+-    if (pr?.editedCount) warnings.push(`${pr.editedCount} hari memakai koreksi owner, bukan data sistem absensi.`);
+-  }
+-  const clarifyCount = results.reduce((s, r) => s + r.needsClarification.length, 0);
+-
+   return (
+     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+       <div className="max-w-3xl w-full space-y-4 pb-10">
+@@ -162,15 +154,6 @@ export default function PayrollView() {
+                 <Button variant="secondary" size="sm" onClick={handleReopen} disabled={busy}>Buka Kembali</Button>
+               </Card>
+             )}
+-            {(warnings.length > 0 || clarifyCount > 0) && (
+-              <Card className="space-y-2 border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
+-                {clarifyCount > 0 && (
+-                  <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-start gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" />{clarifyCount} hari perlu klarifikasi (bolong belum selesai) dan BELUM dibayar. Ketuk karyawan yang bertanda merah, lalu tekan Selesaikan.</p>
+-                )}
+-                {warnings.map((w, i) => <p key={i} className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{w}</p>)}
+-              </Card>
+-            )}
+-
+             {results.length === 0 ? (
+               <EmptyState icon={<Wallet className="w-12 h-12" />} title="Belum ada karyawan. Tambah atau impor di menu Karyawan." />
+             ) : results.map(r => {
+@@ -210,6 +193,7 @@ export default function PayrollView() {
+       <Modal isOpen={!!selected} onClose={() => setSelectedId(null)} sheet size="lg" maxHeight title={selected ? selected.employee.name : ''}>
+         {selected && (() => {
+           const p = selected.payroll, a = p.attendance;
++          const kasbonTotal = p.deductions.filter(isKasbon).reduce((sum, d) => sum + d.amount, 0);
+           return (
+             <div className="p-5 space-y-5 text-sm">
+               <div className="space-y-1.5">
+@@ -217,7 +201,9 @@ export default function PayrollView() {
+                 <Row k={`Lembur (${a.totalOvertimeMinutes} mnt → ${a.overtimeBlocks30Min} blok × ${formatRupiah(a.overtimeRate)})`} v={a.overtimePay} f={formatRupiah} />
+                 <Row k={`Bonus Full Time (${a.fullTimeDays} hari)`} v={a.fullTimeBonusPay} f={formatRupiah} />
+                 <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
+-                <Row k="Potongan" v={-p.deductionsTotal} f={formatRupiah} />
++                <div className="flex justify-between font-bold pt-2 border-t border-slate-200 dark:border-slate-700" data-testid="total-pendapatan"><span>Total Pendapatan</span><span>{formatRupiah(p.totalPenghasilan ?? (a.wagePay + a.overtimePay + a.fullTimeBonusPay + p.additionsTotal))}</span></div>
++                <Row k="Kasbon" v={-kasbonTotal} f={formatRupiah} />
++                <Row k="Potongan" v={-(p.deductionsTotal - kasbonTotal)} f={formatRupiah} />
+                 {period.monthKey && <Row k="Saldo awal" v={-p.openingBalance} f={formatRupiah} />}
+                 <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
+               </div>
+@@ -268,11 +254,9 @@ export default function PayrollView() {
+                   <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
+                 ) : (
+                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+-                  <SegmentedControl value={form.type} onChange={(v) => setForm({ ...form, type: v, category: v === 'tambahan' ? ADD_CATEGORIES[0] : DED_CATEGORIES[0] })}
++                  <SegmentedControl value={form.type} onChange={(v) => setForm({ ...form, type: v, category: firstCat(v) })}
+                     options={[{ value: 'potongan', label: 'Potongan' }, { value: 'tambahan', label: 'Tambahan' }]} />
+-                  <Select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+-                    {(form.type === 'tambahan' ? ADD_CATEGORIES : DED_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
+-                  </Select>
++                  <CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} options={cats.categories[form.type] || []} onManage={() => setCatModalOpen(true)} />
+                   <Input placeholder="Keterangan" value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} />
+                   <NominalInput title="Nominal" placeholder="Nominal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                   <Input type="date" value={form.date} min={period.start} max={period.end} onChange={e => setForm({ ...form, date: e.target.value })} />
+@@ -297,6 +281,25 @@ export default function PayrollView() {
+         })()}
+       </Modal>
+ 
++      <CategoryModal
++        isOpen={catModalOpen}
++        onClose={() => setCatModalOpen(false)}
++        title={`Kelola Kategori ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}
++        categories={cats.categories[form.type] || []}
++        setCategories={(next) => run(() => cats.setCategoriesPersist(form.type, next))}
++        triggerAlert={triggerAlert}
++        triggerConfirm={triggerConfirm}
++        deleteMessage={(cat) => `Yakin ingin menghapus kategori "${cat}"? Catatan lama tetap tersimpan dengan nama kategori ini.`}
++        onRenameAsync={(oldCat, newCat) => {
++          run(() => cats.renameCategory(form.type, oldCat, newCat));
++          if (form.category === oldCat) setForm(f => ({ ...f, category: newCat }));
++        }}
++        onDeleteAsync={(deletedCat) => {
++          run(() => cats.deleteCategory(form.type, deletedCat));
++          if (form.category === deletedCat) setForm(f => ({ ...f, category: (cats.categories[f.type] || []).find(c => c !== deletedCat) || '' }));
++        }}
++      />
++
+       {selected && editDate && (
+         <AttendanceEditSheet
+           isOpen onClose={() => setEditDate(null)} employee={selected.employee} date={editDate}
+diff --git a/src/features/pos/PaymentModal.jsx b/src/features/pos/PaymentModal.jsx
+index 9bc4613..f387e9e 100644
+--- a/src/features/pos/PaymentModal.jsx
++++ b/src/features/pos/PaymentModal.jsx
+@@ -1,4 +1,4 @@
+-import { useState } from 'react';
++import { useState, useEffect } from 'react';
+ import {
+   SplitSquareHorizontal, X, Wallet, QrCode, CreditCard, Trash2, Receipt, Bike,
+ } from 'lucide-react';
+@@ -45,6 +45,15 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
+ 
+   useBackLayer(paymentModal.isOpen, () => setPaymentModal({ ...paymentModal, isOpen: false }));
+ 
++  // "Diterima Oleh" default ke kurir (kalau ada) tiap modal bayar dibuka untuk order Delivery.
++  // Hanya jalan saat modal BARU dibuka, jadi memilih "Kasir" secara manual tidak ditimpa lagi.
++  useEffect(() => {
++    if (!paymentModal.isOpen || orderType !== 'Delivery' || deliveryCourierId) return;
++    const first = employees.find(e => e.role === 'kurir' && e.status !== 'resign');
++    if (first) { setDeliveryCourierId(first.id); setDeliveryPaidTo('kurir'); }
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [paymentModal.isOpen]);
++
+   if (!paymentModal.isOpen) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
+ 
+   const appliedVoucher = vouchers.find(v => v.code === voucherCode) || null;
+diff --git a/src/hook/usePayrollCategories.js b/src/hook/usePayrollCategories.js
+new file mode 100644
+index 0000000..8871b23
+--- /dev/null
++++ b/src/hook/usePayrollCategories.js
+@@ -0,0 +1,90 @@
++import { useState, useEffect, useCallback, useRef } from 'react';
++import { supabase } from '../lib/supabase';
++
++/**
++ * usePayrollCategories — kategori Tambahan & Potongan penggajian yang bisa
++ * dikustomisasi (Kelola Kategori), polanya sama dengan kategori Pengeluaran
++ * (useExpenseData). Disimpan di tabel payroll_categories (migrasi 008).
++ *
++ * Kalau tabelnya BELUM dibuat, hook memakai daftar bawaan dan `ready` = false;
++ * mengubah kategori lalu ditolak dengan pesan yang jelas (bukan gagal diam-diam).
++ * Kolom category di payroll_additions / payroll_deductions tetap teks bebas, jadi
++ * ganti nama / hapus kategori tidak mengubah catatan lama.
++ */
++export const DEFAULT_PAYROLL_CATEGORIES = {
++  tambahan: ['Bonus', 'THR', 'Tambahan'],
++  potongan: ['Kasbon', 'Denda', 'Potongan'],
++};
++const MIGRATION_HINT = 'Kategori kustom belum aktif: jalankan supabase/migrations/008_payroll_categories.sql di SQL Editor dulu.';
++const fail = (error, aksi) => { throw new Error(`${aksi}: ${error.message}`); };
++
++export function usePayrollCategories() {
++  const [categories, setCategories] = useState(DEFAULT_PAYROLL_CATEGORIES);
++  const [ready, setReady] = useState(true);
++  const idByKey = useRef({});   // `${kind}:${name}` -> id
++
++  const reload = useCallback(async () => {
++    const { data, error } = await supabase.from('payroll_categories').select('*').order('sort_order').order('created_at');
++    if (error) { setReady(false); setCategories(DEFAULT_PAYROLL_CATEGORIES); idByKey.current = {}; return; }
++    const next = { tambahan: [], potongan: [] };
++    const ids = {};
++    for (const c of data || []) {
++      if (!next[c.kind]) continue;
++      next[c.kind].push(c.name);
++      ids[`${c.kind}:${c.name}`] = c.id;
++    }
++    idByKey.current = ids;
++    setCategories(next);
++    setReady(true);
++  }, []);
++
++  useEffect(() => { reload(); }, [reload]);
++
++  const guard = () => { if (!ready) throw new Error(MIGRATION_HINT); };
++
++  // Tambah / hapus / urutkan: diff terhadap tabel (pola sama dengan useExpenseData).
++  const setCategoriesPersist = async (kind, next) => {
++    guard();
++    const current = categories[kind] || [];
++    for (const name of next.filter(n => !current.includes(n))) {
++      const clean = (name || '').trim();
++      if (!clean) throw new Error('Nama kategori wajib diisi.');
++      const { error } = await supabase.from('payroll_categories').insert({ kind, name: clean, sort_order: current.length });
++      if (error) fail(error, 'Gagal menambah kategori');
++    }
++    for (const name of current.filter(n => !next.includes(n))) {
++      const id = idByKey.current[`${kind}:${name}`];
++      if (!id) continue;
++      const { error } = await supabase.from('payroll_categories').delete().eq('id', id);
++      if (error) fail(error, 'Gagal menghapus kategori');
++    }
++    await reload();   // ambil id baru, lalu simpan urutan
++    const results = await Promise.all(next.map((n, idx) => {
++      const id = idByKey.current[`${kind}:${n}`];
++      return id ? supabase.from('payroll_categories').update({ sort_order: idx }).eq('id', id) : null;
++    }));
++    const bad = results.find(r => r && r.error);
++    if (bad) fail(bad.error, 'Gagal menyimpan urutan kategori');
++    await reload();
++  };
++
++  const renameCategory = async (kind, oldName, newName) => {
++    guard();
++    const id = idByKey.current[`${kind}:${oldName}`];
++    if (!id) return;
++    const { error } = await supabase.from('payroll_categories').update({ name: newName }).eq('id', id);
++    if (error) fail(error, 'Gagal mengganti nama kategori');
++    await reload();
++  };
++
++  const deleteCategory = async (kind, name) => {
++    guard();
++    const id = idByKey.current[`${kind}:${name}`];
++    if (!id) return;
++    const { error } = await supabase.from('payroll_categories').delete().eq('id', id);
++    if (error) fail(error, 'Gagal menghapus kategori');
++    await reload();
++  };
++
++  return { categories, ready, reload, setCategoriesPersist, renameCategory, deleteCategory };
++}

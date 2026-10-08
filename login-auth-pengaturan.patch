@@ -1,0 +1,2108 @@
+diff --git a/.env.example b/.env.example
+index 1094dc0..e3bed82 100644
+--- a/.env.example
++++ b/.env.example
+@@ -5,3 +5,9 @@ VITE_SUPABASE_ANON_KEY=
+ # URL tanpa /rest/v1/. Isi di .env.local, jangan ditempel di chat.
+ VITE_ABSENSI_SUPABASE_URL=
+ VITE_ABSENSI_SUPABASE_ANON_KEY=
++
++# Login Supabase Auth (lihat docs/auth-setup.md). Kosongkan = mode lama (PIN lokal di src/auth/pins.js).
++# Email owner: tujuan email "Lupa PIN". Akun staf otomatis memakai alias nama+staf@domain
++# (Gmail menerimanya di kotak surat yang sama), atau isi VITE_AUTH_STAFF_EMAIL sendiri.
++VITE_AUTH_OWNER_EMAIL=
++VITE_AUTH_STAFF_EMAIL=
+diff --git a/docs/auth-setup.md b/docs/auth-setup.md
+new file mode 100644
+index 0000000..d9c208e
+--- /dev/null
++++ b/docs/auth-setup.md
+@@ -0,0 +1,56 @@
++# Login Supabase Auth, Pengaturan, PIN karyawan
++
++Ringkasan cara kerja dan langkah pasang. Urutan pasang ada di bagian "Langkah pasang".
++
++## Cara kerja
++
++| Hal | Perilaku |
++|---|---|
++| Akun | Dua akun Supabase Auth: **owner** dan **staf**. Layar login tetap cuma PIN 4 digit. |
++| PIN → password | Password akun = `mamam:` + PIN (Supabase minta password ≥ 6 karakter). Aplikasi mencoba akun owner dulu, lalu staf. **PIN owner dan staf harus berbeda.** |
++| Batas percobaan | 3x salah → login dikunci 15 menit, sheet **Lupa PIN** muncul. Dihitung di aplikasi (localStorage), bukan di server. |
++| Lupa PIN | Pilih Owner/Staf → Supabase mengirim link reset ke email owner → buka link → layar **Buat PIN baru** (ketik 2x) → kembali ke login. |
++| Lama sesi | Pengaturan → Login → Lama sesi (1 jam / 12 jam / 1 hari / 7 hari). Berlaku untuk login berikutnya. |
++| Mode lama | Kalau `VITE_AUTH_OWNER_EMAIL` kosong, aplikasi memakai PIN lokal `src/auth/pins.js` (owner 3678, staf 0000) supaya tidak terkunci selama transisi. |
++| Menu Pengaturan | Hanya owner. Isi: status login, ganti PIN owner, reset PIN staf, lama sesi, PIN karyawan. |
++| Staf & Penggajian | Menu **Karyawan** tidak muncul untuk staf. Menu **Penggajian** muncul: staf memilih nama karyawan → memasukkan PIN karyawan → melihat gaji **dirinya sendiri** (mingguan / bulanan, hanya-lihat). |
++| PIN karyawan | Diatur owner di Pengaturan → PIN Karyawan (4 digit, bisa acak). Disimpan sebagai hash SHA-256 bergaram di tabel `employee_pins`. 3x salah → terkunci 5 menit di perangkat itu; owner bisa mengganti PIN kapan saja. Ada saklar Aktif/Mati dan waktu tutup otomatis. |
++
++## Langkah pasang
++
++1. **Jalankan SQL** `supabase/migrations/008_auth_settings.sql` di Supabase → SQL Editor (sekali, aman diulang).
++2. **Buat dua akun** di Supabase → Authentication → Users → Add user → *Create new user*, centang **Auto Confirm User**:
++   - Owner: email owner, password `mamam:` + PIN owner. Contoh PIN 3678 → `mamam:3678`.
++   - Staf: email `nama+staf@domain` (contoh `agungprayoga212+staf@gmail.com`), password `mamam:` + PIN staf. Contoh PIN 0000 → `mamam:0000`.
++   - Pakai PIN yang sama dengan PIN sekarang supaya tidak ada yang berubah untuk pemakai.
++3. **Matikan pendaftaran bebas**: Authentication → Sign In / Providers → matikan *Allow new users to sign up*. (Kalau tidak, orang lain bisa membuat akun sendiri.)
++4. **URL untuk link reset**: Authentication → URL Configuration:
++   - Site URL: `https://mamamkasirdarurat.vercel.app`
++   - Redirect URLs: tambahkan `https://mamamkasirdarurat.vercel.app/**` dan `http://localhost:5173/**`
++5. **Environment** (Vercel → Settings → Environment Variables, dan `.env.local` untuk lokal):
++   - `VITE_AUTH_OWNER_EMAIL` = email owner (ke sini email Lupa PIN dikirim; **ketik dengan teliti**).
++   - `VITE_AUTH_STAFF_EMAIL` = opsional. Kosong → otomatis `nama+staf@domain` dari email owner.
++   Lalu redeploy.
++6. Buka aplikasi, login dengan PIN. Cek: menu Pengaturan ada untuk owner; staf tidak melihat Karyawan/Pengaturan.
++7. Pengaturan → PIN Karyawan → atur PIN tiap karyawan, lalu sampaikan ke orangnya.
++
++Alias `+staf` hanya masuk ke kotak surat yang sama untuk Gmail (dan penyedia yang mendukung plus-addressing). Kalau email owner bukan Gmail, isi `VITE_AUTH_STAFF_EMAIL` dengan alamat lain yang kamu punya, lalu pakai alamat itu saat membuat akun staf.
++
++## Mengganti PIN
++
++- **PIN owner**: Pengaturan → Ganti PIN Owner.
++- **PIN staf**: Pengaturan → Reset PIN Staf → link dikirim ke email → buka link di browser yang sama → buat PIN baru → login lagi dengan PIN owner. (Supabase tidak mengizinkan owner mengganti password akun lain langsung dari aplikasi tanpa server.)
++- **Lupa PIN**: dari layar login (otomatis muncul setelah 3x salah).
++- **PIN karyawan**: Pengaturan → PIN Karyawan → Ubah PIN.
++
++## Batasan yang perlu diketahui (tingkat keamanan "Longgar")
++
++- Database **tidak** ditutup untuk umum. Kebijakan RLS memberi akses penuh ke role `anon` dan `authenticated`. Login mengatur siapa yang bisa *masuk aplikasi*, tapi siapa pun yang punya URL + anon key masih bisa membaca/menulis lewat API. Cara menutupnya ada di komentar bagian bawah migrasi 008 (jalankan setelah semua perangkat memakai login Supabase).
++- PIN karyawan hanyalah pagar tampilan antar-karyawan di perangkat toko: gaji semua orang tetap terbaca lewat API oleh siapa pun yang punya akses database. PIN 4 digit juga hanya 10.000 kemungkinan.
++- Batas 3x salah dihitung di perangkat. Orang yang paham bisa menghapus localStorage dan mencoba lagi. Awalan `mamam:` terlihat di kode JavaScript; yang menjaga akun adalah PIN dan pembatasan percobaan.
++- Supabase membatasi jumlah email bawaan (sedikit per jam). Kalau "Lupa PIN" gagal dengan pesan terlalu sering, tunggu beberapa menit. Untuk pemakaian rutin, pasang SMTP sendiri di Authentication → SMTP.
++- Link reset berlaku singkat dan sekali pakai. Buka dari HP/browser yang sama dengan yang dipakai untuk meminta.
++
++## Jalan keluar kalau terkunci total
++
++Login terkunci 15 menit lalu terbuka sendiri. Kalau email owner salah ketik / tidak bisa diakses: ubah password akun di Supabase → Authentication → Users → (akun) → *Send password recovery* atau set password baru manual (`mamam:` + PIN baru).
+diff --git a/mamam-darurat/src/auth/auth.test.js b/mamam-darurat/src/auth/auth.test.js
+index 4255594..2d5aaf5 100644
+--- a/mamam-darurat/src/auth/auth.test.js
++++ b/mamam-darurat/src/auth/auth.test.js
+@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
+ import {
+   roleForPin, recordAttempt, initialAttempts, isLocked, secondsLeft, attemptsLeft,
+   readAttempts, makeSession, readSession, MAX_ATTEMPTS, LOCK_MS, SESSION_MS,
++  isValidPin, pinToPassword, PIN_PASSWORD_PREFIX, staffEmailFrom, emailForRole, roleForEmail, maskEmail,
++  sessionMsFromHours, EMPLOYEE_ATTEMPT_RULES,
+ } from './authLogic.js';
++import { hashPin, verifyPinHash, randomSalt, generatePin } from './pinHash.js';
+ import { can, canOpenView, PERMISSIONS, VIEW_PERMISSION, ROLES, roleLabel } from './permissions.js';
+ 
+ describe('roleForPin', () => {
+@@ -17,13 +20,14 @@ describe('roleForPin', () => {
+ });
+ 
+ describe('batas percobaan', () => {
+-  it('salah berkali-kali: terkunci tepat pada percobaan ke-5', () => {
++  it('batas 3x salah, kunci 15 menit', () => { expect(MAX_ATTEMPTS).toBe(3); expect(LOCK_MS).toBe(15 * 60 * 1000); });
++  it('salah berkali-kali: terkunci tepat pada percobaan ke-3', () => {
+     let st = initialAttempts();
+     for (let i = 1; i < MAX_ATTEMPTS; i++) { st = recordAttempt(st, false, 1000); expect(isLocked(st, 1000)).toBe(false); expect(attemptsLeft(st)).toBe(MAX_ATTEMPTS - i); }
+     st = recordAttempt(st, false, 1000);
+-    expect(isLocked(st, 1000)).toBe(true); expect(secondsLeft(st, 1000)).toBe(30);
++    expect(isLocked(st, 1000)).toBe(true); expect(secondsLeft(st, 1000)).toBe(LOCK_MS / 1000);
+   });
+-  it('kunci terbuka sendiri setelah 30 detik, hitungan mulai dari nol', () => {
++  it('kunci terbuka sendiri setelah 15 menit, hitungan mulai dari nol', () => {
+     let st = initialAttempts(); for (let i = 0; i < MAX_ATTEMPTS; i++) st = recordAttempt(st, false, 0);
+     expect(isLocked(st, LOCK_MS - 1)).toBe(true); expect(isLocked(st, LOCK_MS)).toBe(false);
+     expect(attemptsLeft(st)).toBe(MAX_ATTEMPTS);
+@@ -39,13 +43,107 @@ describe('batas percobaan', () => {
+   it('readAttempts: data rusak / janggal diabaikan', () => {
+     expect(readAttempts('bukan json', 0)).toEqual(initialAttempts());
+     expect(readAttempts(JSON.stringify({ fails: 'x', lockedUntil: 1 }), 0)).toEqual(initialAttempts());
+-    expect(readAttempts(JSON.stringify({ fails: 3, lockedUntil: 0 }), 0)).toEqual({ fails: 3, lockedUntil: 0 });
++    expect(readAttempts(JSON.stringify({ fails: 2, lockedUntil: 0 }), 0)).toEqual({ fails: 2, lockedUntil: 0 });
++    expect(readAttempts(JSON.stringify({ fails: 3, lockedUntil: 0 }), 0)).toEqual(initialAttempts());   // 3 = sudah batas, bukan keadaan sah tanpa kunci
+     expect(readAttempts(JSON.stringify({ fails: 0, lockedUntil: 10 ** 15 }), 0)).toEqual(initialAttempts());   // kunci "selamanya" dibuang
+     expect(readAttempts(JSON.stringify({ fails: 99, lockedUntil: 0 }), 0)).toEqual(initialAttempts());
+     expect(readAttempts(null, 0)).toEqual(initialAttempts());
+   });
+ });
+ 
++describe('batas percobaan PIN karyawan', () => {
++  const R = EMPLOYEE_ATTEMPT_RULES;
++  it('3x salah, kunci 5 menit, terbuka sendiri', () => {
++    let st = initialAttempts();
++    for (let i = 0; i < R.max; i++) st = recordAttempt(st, false, 0, R);
++    expect(isLocked(st, 0)).toBe(true); expect(secondsLeft(st, 0)).toBe(300);
++    expect(isLocked(st, R.lockMs)).toBe(false);
++  });
++  it('sisa percobaan dihitung dengan aturan karyawan', () => {
++    const st = recordAttempt(initialAttempts(), false, 0, R);
++    expect(attemptsLeft(st, R)).toBe(R.max - 1);
++  });
++  it('readAttempts mengikuti aturan yang diberikan', () => {
++    expect(readAttempts(JSON.stringify({ fails: 2, lockedUntil: 0 }), 0, R)).toEqual({ fails: 2, lockedUntil: 0 });
++    expect(readAttempts(JSON.stringify({ fails: 0, lockedUntil: R.lockMs * 3 }), 0, R)).toEqual(initialAttempts());
++  });
++});
++
++describe('akun Supabase Auth dari PIN', () => {
++  const cfg = { ownerEmail: 'budi@gmail.com', staffEmail: 'budi+staf@gmail.com' };
++  it('PIN 4 digit sah, selain itu tidak', () => {
++    for (const ok of ['0000', '1234', 9999, '0007']) expect(isValidPin(ok)).toBe(true);
++    for (const bad of ['123', '12345', 'abcd', '', null, undefined, '12 3', '١٢٣٤']) expect(isValidPin(bad)).toBe(false);
++  });
++  it('password = awalan + PIN (>= 6 karakter, syarat Supabase Auth)', () => {
++    expect(pinToPassword('0000')).toBe(`${PIN_PASSWORD_PREFIX}0000`);
++    expect(pinToPassword('0000').length).toBeGreaterThanOrEqual(6);
++  });
++  it('email staf dari email owner (alias +staf), tidak bertumpuk', () => {
++    expect(staffEmailFrom('Budi@Gmail.com')).toBe('budi+staf@gmail.com');
++    expect(staffEmailFrom('budi+toko@gmail.com')).toBe('budi+staf@gmail.com');
++    expect(staffEmailFrom('')).toBe(''); expect(staffEmailFrom('tanpa-at')).toBe('');
++  });
++  it('peran <-> email', () => {
++    expect(emailForRole('owner', cfg)).toBe('budi@gmail.com'); expect(emailForRole('staff', cfg)).toBe('budi+staf@gmail.com'); expect(emailForRole('admin', cfg)).toBe('');
++    expect(roleForEmail('BUDI@gmail.com', cfg)).toBe('owner'); expect(roleForEmail(' budi+staf@gmail.com ', cfg)).toBe('staff');
++    expect(roleForEmail('orang@lain.com', cfg)).toBeNull(); expect(roleForEmail('', cfg)).toBeNull(); expect(roleForEmail(undefined, cfg)).toBeNull();
++  });
++  it('email disamarkan di layar', () => {
++    expect(maskEmail('agung@gmail.com')).toBe('a****@gmail.com');
++    expect(maskEmail('ab@x.com')).toBe('a**@x.com');
++    expect(maskEmail('rusak')).toBe('');
++    expect(maskEmail('agung@gmail.com')).not.toContain('gung');
++  });
++});
++
++describe('lama sesi dari pengaturan', () => {
++  it('jam -> ms, di luar batas pakai bawaan', () => {
++    expect(sessionMsFromHours(1)).toBe(3600000); expect(sessionMsFromHours(24)).toBe(24 * 3600000); expect(sessionMsFromHours(168)).toBe(168 * 3600000);
++    for (const bad of [0, 0.5, -3, 1000, 'abc', null, undefined, NaN]) expect(sessionMsFromHours(bad)).toBe(SESSION_MS);
++  });
++  it('sesi memakai masa berlaku yang disimpannya', () => {
++    const now = 1_000_000_000_000, H = 3600000;
++    const raw = makeSession('owner', now, 1 * H);
++    expect(readSession(raw, now + H)).toBe('owner'); expect(readSession(raw, now + H + 1)).toBeNull();
++    const week = makeSession('staff', now, 168 * H);
++    expect(readSession(week, now + 100 * H)).toBe('staff'); expect(readSession(week, now + 169 * H)).toBeNull();
++  });
++  it('masa berlaku janggal diabaikan (pakai 12 jam); sesi lama tanpa ttl tetap terbaca', () => {
++    const now = 1_000_000_000_000;
++    expect(readSession(JSON.stringify({ role: 'owner', at: now, ttl: 10 ** 15 }), now + SESSION_MS + 1)).toBeNull();
++    expect(readSession(JSON.stringify({ role: 'owner', at: now, ttl: 5 }), now + 60 * 1000)).toBe('owner');
++    expect(readSession(JSON.stringify({ role: 'owner', at: now }), now + SESSION_MS)).toBe('owner');
++  });
++});
++
++describe('hash PIN karyawan', () => {
++  it('PIN yang sama + garam + karyawan yang sama -> hash sama; beda salah satu -> beda', async () => {
++    const h = await hashPin('1234', 'garam', 'emp-1');
++    expect(h).toMatch(/^[0-9a-f]{64}$/);
++    expect(await hashPin('1234', 'garam', 'emp-1')).toBe(h);
++    expect(await hashPin('1235', 'garam', 'emp-1')).not.toBe(h);
++    expect(await hashPin('1234', 'garam2', 'emp-1')).not.toBe(h);
++    expect(await hashPin('1234', 'garam', 'emp-2')).not.toBe(h);
++  });
++  it('verifikasi: cocok / salah / data kosong', async () => {
++    const salt = randomSalt(); const h = await hashPin('0420', salt, 'e1');
++    expect(await verifyPinHash('0420', salt, 'e1', h)).toBe(true);
++    expect(await verifyPinHash('0421', salt, 'e1', h)).toBe(false);
++    expect(await verifyPinHash('0420', salt, 'e2', h)).toBe(false);
++    expect(await verifyPinHash('0420', null, 'e1', h)).toBe(false);
++    expect(await verifyPinHash('0420', salt, 'e1', null)).toBe(false);
++  });
++  it('hash tidak memuat PIN; garam acak berbeda tiap kali', async () => {
++    const salt = randomSalt();
++    expect(salt).toMatch(/^[0-9a-f]{32}$/); expect(randomSalt()).not.toBe(salt);
++    expect(await hashPin('7777', salt, 'e1')).not.toContain('7777');
++  });
++  it('PIN acak selalu 4 digit (termasuk berawalan nol)', () => {
++    for (let i = 0; i < 200; i++) expect(generatePin()).toMatch(/^\d{4}$/);
++  });
++});
++
+ describe('sesi', () => {
+   const now = 1_000_000_000_000;
+   it('sesi segar dibaca', () => { expect(readSession(makeSession('owner', now), now + 1000)).toBe('owner'); expect(readSession(makeSession('staff', now), now)).toBe('staff'); });
+@@ -66,10 +164,14 @@ describe('izin', () => {
+   it('owner boleh semua izin yang terdaftar', () => { for (const p of OWNER_ONLY) expect(can('owner', p)).toBe(true); });
+   it('staf DITOLAK untuk semua izin yang terdaftar (daftar default = owner-only)', () => { for (const p of OWNER_ONLY) expect(can('staff', p)).toBe(false); });
+   it('izin yang tidak terdaftar ditolak untuk semua (aman secara bawaan)', () => { expect(can('owner', 'izin.ngawur')).toBe(false); expect(can('staff', 'izin.ngawur')).toBe(false); });
+-  it('tanpa peran / peran asing ditolak', () => { expect(can(null, 'laporan.labaRugi')).toBe(false); expect(can('admin', 'laporan.labaRugi')).toBe(false); expect(can(undefined, 'beranda.laba')).toBe(false); });
+-  it('layar: Penggajian, Manajemen Menu, Riwayat, Laporan owner-only; layar lain terbuka untuk semua yang login', () => {
+-    for (const v of ['penggajian', 'menu', 'riwayat', 'laporan']) { expect(canOpenView('staff', v)).toBe(false); expect(canOpenView('owner', v)).toBe(true); }
+-    for (const v of ['beranda', 'kasir', 'dompet', 'pelanggan', 'pengeluaran', 'karyawan', 'absensi']) { expect(canOpenView('staff', v)).toBe(true); expect(canOpenView('owner', v)).toBe(true); }
++  it('tanpa peran / peran asing ditolak', () => { expect(can(null, 'laporan.rincianPengeluaran')).toBe(false); expect(can('admin', 'laporan.rincianPengeluaran')).toBe(false); expect(can(undefined, 'beranda.laba')).toBe(false); });
++  it('layar: Karyawan, Pengaturan, Manajemen Menu, Riwayat, Laporan owner-only; layar lain terbuka untuk semua yang login', () => {
++    for (const v of ['karyawan', 'pengaturan', 'menu', 'riwayat', 'laporan']) { expect(canOpenView('staff', v)).toBe(false); expect(canOpenView('owner', v)).toBe(true); }
++    for (const v of ['beranda', 'kasir', 'dompet', 'pelanggan', 'pengeluaran', 'absensi', 'penggajian']) { expect(canOpenView('staff', v)).toBe(true); expect(canOpenView('owner', v)).toBe(true); }
++  });
++  it('Penggajian terbuka untuk staf, tapi daftar gaji semua karyawan hanya owner (staf lewat PIN karyawan)', () => {
++    expect(canOpenView('staff', 'penggajian')).toBe(true);
++    expect(can('staff', 'penggajian.semua')).toBe(false); expect(can('owner', 'penggajian.semua')).toBe(true);
+   });
+   it('setiap layar terbatas merujuk izin yang benar-benar ada', () => { for (const perm of Object.values(VIEW_PERMISSION)) expect(PERMISSIONS[perm]).toBeDefined(); });
+   it('peran & label', () => { expect(ROLES).toEqual(['owner', 'staff']); expect(roleLabel('owner')).toBe('Owner'); expect(roleLabel('staff')).toBe('Staf'); });
+diff --git a/mamam-darurat/src/auth/authLogic.js b/mamam-darurat/src/auth/authLogic.js
+index 4170f64..1e906a7 100644
+--- a/mamam-darurat/src/auth/authLogic.js
++++ b/mamam-darurat/src/auth/authLogic.js
+@@ -5,51 +5,95 @@ import { ROLES } from './permissions.js';
+  * authLogic — aturan login. FUNGSI MURNI (waktu selalu dioper, tidak ada
+  * Date.now() tersembunyi), jadi bisa dites tanpa menunggu.
+  */
+-export const MAX_ATTEMPTS = 5;                    // PIN salah berturut-turut sebelum dikunci
+-export const LOCK_MS = 30 * 1000;                 // lama dikunci
+-export const SESSION_MS = 12 * 60 * 60 * 1000;    // sesi berlaku 12 jam
++export const MAX_ATTEMPTS = 3;                    // PIN salah berturut-turut sebelum dikunci + muncul "Lupa PIN"
++export const LOCK_MS = 15 * 60 * 1000;            // lama dikunci (bisa dipercepat lewat Lupa PIN)
++export const SESSION_MS = 12 * 60 * 60 * 1000;    // sesi berlaku 12 jam (bisa diubah owner di Pengaturan)
++const HOUR_MS = 60 * 60 * 1000;
++export const SESSION_HOURS_OPTIONS = [1, 12, 24, 168];   // pilihan di Pengaturan
+ 
+-/** Peran untuk PIN itu, atau null kalau salah. */
++/** Batas percobaan untuk PIN karyawan (lihat gaji sendiri): sama 3x, kunci 5 menit. */
++export const EMPLOYEE_ATTEMPT_RULES = { max: 3, lockMs: 5 * 60 * 1000 };
++const LOGIN_RULES = { max: MAX_ATTEMPTS, lockMs: LOCK_MS };
++
++export const isValidPin = (pin) => /^\d{4}$/.test(String(pin ?? ''));
++
++/** Peran untuk PIN itu, atau null kalau salah. Hanya dipakai di MODE LAMA (tanpa Supabase Auth). */
+ export function roleForPin(pin) {
+   const p = String(pin ?? '');
+-  if (!/^\d{4}$/.test(p)) return null;
++  if (!isValidPin(p)) return null;
+   return ROLES.find((r) => PINS[r] === p) || null;
+ }
+ 
++// ── Akun Supabase Auth ──────────────────────────────────────────────
++// Supabase Auth minta password >= 6 karakter, PIN cuma 4 digit, jadi password
++// akun = awalan tetap + PIN. Awalan ini BUKAN rahasia (ikut ke browser); yang
++// menjaga akun adalah PIN-nya dan pembatasan percobaan.
++export const PIN_PASSWORD_PREFIX = 'mamam:';
++export const pinToPassword = (pin) => `${PIN_PASSWORD_PREFIX}${pin}`;
++
++/** owner@mail.com -> owner+staf@mail.com (Gmail: masuk ke kotak surat yang sama). */
++export function staffEmailFrom(ownerEmail) {
++  const [local, domain] = String(ownerEmail || '').trim().toLowerCase().split('@');
++  if (!local || !domain) return '';
++  return `${local.split('+')[0]}+staf@${domain}`;
++}
++
++/** cfg: { ownerEmail, staffEmail } */
++export const emailForRole = (role, cfg) => (role === 'owner' ? cfg.ownerEmail : role === 'staff' ? cfg.staffEmail : '');
++export function roleForEmail(email, cfg) {
++  const e = String(email ?? '').trim().toLowerCase();
++  if (!e) return null;
++  return ROLES.find((r) => emailForRole(r, cfg) === e) || null;
++}
++
++/** a***@gmail.com — supaya layar login tidak membeberkan email utuh. */
++export function maskEmail(email) {
++  const [local = '', domain = ''] = String(email || '').split('@');
++  if (!local || !domain) return '';
++  return `${local[0]}${'*'.repeat(Math.max(2, Math.min(local.length - 1, 5)))}@${domain}`;
++}
++
+ // ── Batas percobaan ─────────────────────────────────────────────────
+ export const initialAttempts = () => ({ fails: 0, lockedUntil: 0 });
+ export const isLocked = (st, now) => st.lockedUntil > now;
+ export const secondsLeft = (st, now) => Math.max(0, Math.ceil((st.lockedUntil - now) / 1000));
+-export const attemptsLeft = (st) => Math.max(0, MAX_ATTEMPTS - st.fails);
++export const attemptsLeft = (st, rules = LOGIN_RULES) => Math.max(0, rules.max - st.fails);
+ 
+ /** Keadaan baru setelah satu percobaan. Selama terkunci, percobaan diabaikan. */
+-export function recordAttempt(st, ok, now) {
++export function recordAttempt(st, ok, now, rules = LOGIN_RULES) {
+   if (isLocked(st, now)) return st;
+   if (ok) return initialAttempts();
+   const fails = st.fails + 1;
+-  return fails >= MAX_ATTEMPTS ? { fails: 0, lockedUntil: now + LOCK_MS } : { fails, lockedUntil: 0 };
++  return fails >= rules.max ? { fails: 0, lockedUntil: now + rules.lockMs } : { fails, lockedUntil: 0 };
+ }
+ 
+-export function readAttempts(raw, now) {
++export function readAttempts(raw, now, rules = LOGIN_RULES) {
+   try {
+     const s = JSON.parse(raw);
+     if (!s || !Number.isInteger(s.fails) || !Number.isFinite(s.lockedUntil)) return initialAttempts();
+-    if (s.fails < 0 || s.fails >= MAX_ATTEMPTS) return initialAttempts();
++    if (s.fails < 0 || s.fails >= rules.max) return initialAttempts();
+     // kunci yang janggal panjang (jam perangkat diutak-atik) dibuang
+-    if (s.lockedUntil > now + LOCK_MS * 2) return initialAttempts();
++    if (s.lockedUntil > now + rules.lockMs * 2) return initialAttempts();
+     return { fails: s.fails, lockedUntil: s.lockedUntil };
+   } catch { return initialAttempts(); }
+ }
+ 
+ // ── Sesi ────────────────────────────────────────────────────────────
+-export const makeSession = (role, now) => JSON.stringify({ role, at: now });
++/** Lama sesi dari pengaturan (jam) -> ms, dibatasi 1 jam..30 hari; selain itu pakai bawaan. */
++export function sessionMsFromHours(hours) {
++  const h = Number(hours);
++  return Number.isFinite(h) && h >= 1 && h <= 24 * 30 ? Math.round(h * HOUR_MS) : SESSION_MS;
++}
++
++export const makeSession = (role, now, ttlMs = SESSION_MS) => JSON.stringify({ role, at: now, ttl: ttlMs });
+ 
+ /** Peran dari sesi tersimpan, atau null (rusak / peran asing / kedaluwarsa / dari masa depan). */
+ export function readSession(raw, now) {
+   try {
+     const s = JSON.parse(raw);
+     if (!s || !ROLES.includes(s.role) || !Number.isFinite(s.at)) return null;
+-    if (now - s.at > SESSION_MS) return null;
++    const ttl = Number.isFinite(s.ttl) && s.ttl >= HOUR_MS && s.ttl <= 30 * 24 * HOUR_MS ? s.ttl : SESSION_MS;
++    if (now - s.at > ttl) return null;
+     if (s.at > now + 60 * 1000) return null;
+     return s.role;
+   } catch { return null; }
+diff --git a/mamam-darurat/src/auth/permissions.js b/mamam-darurat/src/auth/permissions.js
+index d820884..14dc971 100644
+--- a/mamam-darurat/src/auth/permissions.js
++++ b/mamam-darurat/src/auth/permissions.js
+@@ -6,11 +6,17 @@
+  * Prinsip: semua orang bisa membuka aplikasi dan bekerja (kasir, dompet,
+  * pelanggan, absensi, catat pengeluaran). Owner-only hanya hal yang
+  * menyangkut laba, gaji, upah, HPP, dan aksi yang menghapus/mengubah uang.
++ *
++ * Penggajian: layarnya terbuka untuk staf, tapi isinya berbeda. Staf melihat
++ * kunci PIN karyawan, lalu HANYA gaji karyawan yang PIN-nya dimasukkan
++ * (lihat features/payroll/MyPayroll.jsx). Daftar semua gaji = 'penggajian.semua'.
+  */
+ export const ROLES = ['owner', 'staff'];
+ 
+ export const PERMISSIONS = {
+-  'screen.penggajian': ['owner'],        // layar Penggajian (gaji semua karyawan)
++  'screen.karyawan': ['owner'],          // layar Karyawan (data diri, upah) — disembunyikan dari staf
++  'screen.pengaturan': ['owner'],        // layar Pengaturan (login, PIN, PIN karyawan)
++  'penggajian.semua': ['owner'],         // Penggajian penuh (semua karyawan, edit). Staf hanya lihat gaji sendiri lewat PIN karyawan
+   'screen.menu': ['owner'],              // layar Manajemen Menu (ubah harga & HPP)
+   'screen.riwayat': ['owner'],           // layar Riwayat (daftar semua transaksi)
+   'screen.laporan': ['owner'],           // layar Laporan (Laba Rugi, Rincian Pengeluaran)
+@@ -26,7 +32,8 @@ export const PERMISSIONS = {
+ 
+ /** Layar yang butuh izin tertentu untuk dibuka (id layar -> izin). */
+ export const VIEW_PERMISSION = {
+-  penggajian: 'screen.penggajian',
++  karyawan: 'screen.karyawan',
++  pengaturan: 'screen.pengaturan',
+   menu: 'screen.menu',
+   riwayat: 'screen.riwayat',
+   laporan: 'screen.laporan',
+diff --git a/mamam-darurat/src/auth/pinHash.js b/mamam-darurat/src/auth/pinHash.js
+new file mode 100644
+index 0000000..4f6e2bb
+--- /dev/null
++++ b/mamam-darurat/src/auth/pinHash.js
+@@ -0,0 +1,25 @@
++/**
++ * pinHash — PIN karyawan disimpan sebagai hash SHA-256 bergaram (bukan teks
++ * asli). Ini hanya supaya PIN tidak terbaca langsung di tabel; PIN 4 digit
++ * tetap bisa ditebak habis (10.000 kemungkinan) oleh orang yang bisa membaca
++ * tabel, jadi ini PAGAR TAMPILAN, bukan pengaman data (keamanan "Longgar").
++ */
++const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
++
++export const randomSalt = () => toHex(globalThis.crypto.getRandomValues(new Uint8Array(16)));
++
++/** 4 digit acak (bisa berawalan nol). */
++export function generatePin() {
++  const n = globalThis.crypto.getRandomValues(new Uint32Array(1))[0] % 10000;
++  return String(n).padStart(4, '0');
++}
++
++export async function hashPin(pin, salt, employeeId) {
++  const data = new TextEncoder().encode(`${salt}:${employeeId}:${pin}`);
++  return toHex(await globalThis.crypto.subtle.digest('SHA-256', data));
++}
++
++export async function verifyPinHash(pin, salt, employeeId, expectedHash) {
++  if (!salt || !expectedHash) return false;
++  return (await hashPin(pin, salt, employeeId)) === expectedHash;
++}
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index b9e6ab2..e3f2e2f 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -8,6 +8,7 @@ import { AppContext } from '../context/AppContext';
+ import { formatRupiah } from '../utils/formatters';
+ import { useAuth } from '../auth/AuthContext';
+ import LoginScreen from '../auth/LoginScreen';
++import ResetPinScreen from '../auth/ResetPinScreen';
+ import { VIEW_PERMISSION } from '../auth/permissions';
+ import { backStack } from '../lib/backStack';
+ 
+@@ -22,6 +23,7 @@ import {
+   History,
+   Users,
+   UserCog,
++  Settings,
+ } from 'lucide-react';
+ 
+ /**
+@@ -50,7 +52,7 @@ import {
+  * apa pun soal data bisnis).
+  */
+ export default function App() {
+-  const { role, logout, can: allowed } = useAuth();
++  const { role, logout, can: allowed, ready, recovery } = useAuth();
+   const [isMenuOpen, setIsMenuOpen] = useState(false);
+ 
+   // Modal konfirmasi generik — dipakai BottomSheetMenu (logout admin) dan
+@@ -130,7 +132,7 @@ export default function App() {
+     [triggerAlert, triggerConfirm, navigate, navigateToSub, navigateBack]
+   );
+ 
+-  // --- Menu untuk BottomSheetMenu — 9 fitur gelombang 1 Aplikasi C ---
++  // --- Menu untuk BottomSheetMenu — fitur gelombang 1 Aplikasi C + Pengaturan ---
+   // NB: 'laporan' sudah termasuk Laba Rugi (bukan menu terpisah seperti
+   // 'labarugi' di test-app-baru) — lihat ReportsView.
+   const menuItems = useMemo(() => [
+@@ -144,6 +146,7 @@ export default function App() {
+     { id: 'penggajian',  icon: Briefcase,    label: 'Penggajian' },
+     { id: 'riwayat',     icon: History,      label: 'Riwayat' },
+     { id: 'laporan',     icon: BarChart3,    label: 'Laporan' },
++    { id: 'pengaturan',  icon: Settings,     label: 'Pengaturan' },
+   ], []);
+ 
+   // Menu yang butuh izin khusus (mis. Penggajian, Manajemen Menu) disembunyikan
+@@ -173,6 +176,10 @@ export default function App() {
+   // App.jsx bisa dirender & ditest independen dari data layer.
+   const currentShift = false;
+ 
++  // Mode Supabase Auth: tunggu sesi dicek dulu (sekejap) supaya layar login tidak berkedip.
++  if (!ready) return <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950" data-testid="auth-loading" />;
++  // Dibuka dari tautan "Lupa PIN" di email: buat PIN baru.
++  if (recovery) return <ResetPinScreen />;
+   // Belum masuk: tampilkan layar PIN saja (tidak ada data yang dimuat).
+   if (!role) return <LoginScreen />;
+ 
+diff --git a/src/app/AppRoutes.jsx b/src/app/AppRoutes.jsx
+index 8979514..cb85690 100644
+--- a/src/app/AppRoutes.jsx
++++ b/src/app/AppRoutes.jsx
+@@ -26,6 +26,7 @@ const AttendanceView = lazy(() => import('../features/attendance/AttendanceView'
+ const PayrollView    = lazy(() => import('../features/payroll/PayrollView'));
+ const ReportsView    = lazy(() => import('../features/reports/ReportsView'));
+ const RiwayatView    = lazy(() => import('../features/history/RiwayatView'));
++const SettingsView   = lazy(() => import('../features/settings/SettingsView'));
+ 
+ export const VIEWS = {
+     beranda:     HomeView,
+@@ -39,6 +40,7 @@ export const VIEWS = {
+     penggajian:  PayrollView,
+     laporan:     ReportsView,
+     riwayat:     RiwayatView,
++    pengaturan:  SettingsView,
+ };
+ 
+ // --- Error Boundary per-view (sama seperti A, minus chunk-reload logic) ---
+diff --git a/src/auth/AuthContext.jsx b/src/auth/AuthContext.jsx
+index 5ec3c19..85954e8 100644
+--- a/src/auth/AuthContext.jsx
++++ b/src/auth/AuthContext.jsx
+@@ -1,16 +1,24 @@
+-import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
++import { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
+ import {
+   roleForPin, recordAttempt, isLocked, secondsLeft, attemptsLeft, initialAttempts,
+-  readAttempts, makeSession, readSession,
++  readAttempts, makeSession, readSession, pinToPassword, emailForRole, roleForEmail, maskEmail,
++  sessionMsFromHours, isValidPin, SESSION_MS,
+ } from './authLogic';
+-import { can } from './permissions';
++import { AUTH_CONFIG, AUTH_ENABLED, OPENED_FROM_RECOVERY_LINK } from './authConfig';
++import { can, ROLES } from './permissions';
++import { supabase } from '../lib/supabase';
+ 
+ /**
+- * AuthContext — peran yang sedang masuk (owner / staff) dari PIN hardcoded.
+- * Ini pagar tampilan, bukan keamanan data (lihat pins.js).
+- * Sesi disimpan di localStorage (12 jam) supaya HP kasir tidak minta PIN
+- * tiap aplikasi dibuka; batas percobaan juga disimpan supaya reload halaman
+- * tidak menghapus kunci.
++ * AuthContext — peran yang sedang masuk (owner / staff).
++ *
++ * Dua mode (lihat authConfig.js):
++ *  - SUPABASE AUTH (VITE_AUTH_OWNER_EMAIL terisi): owner & staf adalah dua akun
++ *    Supabase Auth; PIN 4 digit = password (diberi awalan, lihat authLogic).
++ *    Lupa PIN lewat email reset.
++ *  - MODE LAMA (env kosong): PIN lokal di pins.js, supaya tidak terkunci selama
++ *    transisi.
++ * Di kedua mode: batas 3x salah dihitung di aplikasi (localStorage), sesi
++ * aplikasi punya masa berlaku sendiri (Pengaturan -> Lama sesi).
+  */
+ const SESSION_KEY = 'mamam-darurat-session';
+ const ATTEMPTS_KEY = 'mamam-darurat-attempts';
+@@ -23,38 +31,165 @@ const store = {
+ 
+ const AuthContext = createContext(null);
+ 
++const isCredentialError = (e) => e && (e.code === 'invalid_credentials' || /invalid login credentials/i.test(e.message || ''));
++const friendlyAuthError = (e) => {
++  const m = e?.message || '';
++  if (/same|different from the old/i.test(m)) return 'PIN baru harus berbeda dari PIN lama.';
++  if (/rate limit|too many|after \d+ seconds/i.test(m)) return 'Terlalu sering meminta email. Tunggu beberapa menit lalu coba lagi.';
++  if (/failed to fetch|network|fetch/i.test(m)) return 'Tidak bisa terhubung ke server. Cek internet lalu coba lagi.';
++  return m || 'Terjadi kesalahan.';
++};
++
++/** Lama sesi dari tabel app_settings (kalau belum ada / gagal dibaca: bawaan 12 jam). */
++async function loadSessionMs() {
++  try {
++    const { data } = await supabase.from('app_settings').select('value').eq('key', 'session_hours').maybeSingle();
++    return sessionMsFromHours(data?.value);
++  } catch { return SESSION_MS; }
++}
++
+ export function AuthProvider({ children }) {
+-  const [role, setRole] = useState(() => readSession(store.get(SESSION_KEY), Date.now()));
++  // Mode Supabase: peran baru dipastikan setelah sesi Supabase dicek (ready). Mode lama: langsung dari penyimpanan.
++  const [role, setRole] = useState(() => (AUTH_ENABLED ? null : readSession(store.get(SESSION_KEY), Date.now())));
++  const [ready, setReady] = useState(!AUTH_ENABLED);
++  const [recovery, setRecovery] = useState(null);       // { role } saat halaman dibuka dari tautan Lupa PIN
++  const [notice, setNotice] = useState('');             // pesan sekali tampil di layar login (mis. PIN baru tersimpan)
+   const [attempts, setAttempts] = useState(() => readAttempts(store.get(ATTEMPTS_KEY), Date.now()));
+-
+-  /** @returns {{ok:boolean, role?:string, locked?:boolean, attemptsLeft?:number, secondsLeft?:number}} */
+-  const login = useCallback((pin) => {
+-    const now = Date.now();
+-    if (isLocked(attempts, now)) return { ok: false, locked: true, secondsLeft: secondsLeft(attempts, now) };
+-    const found = roleForPin(pin);
+-    const next = recordAttempt(attempts, Boolean(found), now);
++  const attemptsRef = useRef(attempts);
++  const saveAttempts = useCallback((next) => {
++    attemptsRef.current = next;
+     setAttempts(next);
+     store.set(ATTEMPTS_KEY, JSON.stringify(next));
++  }, []);
++
++  // ── Mode Supabase: pulihkan sesi & dengarkan tautan reset ─────────
++  useEffect(() => {
++    if (!AUTH_ENABLED) return undefined;
++    let alive = true;
++    const enterRecovery = (session) => {
++      store.remove(SESSION_KEY);
++      setRole(null);
++      setRecovery({ role: roleForEmail(session?.user?.email, AUTH_CONFIG) });
++    };
++    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
++      if (!alive) return;
++      if (event === 'PASSWORD_RECOVERY') enterRecovery(session);
++      else if (event === 'SIGNED_OUT') setRole(null);
++    });
++    supabase.auth.getSession().then(({ data }) => {
++      if (!alive) return;
++      const session = data?.session;
++      if (session && OPENED_FROM_RECOVERY_LINK) { enterRecovery(session); }
++      else {
++        const saved = readSession(store.get(SESSION_KEY), Date.now());
++        const sessionRole = roleForEmail(session?.user?.email, AUTH_CONFIG);
++        if (session && saved && saved === sessionRole) setRole(saved);
++        else {
++          // sesi aplikasi habis / tidak cocok: bersihkan sisa sesi Supabase
++          store.remove(SESSION_KEY);
++          if (session) supabase.auth.signOut({ scope: 'local' }).catch(() => {});
++        }
++      }
++      setReady(true);
++    }).catch(() => { if (alive) setReady(true); });
++    return () => { alive = false; sub?.subscription?.unsubscribe(); };
++  }, []);
++
++  /**
++   * Coba masuk dengan PIN. Selalu async (mode Supabase memanggil server).
++   * @returns {Promise<{ok:boolean, role?:string, locked?:boolean, attemptsLeft?:number, secondsLeft?:number, networkError?:string}>}
++   */
++  const login = useCallback(async (pin) => {
++    const now = Date.now();
++    const cur = attemptsRef.current;
++    if (isLocked(cur, now)) return { ok: false, locked: true, secondsLeft: secondsLeft(cur, now) };
++
++    let found = null;
++    if (AUTH_ENABLED) {
++      if (!isValidPin(pin)) found = null;
++      else {
++        for (const r of ROLES) {                         // owner dulu, lalu staf
++          // eslint-disable-next-line no-await-in-loop
++          const { data, error } = await supabase.auth.signInWithPassword({ email: emailForRole(r, AUTH_CONFIG), password: pinToPassword(pin) });
++          if (!error && data?.session) { found = r; break; }
++          if (!isCredentialError(error)) return { ok: false, networkError: friendlyAuthError(error) };   // gangguan jaringan: bukan PIN salah, tidak dihitung
++        }
++      }
++    } else {
++      found = roleForPin(pin);
++    }
++
++    const at = Date.now();
++    const next = recordAttempt(attemptsRef.current, Boolean(found), at);
++    saveAttempts(next);
+     if (found) {
+-      store.set(SESSION_KEY, makeSession(found, now));
++      const ttl = AUTH_ENABLED ? await loadSessionMs() : SESSION_MS;
++      store.set(SESSION_KEY, makeSession(found, Date.now(), ttl));
+       setRole(found);
+       return { ok: true, role: found };
+     }
+-    return { ok: false, locked: isLocked(next, now), attemptsLeft: attemptsLeft(next), secondsLeft: secondsLeft(next, now) };
+-  }, [attempts]);
++    return { ok: false, locked: isLocked(next, at), attemptsLeft: attemptsLeft(next), secondsLeft: secondsLeft(next, at) };
++  }, [saveAttempts]);
+ 
+-  const logout = useCallback(() => { store.remove(SESSION_KEY); setRole(null); }, []);
++  const logout = useCallback(() => {
++    store.remove(SESSION_KEY);
++    setRole(null);
++    if (AUTH_ENABLED) supabase.auth.signOut({ scope: 'local' }).catch(() => {});   // 'local': tidak mengeluarkan perangkat lain
++  }, []);
+ 
+   // Sesi yang kedaluwarsa saat aplikasi dibiarkan terbuka: keluarkan otomatis.
+   useEffect(() => {
+     if (!role) return undefined;
+-    const id = setInterval(() => { if (!readSession(store.get(SESSION_KEY), Date.now())) setRole(null); }, 60 * 1000);
++    const id = setInterval(() => { if (!readSession(store.get(SESSION_KEY), Date.now())) logout(); }, 60 * 1000);
+     return () => clearInterval(id);
+-  }, [role]);
++  }, [role, logout]);
++
++  // ── Lupa PIN / ganti PIN (hanya mode Supabase) ─────────────────────
++  /** Kirim email reset untuk akun `targetRole`. @returns {Promise<{ok:boolean, sentTo?:string, message?:string}>} */
++  const requestPinReset = useCallback(async (targetRole) => {
++    if (!AUTH_ENABLED) return { ok: false, message: 'Lupa PIN butuh login Supabase. Isi VITE_AUTH_OWNER_EMAIL dulu (lihat docs/auth-setup.md).' };
++    const email = emailForRole(targetRole, AUTH_CONFIG);
++    if (!email) return { ok: false, message: 'Pilih akun yang PIN-nya lupa.' };
++    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/` });
++    if (error) return { ok: false, message: friendlyAuthError(error) };
++    return { ok: true, sentTo: maskEmail(email) };
++  }, []);
++
++  const updatePin = useCallback(async (newPin) => {
++    if (!isValidPin(newPin)) return { ok: false, message: 'PIN harus 4 digit angka.' };
++    const { error } = await supabase.auth.updateUser({ password: pinToPassword(newPin) });
++    return error ? { ok: false, message: friendlyAuthError(error) } : { ok: true };
++  }, []);
++
++  /** Selesaikan reset dari tautan email: simpan PIN baru lalu kembali ke layar login. */
++  const completeRecovery = useCallback(async (newPin) => {
++    const r = await updatePin(newPin);
++    if (!r.ok) return r;
++    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
++    store.remove(SESSION_KEY);
++    saveAttempts(initialAttempts());
++    setRole(null);
++    setRecovery(null);
++    setNotice('PIN baru tersimpan. Silakan masuk.');
++    try { window.history.replaceState(null, '', `${window.location.pathname}`); } catch { /* abaikan */ }
++    return { ok: true };
++  }, [updatePin, saveAttempts]);
++
++  const cancelRecovery = useCallback(async () => {
++    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
++    store.remove(SESSION_KEY);
++    setRecovery(null);
++    try { window.history.replaceState(null, '', `${window.location.pathname}`); } catch { /* abaikan */ }
++  }, []);
++
++  /** Ganti PIN akun yang sedang masuk (Pengaturan). */
++  const changeOwnPin = useCallback((newPin) => (AUTH_ENABLED ? updatePin(newPin) : Promise.resolve({ ok: false, message: 'Ganti PIN lewat Pengaturan butuh login Supabase.' })), [updatePin]);
+ 
+   const value = useMemo(() => ({
+     role, isOwner: role === 'owner', can: (permission) => can(role, permission), login, logout, attempts,
+-  }), [role, login, logout, attempts]);
++    ready, authEnabled: AUTH_ENABLED, recovery, notice, clearNotice: () => setNotice(''), requestPinReset, completeRecovery, cancelRecovery, changeOwnPin,
++    ownerEmailMasked: maskEmail(AUTH_CONFIG.ownerEmail), staffEmailMasked: maskEmail(AUTH_CONFIG.staffEmail),
++  }), [role, login, logout, attempts, ready, recovery, notice, requestPinReset, completeRecovery, cancelRecovery, changeOwnPin]);
+ 
+   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+ }
+diff --git a/src/auth/LoginScreen.jsx b/src/auth/LoginScreen.jsx
+index 0a21a3b..e4db333 100644
+--- a/src/auth/LoginScreen.jsx
++++ b/src/auth/LoginScreen.jsx
+@@ -1,15 +1,20 @@
+-import { useState, useEffect, useCallback } from 'react';
+-import { Delete, Lock } from 'lucide-react';
++import { useState, useEffect } from 'react';
++import { Lock, Mail, CheckCircle2 } from 'lucide-react';
+ import { useAuth } from './AuthContext';
+-import { isLocked, secondsLeft, attemptsLeft } from './authLogic';
++import { isLocked, secondsLeft, MAX_ATTEMPTS } from './authLogic';
++import PinPad from './PinPad';
++import { Modal, Button } from '../components/ui';
+ import { versionLabel } from '../lib/appVersion';
+ 
+-/** Layar PIN 4 digit. Otomatis masuk saat digit ke-4 diisi. */
++const fmtLock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
++
++/** Layar PIN 4 digit. Otomatis masuk saat digit ke-4 diisi. 3x salah = dikunci + Lupa PIN. */
+ export default function LoginScreen() {
+-  const { login, attempts } = useAuth();
+-  const [pin, setPin] = useState('');
++  const { login, attempts, notice, clearNotice } = useAuth();
+   const [message, setMessage] = useState('');
+   const [now, setNow] = useState(Date.now());
++  const [busy, setBusy] = useState(false);
++  const [forgotOpen, setForgotOpen] = useState(false);
+ 
+   const locked = isLocked(attempts, now);
+ 
+@@ -20,71 +25,90 @@ export default function LoginScreen() {
+     return () => clearInterval(id);
+   }, [locked]);
+ 
+-  const submit = useCallback((value) => {
+-    const r = login(value);
+-    setPin('');
+-    if (r.ok) return;
++  const submit = async (value, reset) => {
++    clearNotice();
++    setBusy(true);
++    const r = await login(value);
++    setBusy(false);
++    reset();
+     setNow(Date.now());
+-    setMessage(r.locked
+-      ? `Terlalu banyak percobaan salah. Coba lagi dalam ${r.secondsLeft} detik.`
+-      : `PIN salah. Sisa percobaan ${r.attemptsLeft}.`);
+-  }, [login]);
+-
+-  const press = useCallback((d) => {
+-    if (isLocked(attempts, Date.now())) return;
+-    setMessage('');
+-    setPin((prev) => {
+-      if (prev.length >= 4) return prev;
+-      const next = prev + d;
+-      if (next.length === 4) setTimeout(() => submit(next), 120);   // jeda singkat supaya titik ke-4 sempat tampil
+-      return next;
+-    });
+-  }, [attempts, submit]);
+-
+-  const back = useCallback(() => setPin((p) => p.slice(0, -1)), []);
+-
+-  // keyboard fisik (desktop)
+-  useEffect(() => {
+-    const onKey = (e) => {
+-      if (/^\d$/.test(e.key)) press(e.key);
+-      else if (e.key === 'Backspace') back();
+-    };
+-    window.addEventListener('keydown', onKey);
+-    return () => window.removeEventListener('keydown', onKey);
+-  }, [press, back]);
++    if (r.ok) return;
++    if (r.networkError) { setMessage(r.networkError); return; }
++    if (r.locked) { setMessage(''); setForgotOpen(true); return; }     // percobaan ke-3 salah: langsung tawarkan Lupa PIN
++    setMessage(`PIN salah. Sisa percobaan ${r.attemptsLeft}.`);
++  };
+ 
+-  const lockedMsg = locked ? `Terkunci. Coba lagi dalam ${secondsLeft(attempts, now)} detik.` : '';
+-  const shown = locked ? lockedMsg : message;
++  const shown = locked ? `PIN salah ${MAX_ATTEMPTS}x. Dikunci, coba lagi dalam ${fmtLock(secondsLeft(attempts, now))}.` : message;
+ 
+   return (
+-    <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
++    <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-7 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
+       <div className="text-center">
+         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><Lock className="w-6 h-6 text-white" /></div>
+         <h1 className="font-heading font-bold text-2xl">Mamam Darurat</h1>
+         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Masukkan PIN</p>
+       </div>
+ 
+-      <div className="flex gap-4" aria-label="PIN" data-testid="pin-dots" data-filled={pin.length}>
+-        {[0, 1, 2, 3].map((i) => (
+-          <span key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${i < pin.length ? 'bg-accent-600 border-accent-600 scale-110' : 'border-slate-300 dark:border-slate-600'}`} />
+-        ))}
+-      </div>
++      <PinPad onComplete={submit} disabled={locked || busy || forgotOpen} />
+ 
+-      <p role="alert" data-testid="login-message" className={`h-5 text-sm font-semibold text-center ${shown ? 'text-red-500' : ''}`}>{shown}</p>
+-
+-      <div className="grid grid-cols-3 gap-3 w-64">
+-        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+-          <button key={d} onClick={() => press(d)} disabled={locked}
+-            className="h-14 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xl font-bold shadow-sm active:scale-95 disabled:opacity-40 transition-all">{d}</button>
+-        ))}
+-        <span />
+-        <button onClick={() => press('0')} disabled={locked}
+-          className="h-14 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xl font-bold shadow-sm active:scale-95 disabled:opacity-40 transition-all">0</button>
+-        <button onClick={back} disabled={locked} aria-label="Hapus"
+-          className="h-14 rounded-2xl flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-95 disabled:opacity-40 transition-all"><Delete className="w-6 h-6" /></button>
++      <div className="text-center space-y-2 min-h-[3.25rem]">
++        <p role="alert" data-testid="login-message" className={`text-sm font-semibold ${shown ? 'text-red-500' : notice ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{shown || notice}</p>
++        <button type="button" onClick={() => setForgotOpen(true)} data-testid="lupa-pin"
++          className={`text-xs font-bold ${locked ? 'text-accent-600 dark:text-accent-400 underline' : 'text-slate-400 dark:text-slate-500'}`}>Lupa PIN?</button>
+       </div>
+ 
+-      <p className="text-[11px] text-slate-300 dark:text-slate-600" data-testid="app-version">{versionLabel()}</p>
++      <p className="text-xs text-slate-300 dark:text-slate-600" data-testid="app-version">{versionLabel()}</p>
++
++      <ForgotPinSheet isOpen={forgotOpen} onClose={() => setForgotOpen(false)} locked={locked} />
+     </div>
+   );
+ }
++
++function ForgotPinSheet({ isOpen, onClose, locked }) {
++  const { authEnabled, requestPinReset, ownerEmailMasked, staffEmailMasked } = useAuth();
++  const [target, setTarget] = useState('owner');
++  const [state, setState] = useState({ status: 'idle', message: '', sentTo: '' });
++
++  useEffect(() => { if (!isOpen) setState({ status: 'idle', message: '', sentTo: '' }); }, [isOpen]);
++
++  const send = async () => {
++    setState({ status: 'sending', message: '', sentTo: '' });
++    const r = await requestPinReset(target);
++    setState(r.ok ? { status: 'sent', message: '', sentTo: r.sentTo } : { status: 'error', message: r.message, sentTo: '' });
++  };
++
++  const toMasked = target === 'owner' ? ownerEmailMasked : staffEmailMasked;
++  return (
++    <Modal isOpen={isOpen} onClose={onClose} sheet size="md" maxHeight title="Lupa PIN">
++      <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]" data-testid="lupa-pin-sheet">
++        {locked && <p className="text-sm font-semibold text-red-500">PIN salah {MAX_ATTEMPTS} kali, login dikunci 15 menit.</p>}
++
++        {!authEnabled ? (
++          <p className="text-sm text-slate-600 dark:text-slate-300">
++            Reset lewat email belum aktif karena login Supabase belum disambungkan. Kunci terbuka sendiri setelah 15 menit.
++            Untuk mengganti PIN sekarang, ubah <code className="text-xs">src/auth/pins.js</code> atau aktifkan login Supabase (lihat <code className="text-xs">docs/auth-setup.md</code>).
++          </p>
++        ) : state.status === 'sent' ? (
++          <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 p-4 space-y-1" data-testid="reset-terkirim">
++            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Link reset terkirim</p>
++            <p className="text-sm text-emerald-800/90 dark:text-emerald-200/90">Cek email <b>{state.sentTo}</b> (cek juga folder Spam), lalu ketuk link di dalamnya dari HP/browser ini. Kamu akan diminta membuat PIN baru.</p>
++          </div>
++        ) : (
++          <>
++            <p className="text-sm text-slate-600 dark:text-slate-300">PIN siapa yang lupa? Link untuk membuat PIN baru dikirim ke email owner.</p>
++            <div className="grid grid-cols-2 gap-2">
++              {[['owner', 'Owner'], ['staff', 'Staf']].map(([v, l]) => (
++                <button key={v} type="button" onClick={() => setTarget(v)} data-testid={`lupa-${v}`}
++                  className={`py-3 rounded-2xl text-sm font-bold border-2 transition-all ${target === v ? 'border-accent-600 bg-accent-50 dark:bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'}`}>{l}</button>
++              ))}
++            </div>
++            <p className="text-xs text-slate-400 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 shrink-0" /> Dikirim ke {toMasked || 'email owner'}</p>
++            {state.status === 'error' && <p className="text-sm font-semibold text-red-500" role="alert">{state.message}</p>}
++            <Button size="full" onClick={send} disabled={state.status === 'sending'} data-testid="kirim-reset">{state.status === 'sending' ? 'Mengirim...' : 'Kirim link reset'}</Button>
++          </>
++        )}
++
++        <Button size="full" variant="ghost" onClick={onClose}>Tutup</Button>
++      </div>
++    </Modal>
++  );
++}
+diff --git a/src/auth/PinPad.jsx b/src/auth/PinPad.jsx
+new file mode 100644
+index 0000000..1ec3961
+--- /dev/null
++++ b/src/auth/PinPad.jsx
+@@ -0,0 +1,69 @@
++import { useState, useEffect, useCallback, useRef } from 'react';
++import { Delete } from 'lucide-react';
++
++/**
++ * PinPad — titik PIN 4 digit + keypad angka (+ keyboard fisik). Dipakai layar
++ * login, buat PIN baru, dan PIN karyawan.
++ *
++ * Saat digit ke-4 terisi, `onComplete(pin, reset)` dipanggil SEKALI dan input
++ * dikunci sampai `reset()` dipanggil (supaya tidak terkirim ganda saat menunggu
++ * jawaban server). `reset()` mengosongkan titik dan membuka kunci.
++ */
++export default function PinPad({ onComplete, disabled = false, listenKeyboard = true }) {
++  const [pin, setPin] = useState('');
++  const pinRef = useRef('');
++  const waitingRef = useRef(false);
++  const disabledRef = useRef(disabled);
++  const doneRef = useRef(onComplete);
++  useEffect(() => { disabledRef.current = disabled; doneRef.current = onComplete; });
++
++  const reset = useCallback(() => { pinRef.current = ''; waitingRef.current = false; setPin(''); }, []);
++
++  const press = useCallback((d) => {
++    if (disabledRef.current || waitingRef.current || pinRef.current.length >= 4) return;
++    pinRef.current += d;
++    setPin(pinRef.current);
++    if (pinRef.current.length === 4) {
++      waitingRef.current = true;
++      const value = pinRef.current;
++      setTimeout(() => doneRef.current?.(value, reset), 120);   // jeda singkat supaya titik ke-4 sempat tampil
++    }
++  }, [reset]);
++
++  const back = useCallback(() => {
++    if (disabledRef.current || waitingRef.current) return;
++    pinRef.current = pinRef.current.slice(0, -1);
++    setPin(pinRef.current);
++  }, []);
++
++  useEffect(() => {
++    if (!listenKeyboard) return undefined;
++    const onKey = (e) => {
++      if (e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
++      if (/^\d$/.test(e.key)) press(e.key);
++      else if (e.key === 'Backspace') back();
++    };
++    window.addEventListener('keydown', onKey);
++    return () => window.removeEventListener('keydown', onKey);
++  }, [press, back, listenKeyboard]);
++
++  const keyCls = 'h-14 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xl font-bold shadow-sm active:scale-95 disabled:opacity-40 transition-all';
++  return (
++    <>
++      <div className="flex gap-4 justify-center" aria-label="PIN" data-testid="pin-dots" data-filled={pin.length}>
++        {[0, 1, 2, 3].map((i) => (
++          <span key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${i < pin.length ? 'bg-accent-600 border-accent-600 scale-110' : 'border-slate-300 dark:border-slate-600'}`} />
++        ))}
++      </div>
++      <div className="grid grid-cols-3 gap-3 w-64 mx-auto">
++        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
++          <button key={d} type="button" onClick={() => press(d)} disabled={disabled} className={keyCls}>{d}</button>
++        ))}
++        <span />
++        <button type="button" onClick={() => press('0')} disabled={disabled} className={keyCls}>0</button>
++        <button type="button" onClick={back} disabled={disabled} aria-label="Hapus"
++          className="h-14 rounded-2xl flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-95 disabled:opacity-40 transition-all"><Delete className="w-6 h-6" /></button>
++      </div>
++    </>
++  );
++}
+diff --git a/src/auth/ResetPinScreen.jsx b/src/auth/ResetPinScreen.jsx
+new file mode 100644
+index 0000000..17631a5
+--- /dev/null
++++ b/src/auth/ResetPinScreen.jsx
+@@ -0,0 +1,38 @@
++import { useState } from 'react';
++import { KeyRound } from 'lucide-react';
++import { useAuth } from './AuthContext';
++import { roleLabel } from './permissions';
++import PinPad from './PinPad';
++import { Button } from '../components/ui';
++
++/** Muncul saat aplikasi dibuka dari tautan "Lupa PIN" di email: buat PIN baru (2x ketik). */
++export default function ResetPinScreen() {
++  const { recovery, completeRecovery, cancelRecovery } = useAuth();
++  const [first, setFirst] = useState(null);
++  const [message, setMessage] = useState('');
++  const [busy, setBusy] = useState(false);
++
++  const onComplete = async (pin, reset) => {
++    if (!first) { setFirst(pin); setMessage(''); reset(); return; }
++    if (pin !== first) { setFirst(null); setMessage('PIN tidak sama. Ulangi dari awal.'); reset(); return; }
++    setBusy(true);
++    const r = await completeRecovery(pin);        // sukses: layar ini hilang, kembali ke login
++    setBusy(false);
++    if (!r.ok) { setFirst(null); setMessage(r.message); reset(); }
++  };
++
++  return (
++    <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-7 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="reset-pin-screen">
++      <div className="text-center">
++        <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><KeyRound className="w-6 h-6 text-white" /></div>
++        <h1 className="font-heading font-bold text-2xl">Buat PIN baru{recovery?.role ? ` ${roleLabel(recovery.role)}` : ''}</h1>
++        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1" data-testid="reset-step">{first ? 'Ketik ulang PIN baru' : 'Masukkan 4 angka PIN baru'}</p>
++      </div>
++
++      <PinPad key={first ? 'konfirmasi' : 'baru'} onComplete={onComplete} disabled={busy} />
++
++      <p role="alert" className="h-5 text-sm font-semibold text-red-500 text-center" data-testid="reset-message">{message}</p>
++      <Button variant="ghost" onClick={cancelRecovery} disabled={busy}>Batal</Button>
++    </div>
++  );
++}
+diff --git a/src/auth/auth.test.js b/src/auth/auth.test.js
+index 60f00bb..2d5aaf5 100644
+--- a/src/auth/auth.test.js
++++ b/src/auth/auth.test.js
+@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
+ import {
+   roleForPin, recordAttempt, initialAttempts, isLocked, secondsLeft, attemptsLeft,
+   readAttempts, makeSession, readSession, MAX_ATTEMPTS, LOCK_MS, SESSION_MS,
++  isValidPin, pinToPassword, PIN_PASSWORD_PREFIX, staffEmailFrom, emailForRole, roleForEmail, maskEmail,
++  sessionMsFromHours, EMPLOYEE_ATTEMPT_RULES,
+ } from './authLogic.js';
++import { hashPin, verifyPinHash, randomSalt, generatePin } from './pinHash.js';
+ import { can, canOpenView, PERMISSIONS, VIEW_PERMISSION, ROLES, roleLabel } from './permissions.js';
+ 
+ describe('roleForPin', () => {
+@@ -17,13 +20,14 @@ describe('roleForPin', () => {
+ });
+ 
+ describe('batas percobaan', () => {
+-  it('salah berkali-kali: terkunci tepat pada percobaan ke-5', () => {
++  it('batas 3x salah, kunci 15 menit', () => { expect(MAX_ATTEMPTS).toBe(3); expect(LOCK_MS).toBe(15 * 60 * 1000); });
++  it('salah berkali-kali: terkunci tepat pada percobaan ke-3', () => {
+     let st = initialAttempts();
+     for (let i = 1; i < MAX_ATTEMPTS; i++) { st = recordAttempt(st, false, 1000); expect(isLocked(st, 1000)).toBe(false); expect(attemptsLeft(st)).toBe(MAX_ATTEMPTS - i); }
+     st = recordAttempt(st, false, 1000);
+-    expect(isLocked(st, 1000)).toBe(true); expect(secondsLeft(st, 1000)).toBe(30);
++    expect(isLocked(st, 1000)).toBe(true); expect(secondsLeft(st, 1000)).toBe(LOCK_MS / 1000);
+   });
+-  it('kunci terbuka sendiri setelah 30 detik, hitungan mulai dari nol', () => {
++  it('kunci terbuka sendiri setelah 15 menit, hitungan mulai dari nol', () => {
+     let st = initialAttempts(); for (let i = 0; i < MAX_ATTEMPTS; i++) st = recordAttempt(st, false, 0);
+     expect(isLocked(st, LOCK_MS - 1)).toBe(true); expect(isLocked(st, LOCK_MS)).toBe(false);
+     expect(attemptsLeft(st)).toBe(MAX_ATTEMPTS);
+@@ -39,13 +43,107 @@ describe('batas percobaan', () => {
+   it('readAttempts: data rusak / janggal diabaikan', () => {
+     expect(readAttempts('bukan json', 0)).toEqual(initialAttempts());
+     expect(readAttempts(JSON.stringify({ fails: 'x', lockedUntil: 1 }), 0)).toEqual(initialAttempts());
+-    expect(readAttempts(JSON.stringify({ fails: 3, lockedUntil: 0 }), 0)).toEqual({ fails: 3, lockedUntil: 0 });
++    expect(readAttempts(JSON.stringify({ fails: 2, lockedUntil: 0 }), 0)).toEqual({ fails: 2, lockedUntil: 0 });
++    expect(readAttempts(JSON.stringify({ fails: 3, lockedUntil: 0 }), 0)).toEqual(initialAttempts());   // 3 = sudah batas, bukan keadaan sah tanpa kunci
+     expect(readAttempts(JSON.stringify({ fails: 0, lockedUntil: 10 ** 15 }), 0)).toEqual(initialAttempts());   // kunci "selamanya" dibuang
+     expect(readAttempts(JSON.stringify({ fails: 99, lockedUntil: 0 }), 0)).toEqual(initialAttempts());
+     expect(readAttempts(null, 0)).toEqual(initialAttempts());
+   });
+ });
+ 
++describe('batas percobaan PIN karyawan', () => {
++  const R = EMPLOYEE_ATTEMPT_RULES;
++  it('3x salah, kunci 5 menit, terbuka sendiri', () => {
++    let st = initialAttempts();
++    for (let i = 0; i < R.max; i++) st = recordAttempt(st, false, 0, R);
++    expect(isLocked(st, 0)).toBe(true); expect(secondsLeft(st, 0)).toBe(300);
++    expect(isLocked(st, R.lockMs)).toBe(false);
++  });
++  it('sisa percobaan dihitung dengan aturan karyawan', () => {
++    const st = recordAttempt(initialAttempts(), false, 0, R);
++    expect(attemptsLeft(st, R)).toBe(R.max - 1);
++  });
++  it('readAttempts mengikuti aturan yang diberikan', () => {
++    expect(readAttempts(JSON.stringify({ fails: 2, lockedUntil: 0 }), 0, R)).toEqual({ fails: 2, lockedUntil: 0 });
++    expect(readAttempts(JSON.stringify({ fails: 0, lockedUntil: R.lockMs * 3 }), 0, R)).toEqual(initialAttempts());
++  });
++});
++
++describe('akun Supabase Auth dari PIN', () => {
++  const cfg = { ownerEmail: 'budi@gmail.com', staffEmail: 'budi+staf@gmail.com' };
++  it('PIN 4 digit sah, selain itu tidak', () => {
++    for (const ok of ['0000', '1234', 9999, '0007']) expect(isValidPin(ok)).toBe(true);
++    for (const bad of ['123', '12345', 'abcd', '', null, undefined, '12 3', '١٢٣٤']) expect(isValidPin(bad)).toBe(false);
++  });
++  it('password = awalan + PIN (>= 6 karakter, syarat Supabase Auth)', () => {
++    expect(pinToPassword('0000')).toBe(`${PIN_PASSWORD_PREFIX}0000`);
++    expect(pinToPassword('0000').length).toBeGreaterThanOrEqual(6);
++  });
++  it('email staf dari email owner (alias +staf), tidak bertumpuk', () => {
++    expect(staffEmailFrom('Budi@Gmail.com')).toBe('budi+staf@gmail.com');
++    expect(staffEmailFrom('budi+toko@gmail.com')).toBe('budi+staf@gmail.com');
++    expect(staffEmailFrom('')).toBe(''); expect(staffEmailFrom('tanpa-at')).toBe('');
++  });
++  it('peran <-> email', () => {
++    expect(emailForRole('owner', cfg)).toBe('budi@gmail.com'); expect(emailForRole('staff', cfg)).toBe('budi+staf@gmail.com'); expect(emailForRole('admin', cfg)).toBe('');
++    expect(roleForEmail('BUDI@gmail.com', cfg)).toBe('owner'); expect(roleForEmail(' budi+staf@gmail.com ', cfg)).toBe('staff');
++    expect(roleForEmail('orang@lain.com', cfg)).toBeNull(); expect(roleForEmail('', cfg)).toBeNull(); expect(roleForEmail(undefined, cfg)).toBeNull();
++  });
++  it('email disamarkan di layar', () => {
++    expect(maskEmail('agung@gmail.com')).toBe('a****@gmail.com');
++    expect(maskEmail('ab@x.com')).toBe('a**@x.com');
++    expect(maskEmail('rusak')).toBe('');
++    expect(maskEmail('agung@gmail.com')).not.toContain('gung');
++  });
++});
++
++describe('lama sesi dari pengaturan', () => {
++  it('jam -> ms, di luar batas pakai bawaan', () => {
++    expect(sessionMsFromHours(1)).toBe(3600000); expect(sessionMsFromHours(24)).toBe(24 * 3600000); expect(sessionMsFromHours(168)).toBe(168 * 3600000);
++    for (const bad of [0, 0.5, -3, 1000, 'abc', null, undefined, NaN]) expect(sessionMsFromHours(bad)).toBe(SESSION_MS);
++  });
++  it('sesi memakai masa berlaku yang disimpannya', () => {
++    const now = 1_000_000_000_000, H = 3600000;
++    const raw = makeSession('owner', now, 1 * H);
++    expect(readSession(raw, now + H)).toBe('owner'); expect(readSession(raw, now + H + 1)).toBeNull();
++    const week = makeSession('staff', now, 168 * H);
++    expect(readSession(week, now + 100 * H)).toBe('staff'); expect(readSession(week, now + 169 * H)).toBeNull();
++  });
++  it('masa berlaku janggal diabaikan (pakai 12 jam); sesi lama tanpa ttl tetap terbaca', () => {
++    const now = 1_000_000_000_000;
++    expect(readSession(JSON.stringify({ role: 'owner', at: now, ttl: 10 ** 15 }), now + SESSION_MS + 1)).toBeNull();
++    expect(readSession(JSON.stringify({ role: 'owner', at: now, ttl: 5 }), now + 60 * 1000)).toBe('owner');
++    expect(readSession(JSON.stringify({ role: 'owner', at: now }), now + SESSION_MS)).toBe('owner');
++  });
++});
++
++describe('hash PIN karyawan', () => {
++  it('PIN yang sama + garam + karyawan yang sama -> hash sama; beda salah satu -> beda', async () => {
++    const h = await hashPin('1234', 'garam', 'emp-1');
++    expect(h).toMatch(/^[0-9a-f]{64}$/);
++    expect(await hashPin('1234', 'garam', 'emp-1')).toBe(h);
++    expect(await hashPin('1235', 'garam', 'emp-1')).not.toBe(h);
++    expect(await hashPin('1234', 'garam2', 'emp-1')).not.toBe(h);
++    expect(await hashPin('1234', 'garam', 'emp-2')).not.toBe(h);
++  });
++  it('verifikasi: cocok / salah / data kosong', async () => {
++    const salt = randomSalt(); const h = await hashPin('0420', salt, 'e1');
++    expect(await verifyPinHash('0420', salt, 'e1', h)).toBe(true);
++    expect(await verifyPinHash('0421', salt, 'e1', h)).toBe(false);
++    expect(await verifyPinHash('0420', salt, 'e2', h)).toBe(false);
++    expect(await verifyPinHash('0420', null, 'e1', h)).toBe(false);
++    expect(await verifyPinHash('0420', salt, 'e1', null)).toBe(false);
++  });
++  it('hash tidak memuat PIN; garam acak berbeda tiap kali', async () => {
++    const salt = randomSalt();
++    expect(salt).toMatch(/^[0-9a-f]{32}$/); expect(randomSalt()).not.toBe(salt);
++    expect(await hashPin('7777', salt, 'e1')).not.toContain('7777');
++  });
++  it('PIN acak selalu 4 digit (termasuk berawalan nol)', () => {
++    for (let i = 0; i < 200; i++) expect(generatePin()).toMatch(/^\d{4}$/);
++  });
++});
++
+ describe('sesi', () => {
+   const now = 1_000_000_000_000;
+   it('sesi segar dibaca', () => { expect(readSession(makeSession('owner', now), now + 1000)).toBe('owner'); expect(readSession(makeSession('staff', now), now)).toBe('staff'); });
+@@ -67,9 +165,13 @@ describe('izin', () => {
+   it('staf DITOLAK untuk semua izin yang terdaftar (daftar default = owner-only)', () => { for (const p of OWNER_ONLY) expect(can('staff', p)).toBe(false); });
+   it('izin yang tidak terdaftar ditolak untuk semua (aman secara bawaan)', () => { expect(can('owner', 'izin.ngawur')).toBe(false); expect(can('staff', 'izin.ngawur')).toBe(false); });
+   it('tanpa peran / peran asing ditolak', () => { expect(can(null, 'laporan.rincianPengeluaran')).toBe(false); expect(can('admin', 'laporan.rincianPengeluaran')).toBe(false); expect(can(undefined, 'beranda.laba')).toBe(false); });
+-  it('layar: Penggajian, Manajemen Menu, Riwayat, Laporan owner-only; layar lain terbuka untuk semua yang login', () => {
+-    for (const v of ['penggajian', 'menu', 'riwayat', 'laporan']) { expect(canOpenView('staff', v)).toBe(false); expect(canOpenView('owner', v)).toBe(true); }
+-    for (const v of ['beranda', 'kasir', 'dompet', 'pelanggan', 'pengeluaran', 'karyawan', 'absensi']) { expect(canOpenView('staff', v)).toBe(true); expect(canOpenView('owner', v)).toBe(true); }
++  it('layar: Karyawan, Pengaturan, Manajemen Menu, Riwayat, Laporan owner-only; layar lain terbuka untuk semua yang login', () => {
++    for (const v of ['karyawan', 'pengaturan', 'menu', 'riwayat', 'laporan']) { expect(canOpenView('staff', v)).toBe(false); expect(canOpenView('owner', v)).toBe(true); }
++    for (const v of ['beranda', 'kasir', 'dompet', 'pelanggan', 'pengeluaran', 'absensi', 'penggajian']) { expect(canOpenView('staff', v)).toBe(true); expect(canOpenView('owner', v)).toBe(true); }
++  });
++  it('Penggajian terbuka untuk staf, tapi daftar gaji semua karyawan hanya owner (staf lewat PIN karyawan)', () => {
++    expect(canOpenView('staff', 'penggajian')).toBe(true);
++    expect(can('staff', 'penggajian.semua')).toBe(false); expect(can('owner', 'penggajian.semua')).toBe(true);
+   });
+   it('setiap layar terbatas merujuk izin yang benar-benar ada', () => { for (const perm of Object.values(VIEW_PERMISSION)) expect(PERMISSIONS[perm]).toBeDefined(); });
+   it('peran & label', () => { expect(ROLES).toEqual(['owner', 'staff']); expect(roleLabel('owner')).toBe('Owner'); expect(roleLabel('staff')).toBe('Staf'); });
+diff --git a/src/auth/authConfig.js b/src/auth/authConfig.js
+new file mode 100644
+index 0000000..159b8a8
+--- /dev/null
++++ b/src/auth/authConfig.js
+@@ -0,0 +1,24 @@
++import { staffEmailFrom } from './authLogic.js';
++
++/**
++ * Konfigurasi login Supabase Auth, dari environment (.env.local / Vercel).
++ *
++ *   VITE_AUTH_OWNER_EMAIL   email akun owner. Surel "Lupa PIN" masuk ke sini.
++ *   VITE_AUTH_STAFF_EMAIL   (opsional) email akun staf. Kalau kosong dipakai
++ *                           alias: nama+staf@domain (Gmail -> kotak surat sama).
++ *
++ * Kalau VITE_AUTH_OWNER_EMAIL kosong, aplikasi memakai MODE LAMA (PIN lokal di
++ * pins.js) supaya tidak terkunci selama transisi. Lihat docs/auth-setup.md.
++ */
++const clean = (v) => String(v ?? '').trim().toLowerCase();
++const ownerEmail = clean(import.meta.env.VITE_AUTH_OWNER_EMAIL);
++const staffEmail = clean(import.meta.env.VITE_AUTH_STAFF_EMAIL) || staffEmailFrom(ownerEmail);
++
++export const AUTH_CONFIG = { ownerEmail, staffEmail };
++export const AUTH_ENABLED = Boolean(
++  ownerEmail && staffEmail && import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
++);
++
++/** Dibaca SEKALI saat modul dimuat: halaman dibuka dari tautan "Lupa PIN" di email? */
++export const OPENED_FROM_RECOVERY_LINK =
++  typeof window !== 'undefined' && /(^|[#&?])type=recovery\b/.test(`${window.location.hash}${window.location.search}`);
+diff --git a/src/auth/authLogic.js b/src/auth/authLogic.js
+index 4170f64..1e906a7 100644
+--- a/src/auth/authLogic.js
++++ b/src/auth/authLogic.js
+@@ -5,51 +5,95 @@ import { ROLES } from './permissions.js';
+  * authLogic — aturan login. FUNGSI MURNI (waktu selalu dioper, tidak ada
+  * Date.now() tersembunyi), jadi bisa dites tanpa menunggu.
+  */
+-export const MAX_ATTEMPTS = 5;                    // PIN salah berturut-turut sebelum dikunci
+-export const LOCK_MS = 30 * 1000;                 // lama dikunci
+-export const SESSION_MS = 12 * 60 * 60 * 1000;    // sesi berlaku 12 jam
++export const MAX_ATTEMPTS = 3;                    // PIN salah berturut-turut sebelum dikunci + muncul "Lupa PIN"
++export const LOCK_MS = 15 * 60 * 1000;            // lama dikunci (bisa dipercepat lewat Lupa PIN)
++export const SESSION_MS = 12 * 60 * 60 * 1000;    // sesi berlaku 12 jam (bisa diubah owner di Pengaturan)
++const HOUR_MS = 60 * 60 * 1000;
++export const SESSION_HOURS_OPTIONS = [1, 12, 24, 168];   // pilihan di Pengaturan
+ 
+-/** Peran untuk PIN itu, atau null kalau salah. */
++/** Batas percobaan untuk PIN karyawan (lihat gaji sendiri): sama 3x, kunci 5 menit. */
++export const EMPLOYEE_ATTEMPT_RULES = { max: 3, lockMs: 5 * 60 * 1000 };
++const LOGIN_RULES = { max: MAX_ATTEMPTS, lockMs: LOCK_MS };
++
++export const isValidPin = (pin) => /^\d{4}$/.test(String(pin ?? ''));
++
++/** Peran untuk PIN itu, atau null kalau salah. Hanya dipakai di MODE LAMA (tanpa Supabase Auth). */
+ export function roleForPin(pin) {
+   const p = String(pin ?? '');
+-  if (!/^\d{4}$/.test(p)) return null;
++  if (!isValidPin(p)) return null;
+   return ROLES.find((r) => PINS[r] === p) || null;
+ }
+ 
++// ── Akun Supabase Auth ──────────────────────────────────────────────
++// Supabase Auth minta password >= 6 karakter, PIN cuma 4 digit, jadi password
++// akun = awalan tetap + PIN. Awalan ini BUKAN rahasia (ikut ke browser); yang
++// menjaga akun adalah PIN-nya dan pembatasan percobaan.
++export const PIN_PASSWORD_PREFIX = 'mamam:';
++export const pinToPassword = (pin) => `${PIN_PASSWORD_PREFIX}${pin}`;
++
++/** owner@mail.com -> owner+staf@mail.com (Gmail: masuk ke kotak surat yang sama). */
++export function staffEmailFrom(ownerEmail) {
++  const [local, domain] = String(ownerEmail || '').trim().toLowerCase().split('@');
++  if (!local || !domain) return '';
++  return `${local.split('+')[0]}+staf@${domain}`;
++}
++
++/** cfg: { ownerEmail, staffEmail } */
++export const emailForRole = (role, cfg) => (role === 'owner' ? cfg.ownerEmail : role === 'staff' ? cfg.staffEmail : '');
++export function roleForEmail(email, cfg) {
++  const e = String(email ?? '').trim().toLowerCase();
++  if (!e) return null;
++  return ROLES.find((r) => emailForRole(r, cfg) === e) || null;
++}
++
++/** a***@gmail.com — supaya layar login tidak membeberkan email utuh. */
++export function maskEmail(email) {
++  const [local = '', domain = ''] = String(email || '').split('@');
++  if (!local || !domain) return '';
++  return `${local[0]}${'*'.repeat(Math.max(2, Math.min(local.length - 1, 5)))}@${domain}`;
++}
++
+ // ── Batas percobaan ─────────────────────────────────────────────────
+ export const initialAttempts = () => ({ fails: 0, lockedUntil: 0 });
+ export const isLocked = (st, now) => st.lockedUntil > now;
+ export const secondsLeft = (st, now) => Math.max(0, Math.ceil((st.lockedUntil - now) / 1000));
+-export const attemptsLeft = (st) => Math.max(0, MAX_ATTEMPTS - st.fails);
++export const attemptsLeft = (st, rules = LOGIN_RULES) => Math.max(0, rules.max - st.fails);
+ 
+ /** Keadaan baru setelah satu percobaan. Selama terkunci, percobaan diabaikan. */
+-export function recordAttempt(st, ok, now) {
++export function recordAttempt(st, ok, now, rules = LOGIN_RULES) {
+   if (isLocked(st, now)) return st;
+   if (ok) return initialAttempts();
+   const fails = st.fails + 1;
+-  return fails >= MAX_ATTEMPTS ? { fails: 0, lockedUntil: now + LOCK_MS } : { fails, lockedUntil: 0 };
++  return fails >= rules.max ? { fails: 0, lockedUntil: now + rules.lockMs } : { fails, lockedUntil: 0 };
+ }
+ 
+-export function readAttempts(raw, now) {
++export function readAttempts(raw, now, rules = LOGIN_RULES) {
+   try {
+     const s = JSON.parse(raw);
+     if (!s || !Number.isInteger(s.fails) || !Number.isFinite(s.lockedUntil)) return initialAttempts();
+-    if (s.fails < 0 || s.fails >= MAX_ATTEMPTS) return initialAttempts();
++    if (s.fails < 0 || s.fails >= rules.max) return initialAttempts();
+     // kunci yang janggal panjang (jam perangkat diutak-atik) dibuang
+-    if (s.lockedUntil > now + LOCK_MS * 2) return initialAttempts();
++    if (s.lockedUntil > now + rules.lockMs * 2) return initialAttempts();
+     return { fails: s.fails, lockedUntil: s.lockedUntil };
+   } catch { return initialAttempts(); }
+ }
+ 
+ // ── Sesi ────────────────────────────────────────────────────────────
+-export const makeSession = (role, now) => JSON.stringify({ role, at: now });
++/** Lama sesi dari pengaturan (jam) -> ms, dibatasi 1 jam..30 hari; selain itu pakai bawaan. */
++export function sessionMsFromHours(hours) {
++  const h = Number(hours);
++  return Number.isFinite(h) && h >= 1 && h <= 24 * 30 ? Math.round(h * HOUR_MS) : SESSION_MS;
++}
++
++export const makeSession = (role, now, ttlMs = SESSION_MS) => JSON.stringify({ role, at: now, ttl: ttlMs });
+ 
+ /** Peran dari sesi tersimpan, atau null (rusak / peran asing / kedaluwarsa / dari masa depan). */
+ export function readSession(raw, now) {
+   try {
+     const s = JSON.parse(raw);
+     if (!s || !ROLES.includes(s.role) || !Number.isFinite(s.at)) return null;
+-    if (now - s.at > SESSION_MS) return null;
++    const ttl = Number.isFinite(s.ttl) && s.ttl >= HOUR_MS && s.ttl <= 30 * 24 * HOUR_MS ? s.ttl : SESSION_MS;
++    if (now - s.at > ttl) return null;
+     if (s.at > now + 60 * 1000) return null;
+     return s.role;
+   } catch { return null; }
+diff --git a/src/auth/permissions.js b/src/auth/permissions.js
+index d820884..14dc971 100644
+--- a/src/auth/permissions.js
++++ b/src/auth/permissions.js
+@@ -6,11 +6,17 @@
+  * Prinsip: semua orang bisa membuka aplikasi dan bekerja (kasir, dompet,
+  * pelanggan, absensi, catat pengeluaran). Owner-only hanya hal yang
+  * menyangkut laba, gaji, upah, HPP, dan aksi yang menghapus/mengubah uang.
++ *
++ * Penggajian: layarnya terbuka untuk staf, tapi isinya berbeda. Staf melihat
++ * kunci PIN karyawan, lalu HANYA gaji karyawan yang PIN-nya dimasukkan
++ * (lihat features/payroll/MyPayroll.jsx). Daftar semua gaji = 'penggajian.semua'.
+  */
+ export const ROLES = ['owner', 'staff'];
+ 
+ export const PERMISSIONS = {
+-  'screen.penggajian': ['owner'],        // layar Penggajian (gaji semua karyawan)
++  'screen.karyawan': ['owner'],          // layar Karyawan (data diri, upah) — disembunyikan dari staf
++  'screen.pengaturan': ['owner'],        // layar Pengaturan (login, PIN, PIN karyawan)
++  'penggajian.semua': ['owner'],         // Penggajian penuh (semua karyawan, edit). Staf hanya lihat gaji sendiri lewat PIN karyawan
+   'screen.menu': ['owner'],              // layar Manajemen Menu (ubah harga & HPP)
+   'screen.riwayat': ['owner'],           // layar Riwayat (daftar semua transaksi)
+   'screen.laporan': ['owner'],           // layar Laporan (Laba Rugi, Rincian Pengeluaran)
+@@ -26,7 +32,8 @@ export const PERMISSIONS = {
+ 
+ /** Layar yang butuh izin tertentu untuk dibuka (id layar -> izin). */
+ export const VIEW_PERMISSION = {
+-  penggajian: 'screen.penggajian',
++  karyawan: 'screen.karyawan',
++  pengaturan: 'screen.pengaturan',
+   menu: 'screen.menu',
+   riwayat: 'screen.riwayat',
+   laporan: 'screen.laporan',
+diff --git a/src/auth/pinHash.js b/src/auth/pinHash.js
+new file mode 100644
+index 0000000..4f6e2bb
+--- /dev/null
++++ b/src/auth/pinHash.js
+@@ -0,0 +1,25 @@
++/**
++ * pinHash — PIN karyawan disimpan sebagai hash SHA-256 bergaram (bukan teks
++ * asli). Ini hanya supaya PIN tidak terbaca langsung di tabel; PIN 4 digit
++ * tetap bisa ditebak habis (10.000 kemungkinan) oleh orang yang bisa membaca
++ * tabel, jadi ini PAGAR TAMPILAN, bukan pengaman data (keamanan "Longgar").
++ */
++const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
++
++export const randomSalt = () => toHex(globalThis.crypto.getRandomValues(new Uint8Array(16)));
++
++/** 4 digit acak (bisa berawalan nol). */
++export function generatePin() {
++  const n = globalThis.crypto.getRandomValues(new Uint32Array(1))[0] % 10000;
++  return String(n).padStart(4, '0');
++}
++
++export async function hashPin(pin, salt, employeeId) {
++  const data = new TextEncoder().encode(`${salt}:${employeeId}:${pin}`);
++  return toHex(await globalThis.crypto.subtle.digest('SHA-256', data));
++}
++
++export async function verifyPinHash(pin, salt, employeeId, expectedHash) {
++  if (!salt || !expectedHash) return false;
++  return (await hashPin(pin, salt, employeeId)) === expectedHash;
++}
+diff --git a/src/features/payroll/MyPayroll.jsx b/src/features/payroll/MyPayroll.jsx
+new file mode 100644
+index 0000000..892223b
+--- /dev/null
++++ b/src/features/payroll/MyPayroll.jsx
+@@ -0,0 +1,256 @@
++import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
++import { ChevronLeft, ChevronRight, Lock, LockKeyhole, UserRound, ArrowLeft, RefreshCw } from 'lucide-react';
++import { Card, Button, Badge, EmptyState, SegmentedControl } from '../../components/ui';
++import { useAppContext } from '../../context/AppContext';
++import { usePayrollData } from '../../hook/usePayrollData';
++import { useAppSettings } from '../../hook/useAppSettings';
++import { useEmployeePins } from '../../hook/useEmployeePins';
++import PinPad from '../../auth/PinPad';
++import { EMPLOYEE_ATTEMPT_RULES, readAttempts, recordAttempt, isLocked, secondsLeft, attemptsLeft } from '../../auth/authLogic';
++import { weekPeriodForDate, shiftWeek, monthPeriod, formatIsoDate } from './payrollEngine';
++import { toLocalDateString } from '../../utils/formatters';
++
++/**
++ * MyPayroll — Penggajian untuk STAF. Karyawan memilih namanya, memasukkan PIN,
++ * lalu melihat gajinya sendiri (mingguan / bulanan), hanya-lihat.
++ *
++ * Catatan keamanan (level "Longgar"): ini pagar tampilan antar-karyawan di
++ * perangkat toko. Data gaji semua orang tetap bisa dibaca lewat API oleh siapa
++ * pun yang punya akses database (lihat docs/auth-setup.md).
++ */
++
++const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
++const MON_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
++const fmtDay = (iso) => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
++const fmtDayYear = (iso) => `${fmtDay(iso)} ${iso.slice(0, 4)}`;
++const fmtHM = (min) => `${Math.floor(min / 60)}j ${String(min % 60).padStart(2, '0')}m`;
++const fmtLock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
++const shiftMonth = (key, delta) => formatIsoDate(new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1 + delta, 1))).slice(0, 7);
++
++const STATUS_LABEL = { hadir: 'Hadir', libur: 'Libur', belumAbsen: 'Belum absen', belumPulang: 'Belum pulang', perluKlarifikasi: 'Perlu klarifikasi' };
++const STATUS_VARIANT = { hadir: 'success', libur: 'neutral', belumAbsen: 'neutral', belumPulang: 'warning', perluKlarifikasi: 'danger' };
++
++const ATTEMPTS_KEY = 'mamam-darurat-emp-attempts';
++const readMap = () => { try { return JSON.parse(window.localStorage.getItem(ATTEMPTS_KEY)) || {}; } catch { return {}; } };
++const writeMap = (m) => { try { window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(m)); } catch { /* abaikan */ } };
++const attemptsFor = (id) => readAttempts(JSON.stringify(readMap()[id]), Date.now(), EMPLOYEE_ATTEMPT_RULES);
++
++const ROOT = 'p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out';
++
++export default function MyPayroll() {
++  const { settings, loading: settingsLoading } = useAppSettings();
++  const dir = useEmployeePins();
++  const [who, setWho] = useState(null);             // { id, name } karyawan yang sudah membuka kunci
++
++  if (settingsLoading || dir.loading) return <div className={ROOT}><p className="text-center text-sm text-slate-400 py-10">Memuat...</p></div>;
++
++  if (dir.error) {
++    return (
++      <div className={ROOT}><Card className="text-center space-y-2 max-w-3xl">
++        <p className="text-sm font-semibold text-red-500">Gagal memuat</p><p className="text-xs text-slate-400">{dir.error}</p>
++        <Button onClick={dir.reload} icon={<RefreshCw className="w-4 h-4" />}>Coba Lagi</Button>
++      </Card></div>
++    );
++  }
++
++  if (!settings.employee_pin_enabled) {
++    return (
++      <div className={ROOT}><div className="max-w-3xl w-full" data-testid="pin-dimatikan">
++        <EmptyState icon={<Lock className="w-12 h-12" />} title="Melihat gaji lewat PIN sedang dimatikan. Hubungi owner." />
++      </div></div>
++    );
++  }
++
++  if (!who) return <PinGate people={dir.people} verifyPin={dir.verifyPin} onUnlock={setWho} />;
++  return <MySalary employee={who} minutes={settings.employee_pin_view_minutes} onLock={() => setWho(null)} />;
++}
++
++// ── 1. Pilih nama + PIN ─────────────────────────────────────────────
++function PinGate({ people, verifyPin, onUnlock }) {
++  const [picked, setPicked] = useState(null);
++  const [message, setMessage] = useState('');
++  const [busy, setBusy] = useState(false);
++  const [att, setAtt] = useState(null);
++  const [now, setNow] = useState(Date.now());
++
++  const withPin = people.filter((p) => p.hasPin);
++  const locked = att ? isLocked(att, now) : false;
++
++  useEffect(() => {
++    if (!locked) return undefined;
++    const id = setInterval(() => setNow(Date.now()), 500);
++    return () => clearInterval(id);
++  }, [locked]);
++
++  const pick = (p) => { setPicked(p); setMessage(''); setAtt(attemptsFor(p.id)); setNow(Date.now()); };
++
++  const onComplete = async (pin, reset) => {
++    const t = Date.now();
++    const cur = attemptsFor(picked.id);
++    if (isLocked(cur, t)) { setAtt(cur); setNow(t); reset(); return; }
++    setBusy(true);
++    let ok = false;
++    try { ok = await verifyPin(picked.id, pin); } catch (e) { setBusy(false); setMessage(e.message); reset(); return; }
++    setBusy(false);
++    const next = recordAttempt(cur, ok, Date.now(), EMPLOYEE_ATTEMPT_RULES);
++    writeMap({ ...readMap(), [picked.id]: next });
++    setAtt(next); setNow(Date.now()); reset();
++    if (ok) { onUnlock({ id: picked.id, name: picked.name }); return; }
++    setMessage(isLocked(next, Date.now()) ? '' : `PIN salah. Sisa percobaan ${attemptsLeft(next, EMPLOYEE_ATTEMPT_RULES)}.`);
++  };
++
++  if (!picked) {
++    return (
++      <div className={ROOT}>
++        <div className="max-w-3xl w-full space-y-4" data-testid="pin-gate">
++          <div className="text-center pt-2">
++            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center"><LockKeyhole className="w-6 h-6 text-slate-500" /></div>
++            <h2 className="font-heading font-bold text-lg text-slate-800 dark:text-slate-100">Gaji Saya</h2>
++            <p className="text-sm text-slate-500 dark:text-slate-400">Pilih namamu, lalu masukkan PIN.</p>
++          </div>
++          {withPin.length === 0 ? (
++            <EmptyState icon={<UserRound className="w-12 h-12" />} title="Belum ada karyawan yang punya PIN. Minta owner mengatur di Pengaturan." />
++          ) : withPin.map((p) => (
++            <button key={p.id} onClick={() => pick(p)} data-testid={`pilih-${p.name}`}
++              className="w-full text-left bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 font-heading font-bold text-slate-800 dark:text-slate-100 active:scale-[0.99] transition-all">{p.name}</button>
++          ))}
++        </div>
++      </div>
++    );
++  }
++
++  const shown = locked ? `PIN salah ${EMPLOYEE_ATTEMPT_RULES.max}x. Dikunci, coba lagi dalam ${fmtLock(secondsLeft(att, now))}. Atau minta owner mengganti PIN.` : message;
++  return (
++    <div className={ROOT}>
++      <div className="max-w-3xl w-full space-y-6" data-testid="pin-gate-pad">
++        <button onClick={() => setPicked(null)} className="flex items-center gap-1 text-xs font-bold text-slate-500"><ArrowLeft className="w-4 h-4" /> Ganti nama</button>
++        <div className="text-center">
++          <h2 className="font-heading font-bold text-lg text-slate-800 dark:text-slate-100">{picked.name}</h2>
++          <p className="text-sm text-slate-500 dark:text-slate-400">Masukkan PIN</p>
++        </div>
++        <PinPad key={picked.id} onComplete={onComplete} disabled={locked || busy} />
++        <p role="alert" data-testid="pin-gate-message" className="min-h-5 text-sm font-semibold text-red-500 text-center">{shown}</p>
++      </div>
++    </div>
++  );
++}
++
++// ── 2. Gaji sendiri (hanya-lihat) ───────────────────────────────────
++function MySalary({ employee, minutes, onLock }) {
++  const { formatRupiah } = useAppContext();
++  const today = toLocalDateString();
++  const [mode, setMode] = useState('minggu');
++  const [anchor, setAnchor] = useState(today);
++  const [month, setMonth] = useState(today.slice(0, 7));
++  const period = useMemo(() => (mode === 'minggu' ? weekPeriodForDate(anchor) : monthPeriod(month)), [mode, anchor, month]);
++  const { loading, error, status, attendance, results, reload, isLocked: periodClosed } = usePayrollData({ period });
++
++  // Kunci lagi otomatis kalau tidak disentuh selama `minutes` menit.
++  const lastTouch = useRef(Date.now());
++  const touch = useCallback(() => { lastTouch.current = Date.now(); }, []);
++  useEffect(() => {
++    const id = setInterval(() => { if (Date.now() - lastTouch.current >= minutes * 60 * 1000) onLock(); }, 5000);
++    return () => clearInterval(id);
++  }, [minutes, onLock]);
++
++  const goPrev = () => (mode === 'minggu' ? setAnchor(shiftWeek(period, -7).start) : setMonth(shiftMonth(month, -1)));
++  const goNext = () => (mode === 'minggu' ? setAnchor(shiftWeek(period, 7).start) : setMonth(shiftMonth(month, 1)));
++  const goToday = () => { setAnchor(today); setMonth(today.slice(0, 7)); };
++  const label = mode === 'minggu' ? `${fmtDay(period.start)} – ${fmtDayYear(period.end)}` : `${MON_FULL[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
++
++  const mine = results.find((r) => r.employee.id === employee.id) || null;
++  const ready = status === 'ready' || status === 'closed';
++
++  return (
++    <div className={ROOT} onPointerDown={touch} onKeyDown={touch} onScroll={touch}>
++      <div className="max-w-3xl w-full space-y-4 pb-10" data-testid="my-salary">
++        <Card className="flex items-center justify-between gap-2">
++          <div className="min-w-0">
++            <p className="text-xs text-slate-400">Gaji saya</p>
++            <p className="font-heading font-bold text-slate-800 dark:text-slate-100 truncate" data-testid="my-name">{employee.name}</p>
++          </div>
++          <Button size="sm" variant="secondary" icon={<Lock className="w-4 h-4" />} onClick={onLock} data-testid="kunci-lagi">Kunci</Button>
++        </Card>
++
++        <Card className="space-y-3">
++          <SegmentedControl value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan' }, { value: 'bulan', label: 'Bulanan' }]} />
++          <div className="flex items-center justify-between gap-2">
++            <button onClick={goPrev} aria-label="Sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
++            <div className="text-center min-w-0">
++              <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm truncate" data-testid="period-label">{label}</p>
++              <button onClick={goToday} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
++            </div>
++            <button onClick={goNext} aria-label="Berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
++          </div>
++        </Card>
++
++        {loading && <p className="text-center text-sm text-slate-400 py-8">Memuat gaji...</p>}
++        {error && (
++          <Card className="text-center space-y-2"><p className="text-sm font-semibold text-red-500">Gagal memuat data</p><p className="text-xs text-slate-400">{error}</p>
++            <Button onClick={reload} icon={<RefreshCw className="w-4 h-4" />}>Coba Lagi</Button></Card>
++        )}
++        {status === 'not-configured' && <Card className="text-center"><p className="text-sm text-slate-500">Data absensi belum tersambung. Hubungi owner.</p></Card>}
++        {status === 'error' && (
++          <Card className="text-center space-y-2"><p className="text-sm font-semibold text-red-500">Absensi gagal dibaca</p><p className="text-xs text-slate-400">{attendance.error}</p>
++            <Button onClick={reload} icon={<RefreshCw className="w-4 h-4" />}>Coba Lagi</Button></Card>
++        )}
++
++        {ready && !mine && <EmptyState icon={<UserRound className="w-12 h-12" />} title="Tidak ada data gaji untuk periode ini." />}
++
++        {ready && mine && (() => {
++          const p = mine.payroll, a = p.attendance;
++          return (
++            <>
++              {periodClosed && <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ini sudah ditutup owner, angkanya final.</p>}
++              {!periodClosed && <p className="text-xs text-slate-400">Periode berjalan: angka bisa berubah sampai owner menutup periode.</p>}
++
++              <Card className="space-y-1.5 text-sm" data-testid="my-ringkasan">
++                <Row k={`Upah (${fmtHM(a.totalWorkedMinutes)})`} v={a.wagePay} f={formatRupiah} />
++                <Row k={`Lembur (${a.totalOvertimeMinutes} mnt)`} v={a.overtimePay} f={formatRupiah} />
++                <Row k={`Bonus Full Time (${a.fullTimeDays} hari)`} v={a.fullTimeBonusPay} f={formatRupiah} />
++                <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
++                <Row k="Potongan" v={-p.deductionsTotal} f={formatRupiah} />
++                {period.monthKey && <Row k="Saldo awal" v={-p.openingBalance} f={formatRupiah} />}
++                <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span data-testid="my-net" className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
++              </Card>
++
++              {mine.needsClarification.length > 0 && (
++                <p className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-xl p-3">{mine.needsClarification.length} hari belum dibayar karena absennya perlu diklarifikasi owner ({mine.needsClarification.map((d) => fmtDay(d.date)).join(', ')}).</p>
++              )}
++
++              <Card className="space-y-2">
++                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Rincian Harian</p>
++                {a.dayRows.length === 0 ? <p className="text-xs text-slate-400">Tidak ada absensi pada periode ini.</p> : (
++                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
++                    {a.dayRows.map((d) => (
++                      <div key={d.date} className="py-2 flex justify-between items-center gap-2 text-xs" data-testid="my-day-row">
++                        <div className="min-w-0"><span className="font-bold text-slate-700 dark:text-slate-200">{fmtDay(d.date)}</span> <Badge size="sm" variant={STATUS_VARIANT[d.status]}>{STATUS_LABEL[d.status]}</Badge></div>
++                        {d.status === 'hadir' && <div className="text-right text-slate-500 dark:text-slate-400 shrink-0">{fmtHM(d.workedMinutes)}{d.overtimeMinutes > 0 && ` · lembur ${d.overtimeMinutes}m`}{d.bolongMinutes > 0 && ` · bolong ${d.bolongMinutes}m`}{d.fullTimeBonus && ' · FT'}</div>}
++                      </div>
++                    ))}
++                  </div>
++                )}
++              </Card>
++
++              {(p.additions.length > 0 || p.deductions.length > 0) && (
++                <Card className="space-y-2">
++                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Tambahan &amp; Potongan</p>
++                  {[...p.additions.map((x) => ['tambahan', x]), ...p.deductions.map((x) => ['potongan', x])].map(([kind, it]) => (
++                    <div key={kind + it.id} className="flex justify-between items-center gap-2 bg-slate-50 dark:bg-slate-950 rounded-xl p-2.5 text-xs">
++                      <div className="min-w-0"><Badge size="sm" variant={kind === 'tambahan' ? 'success' : 'danger'}>{it.category}</Badge> <span className="font-semibold">{it.label}</span> <span className="text-slate-400">{fmtDay(it.date)}</span></div>
++                      <span className={`font-bold shrink-0 ${kind === 'tambahan' ? 'text-emerald-600' : 'text-red-500'}`}>{kind === 'tambahan' ? '+' : '-'}{formatRupiah(it.amount)}</span>
++                    </div>
++                  ))}
++                </Card>
++              )}
++            </>
++          );
++        })()}
++      </div>
++    </div>
++  );
++}
++
++function Row({ k, v, f }) {
++  return <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400">{k}</span><span className="font-bold text-slate-800 dark:text-slate-100 shrink-0">{f(v)}</span></div>;
++}
+diff --git a/src/features/payroll/PayrollView.jsx b/src/features/payroll/PayrollView.jsx
+index 7be7b6b..4a1c6b0 100644
+--- a/src/features/payroll/PayrollView.jsx
++++ b/src/features/payroll/PayrollView.jsx
+@@ -8,6 +8,8 @@ import { toLocalDateString } from '../../utils/formatters';
+ import AbsensiSetupCard from './AbsensiSetupCard';
+ import AttendanceEditSheet from '../attendance/AttendanceEditSheet';
+ import { summarizeDay } from '../attendance/dayRules';
++import { useAuth } from '../../auth/AuthContext';
++import MyPayroll from './MyPayroll';
+ 
+ /**
+  * PayrollView — Penggajian. Semua angka dihitung payrollEngine (aturan sama
+@@ -33,7 +35,16 @@ const shiftMonth = (key, delta) => {
+   return formatIsoDate(d).slice(0, 7);
+ };
+ 
++/**
++ * Penggajian. Owner: semua karyawan + edit. Staf: layar PIN karyawan, lalu hanya
++ * gaji sendiri (MyPayroll). Izin 'penggajian.semua' yang menentukan.
++ */
+ export default function PayrollView() {
++  const { can } = useAuth();
++  return can('penggajian.semua') ? <OwnerPayroll /> : <MyPayroll />;
++}
++
++function OwnerPayroll() {
+   const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
+ 
+   const today = toLocalDateString();
+diff --git a/src/features/settings/EmployeePinSettings.jsx b/src/features/settings/EmployeePinSettings.jsx
+new file mode 100644
+index 0000000..f8e10b6
+--- /dev/null
++++ b/src/features/settings/EmployeePinSettings.jsx
+@@ -0,0 +1,82 @@
++import { useState } from 'react';
++import { UserCheck, Shuffle, RefreshCw } from 'lucide-react';
++import { Card, Badge, Button, Input, Select, Modal, SegmentedControl, EmptyState } from '../../components/ui';
++import { useAppContext } from '../../context/AppContext';
++import { useEmployeePins } from '../../hook/useEmployeePins';
++import { VIEW_MINUTES_CHOICES } from '../../hook/useAppSettings';
++import { generatePin } from '../../auth/pinHash';
++
++/**
++ * Pengaturan PIN karyawan: staf yang membuka Penggajian memilih nama karyawan lalu
++ * memasukkan PIN-nya untuk melihat gaji sendiri (mingguan/bulanan).
++ */
++export default function EmployeePinSettings({ settings, saveSetting }) {
++  const { triggerAlert, triggerConfirm } = useAppContext();
++  const { people, loading, error, reload, setPin, clearPin } = useEmployeePins();
++  const [editing, setEditing] = useState(null);     // karyawan yang PIN-nya sedang diatur
++
++  const guard = async (fn) => { try { await fn(); } catch (e) { triggerAlert(e.message); } };
++
++  return (
++    <Card className="space-y-4" data-testid="employee-pin-settings">
++      <p className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><UserCheck className="w-4 h-4 text-accent-600" /> PIN Karyawan</p>
++      <p className="text-xs text-slate-500 dark:text-slate-400">Saat login sebagai staf, menu Penggajian meminta karyawan memilih namanya dan memasukkan PIN, lalu hanya gaji dia sendiri yang tampil. Menu Karyawan tidak muncul untuk staf.</p>
++
++      <SegmentedControl value={settings.employee_pin_enabled ? 'on' : 'off'}
++        onChange={(v) => guard(() => saveSetting('employee_pin_enabled', v === 'on'))}
++        options={[{ value: 'on', label: 'Aktif', tone: 'green' }, { value: 'off', label: 'Mati', tone: 'red' }]} />
++
++      <Select label="Tutup otomatis jika tidak disentuh" value={String(settings.employee_pin_view_minutes)}
++        onChange={(e) => guard(() => saveSetting('employee_pin_view_minutes', Number(e.target.value)))}>
++        {VIEW_MINUTES_CHOICES.map((m) => <option key={m} value={m}>{m} menit</option>)}
++      </Select>
++
++      <div className="space-y-2">
++        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">PIN per karyawan</p>
++        {loading && <p className="text-sm text-slate-400 py-3 text-center">Memuat...</p>}
++        {error && (
++          <div className="text-center space-y-2 py-2">
++            <p className="text-xs text-red-500">{error}</p>
++            <Button size="sm" onClick={reload} icon={<RefreshCw className="w-4 h-4" />}>Coba Lagi</Button>
++          </div>
++        )}
++        {!loading && !error && people.length === 0 && <EmptyState title="Belum ada karyawan aktif." />}
++        {people.map((p) => (
++          <div key={p.id} className="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-950 rounded-xl p-3" data-testid={`pin-row-${p.name}`}>
++            <div className="min-w-0">
++              <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{p.name}</p>
++              <Badge size="sm" variant={p.hasPin ? 'success' : 'neutral'}>{p.hasPin ? 'PIN sudah diatur' : 'Belum ada PIN'}</Badge>
++            </div>
++            <Button size="sm" variant="secondary" onClick={() => setEditing(p)} data-testid={`atur-pin-${p.name}`}>{p.hasPin ? 'Ubah PIN' : 'Atur PIN'}</Button>
++          </div>
++        ))}
++      </div>
++
++      {editing && (
++        <PinEditSheet person={editing} onClose={() => setEditing(null)}
++          onSave={(pin) => guard(async () => { await setPin(editing.id, pin); setEditing(null); triggerAlert(`PIN ${editing.name} disimpan. Beri tahu karyawannya.`); })}
++          onClear={() => triggerConfirm(`Hapus PIN ${editing.name}? Dia tidak bisa lagi melihat gajinya di mode staf sampai PIN baru dibuat.`,
++            () => guard(async () => { await clearPin(editing.id); setEditing(null); }))} />
++      )}
++    </Card>
++  );
++}
++
++function PinEditSheet({ person, onClose, onSave, onClear }) {
++  const [pin, setPin] = useState('');
++  const [busy, setBusy] = useState(false);
++  const ok = /^\d{4}$/.test(pin);
++  const save = async () => { setBusy(true); try { await onSave(pin); } finally { setBusy(false); } };
++  return (
++    <Modal isOpen onClose={onClose} sheet size="md" maxHeight title={`PIN ${person.name}`}>
++      <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]" data-testid="pin-edit-sheet">
++        <Input label="PIN baru (4 angka)" inputMode="numeric" maxLength={4} autoComplete="off" placeholder="0000" value={pin} data-testid="pin-input"
++          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
++          hint="PIN terlihat di layar ini supaya bisa kamu sampaikan ke karyawan. Setelah disimpan, PIN tidak bisa dilihat lagi (hanya bisa diganti)." />
++        <Button variant="secondary" size="full" icon={<Shuffle className="w-4 h-4" />} onClick={() => setPin(generatePin())} data-testid="pin-acak">Buat PIN acak</Button>
++        <Button size="full" onClick={save} disabled={!ok || busy} data-testid="pin-simpan">{busy ? 'Menyimpan...' : 'Simpan PIN'}</Button>
++        {person.hasPin && <Button size="full" variant="ghost-danger" onClick={onClear}>Hapus PIN</Button>}
++      </div>
++    </Modal>
++  );
++}
+diff --git a/src/features/settings/LoginSettings.jsx b/src/features/settings/LoginSettings.jsx
+new file mode 100644
+index 0000000..c96b1db
+--- /dev/null
++++ b/src/features/settings/LoginSettings.jsx
+@@ -0,0 +1,88 @@
++import { useState } from 'react';
++import { ShieldCheck, KeyRound, Mail } from 'lucide-react';
++import { Card, Badge, Button, Select, Modal } from '../../components/ui';
++import { useAuth } from '../../auth/AuthContext';
++import PinPad from '../../auth/PinPad';
++import { useAppContext } from '../../context/AppContext';
++import { SESSION_HOURS_CHOICES } from '../../hook/useAppSettings';
++import { MAX_ATTEMPTS } from '../../auth/authLogic';
++
++/** Pengaturan login: status Supabase Auth, ganti PIN owner, reset PIN staf, lama sesi. */
++export default function LoginSettings({ settings, saveSetting }) {
++  const { authEnabled, ownerEmailMasked, staffEmailMasked, requestPinReset } = useAuth();
++  const { triggerAlert, triggerConfirm } = useAppContext();
++  const [pinSheet, setPinSheet] = useState(false);
++
++  const onSession = async (e) => {
++    try { await saveSetting('session_hours', Number(e.target.value)); } catch (err) { triggerAlert(err.message); }
++  };
++
++  const resetStaff = () => triggerConfirm(
++    `Kirim link reset PIN Staf ke email ${staffEmailMasked}? Saat link dibuka, kamu keluar sementara untuk membuat PIN staf baru (harus beda dari PIN owner), lalu masuk lagi dengan PIN owner.`,
++    async () => {
++      const r = await requestPinReset('staff');
++      triggerAlert(r.ok ? `Link reset terkirim ke ${r.sentTo}. Buka link itu di browser ini.` : r.message);
++    },
++  );
++
++  return (
++    <Card className="space-y-4" data-testid="login-settings">
++      <div className="flex items-center justify-between gap-2">
++        <p className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-accent-600" /> Login</p>
++        <span data-testid="auth-mode"><Badge variant={authEnabled ? 'success' : 'warning'}>{authEnabled ? 'Supabase Auth aktif' : 'Mode lama (PIN lokal)'}</Badge></span>
++      </div>
++
++      {!authEnabled && (
++        <p className="text-xs text-slate-500 dark:text-slate-400">
++          Login masih memakai PIN lokal di <code>src/auth/pins.js</code>. Untuk memakai Supabase Auth, isi <code>VITE_AUTH_OWNER_EMAIL</code> lalu buat akunnya (langkah di <code>docs/auth-setup.md</code>).
++        </p>
++      )}
++
++      <div className="space-y-1.5 text-sm">
++        <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400">Peran login</span><span className="font-bold text-slate-800 dark:text-slate-100">Owner &amp; Staf</span></div>
++        {authEnabled && <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400 flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> Email pemulihan</span><span className="font-bold text-slate-800 dark:text-slate-100" data-testid="owner-email">{ownerEmailMasked}</span></div>}
++        <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400">Batas percobaan</span><span className="font-bold text-slate-800 dark:text-slate-100">{MAX_ATTEMPTS}x salah, dikunci 15 menit</span></div>
++      </div>
++
++      <Select label="Lama sesi login" value={String(settings.session_hours)} onChange={onSession} hint="Berlaku untuk login berikutnya.">
++        {SESSION_HOURS_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
++        {!SESSION_HOURS_CHOICES.some((c) => c.value === settings.session_hours) && <option value={settings.session_hours}>{settings.session_hours} jam</option>}
++      </Select>
++
++      <div className="grid grid-cols-2 gap-2">
++        <Button variant="secondary" icon={<KeyRound className="w-4 h-4" />} onClick={() => setPinSheet(true)} disabled={!authEnabled} data-testid="ganti-pin-owner">Ganti PIN Owner</Button>
++        <Button variant="secondary" onClick={resetStaff} disabled={!authEnabled} data-testid="reset-pin-staf">Reset PIN Staf</Button>
++      </div>
++
++      {pinSheet && <ChangePinSheet onClose={() => setPinSheet(false)} />}
++    </Card>
++  );
++}
++
++function ChangePinSheet({ onClose }) {
++  const { changeOwnPin } = useAuth();
++  const { triggerAlert } = useAppContext();
++  const [first, setFirst] = useState(null);
++  const [message, setMessage] = useState('');
++  const [busy, setBusy] = useState(false);
++
++  const onComplete = async (pin, reset) => {
++    if (!first) { setFirst(pin); setMessage(''); reset(); return; }
++    if (pin !== first) { setFirst(null); setMessage('PIN tidak sama. Ulangi dari awal.'); reset(); return; }
++    setBusy(true);
++    const r = await changeOwnPin(pin);
++    setBusy(false);
++    if (r.ok) { onClose(); triggerAlert('PIN owner diganti. Pakai PIN baru saat login berikutnya.'); return; }
++    setFirst(null); setMessage(r.message); reset();
++  };
++
++  return (
++    <Modal isOpen onClose={onClose} sheet size="md" maxHeight title="Ganti PIN Owner">
++      <div className="p-5 pt-2 space-y-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]" data-testid="ganti-pin-sheet">
++        <p className="text-sm text-slate-500 dark:text-slate-400 text-center" data-testid="ganti-pin-step">{first ? 'Ketik ulang PIN baru' : 'Masukkan 4 angka PIN baru'}</p>
++        <PinPad key={first ? 'konfirmasi' : 'baru'} onComplete={onComplete} disabled={busy} />
++        <p role="alert" className="h-5 text-sm font-semibold text-red-500 text-center">{message}</p>
++      </div>
++    </Modal>
++  );
++}
+diff --git a/src/features/settings/SettingsView.jsx b/src/features/settings/SettingsView.jsx
+new file mode 100644
+index 0000000..8b4c564
+--- /dev/null
++++ b/src/features/settings/SettingsView.jsx
+@@ -0,0 +1,25 @@
++import { AlertTriangle } from 'lucide-react';
++import { Card } from '../../components/ui';
++import { useAppSettings } from '../../hook/useAppSettings';
++import LoginSettings from './LoginSettings';
++import EmployeePinSettings from './EmployeePinSettings';
++
++/** Pengaturan (khusus owner): login, PIN, dan akses gaji karyawan lewat PIN. */
++export default function SettingsView() {
++  const { settings, loading, error, save } = useAppSettings();
++
++  return (
++    <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
++      <div className="max-w-3xl w-full space-y-4 pb-10">
++        {error && (
++          <Card className="border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5" data-testid="settings-error">
++            <p className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
++              Pengaturan belum bisa dibaca/disimpan ({error}). Jalankan migrasi 008 di Supabase (supabase/migrations/008_auth_settings.sql), lalu muat ulang.</p>
++          </Card>
++        )}
++        <LoginSettings settings={settings} loading={loading} saveSetting={save} />
++        <EmployeePinSettings settings={settings} saveSetting={save} />
++      </div>
++    </div>
++  );
++}
+diff --git a/src/hook/useAppSettings.js b/src/hook/useAppSettings.js
+new file mode 100644
+index 0000000..d08e1d2
+--- /dev/null
++++ b/src/hook/useAppSettings.js
+@@ -0,0 +1,46 @@
++import { useState, useEffect, useCallback } from 'react';
++import { supabase } from '../lib/supabase';
++
++/**
++ * useAppSettings — pengaturan aplikasi (tabel app_settings, satu baris per kunci).
++ * Kalau tabel belum dibuat (migrasi 008 belum dijalankan) atau gagal dibaca,
++ * nilai bawaan dipakai dan `error` terisi supaya UI bisa memberi tahu.
++ */
++export const SETTING_DEFAULTS = {
++  session_hours: 12,               // lama sesi login (jam)
++  employee_pin_enabled: true,      // staf boleh melihat gaji karyawan lewat PIN karyawan
++  employee_pin_view_minutes: 3,    // tutup otomatis setelah tidak ada aktivitas
++};
++
++export const SESSION_HOURS_CHOICES = [
++  { value: 1, label: '1 jam' }, { value: 12, label: '12 jam' }, { value: 24, label: '1 hari' }, { value: 168, label: '7 hari' },
++];
++export const VIEW_MINUTES_CHOICES = [1, 3, 5, 10];
++
++export function useAppSettings() {
++  const [settings, setSettings] = useState(SETTING_DEFAULTS);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++
++  const reload = useCallback(async () => {
++    const { data, error: e } = await supabase.from('app_settings').select('key, value');
++    if (e) { setError(e.message); setLoading(false); return; }
++    const next = { ...SETTING_DEFAULTS };
++    for (const row of data || []) if (row.key in SETTING_DEFAULTS) next[row.key] = row.value;
++    setSettings(next);
++    setError(null);
++    setLoading(false);
++  }, []);
++
++  useEffect(() => { reload(); }, [reload]);
++
++  const save = useCallback(async (key, value) => {
++    if (!(key in SETTING_DEFAULTS)) throw new Error(`Pengaturan tidak dikenal: ${key}`);
++    const prev = settings[key];
++    setSettings((s) => ({ ...s, [key]: value }));            // tampil dulu, balik lagi kalau gagal
++    const { error: e } = await supabase.from('app_settings').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
++    if (e) { setSettings((s) => ({ ...s, [key]: prev })); throw new Error(`Gagal menyimpan pengaturan: ${e.message}`); }
++  }, [settings]);
++
++  return { settings, loading, error, save, reload };
++}
+diff --git a/src/hook/useEmployeePins.js b/src/hook/useEmployeePins.js
+new file mode 100644
+index 0000000..623e379
+--- /dev/null
++++ b/src/hook/useEmployeePins.js
+@@ -0,0 +1,54 @@
++import { useState, useEffect, useCallback } from 'react';
++import { supabase } from '../lib/supabase';
++import { randomSalt, hashPin, verifyPinHash } from '../auth/pinHash';
++
++/**
++ * useEmployeePins — PIN karyawan (untuk melihat gaji sendiri di Penggajian mode
++ * staf). Mengembalikan daftar karyawan aktif + status "punya PIN". Hash PIN
++ * tidak pernah dimuat ke daftar; hanya dibaca saat verifikasi satu karyawan.
++ */
++export function useEmployeePins() {
++  const [people, setPeople] = useState([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++
++  const reload = useCallback(async () => {
++    const [emp, pins] = await Promise.all([
++      supabase.from('employees').select('id, name, status').neq('status', 'resign').order('name'),
++      supabase.from('employee_pins').select('employee_id'),
++    ]);
++    const e = emp.error || pins.error;
++    if (e) { setError(e.message); setLoading(false); return; }
++    const have = new Set((pins.data || []).map((p) => p.employee_id));
++    setPeople((emp.data || []).map((x) => ({ id: x.id, name: x.name, hasPin: have.has(x.id) })));
++    setError(null);
++    setLoading(false);
++  }, []);
++
++  useEffect(() => { reload(); }, [reload]);
++
++  const setPin = useCallback(async (employeeId, pin) => {
++    if (!/^\d{4}$/.test(String(pin))) throw new Error('PIN harus 4 digit angka.');
++    const salt = randomSalt();
++    const pin_hash = await hashPin(pin, salt, employeeId);
++    const { error: e } = await supabase.from('employee_pins').upsert(
++      { employee_id: employeeId, salt, pin_hash, updated_at: new Date().toISOString() }, { onConflict: 'employee_id' });
++    if (e) throw new Error(`Gagal menyimpan PIN: ${e.message}`);
++    await reload();
++  }, [reload]);
++
++  const clearPin = useCallback(async (employeeId) => {
++    const { error: e } = await supabase.from('employee_pins').delete().eq('employee_id', employeeId);
++    if (e) throw new Error(`Gagal menghapus PIN: ${e.message}`);
++    await reload();
++  }, [reload]);
++
++  /** true kalau PIN cocok. Melempar error kalau server tidak terjangkau. */
++  const verifyPin = useCallback(async (employeeId, pin) => {
++    const { data, error: e } = await supabase.from('employee_pins').select('salt, pin_hash').eq('employee_id', employeeId).maybeSingle();
++    if (e) throw new Error('Tidak bisa memeriksa PIN. Cek internet lalu coba lagi.');
++    return data ? verifyPinHash(pin, data.salt, employeeId, data.pin_hash) : false;
++  }, []);
++
++  return { people, loading, error, reload, setPin, clearPin, verifyPin };
++}
+diff --git a/supabase/migrations/008_auth_settings.sql b/supabase/migrations/008_auth_settings.sql
+new file mode 100644
+index 0000000..5ab6784
+--- /dev/null
++++ b/supabase/migrations/008_auth_settings.sql
+@@ -0,0 +1,63 @@
++-- =====================================================================
++-- Migrasi 008 — Login Supabase Auth, Pengaturan, PIN karyawan.
++-- Jalankan SEKALI di SQL Editor project C. Aman diulang.
++--
++-- 1. app_settings   : pengaturan aplikasi (lama sesi, akses PIN karyawan, dst)
++-- 2. employee_pins  : PIN karyawan (hash bergaram) untuk melihat gaji sendiri
++-- 3. Kebijakan RLS  : setelah login Supabase, request memakai role
++--                     `authenticated`, bukan `anon`. Tanpa policy untuk role itu
++--                     SEMUA data akan tampak kosong. Jadi tiap tabel diberi
++--                     policy `authenticated` yang sama longgarnya dengan `anon`
++--                     (tingkat keamanan "Longgar" yang disepakati).
++-- =====================================================================
++
++create table if not exists app_settings (
++  key         text primary key,
++  value       jsonb not null,
++  updated_at  timestamptz not null default now()
++);
++
++create table if not exists employee_pins (
++  employee_id  uuid primary key references employees(id) on delete cascade,
++  salt         text not null,
++  pin_hash     text not null,           -- SHA-256(salt:employee_id:pin), bukan PIN asli
++  updated_at   timestamptz not null default now()
++);
++
++do $$
++declare t text;
++begin
++  foreach t in array array[
++    'categories','menu_items','variant_categories','variant_groups','variant_options',
++    'menu_item_variant_groups','customers','vouchers','expense_categories','transactions',
++    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions',
++    'payroll_opening_balances','payroll_closings','payroll_closing_lines','attendance_overrides',
++    'app_settings','employee_pins'
++  ] loop
++    execute format('alter table %I enable row level security', t);
++    -- anon tetap dibuka: mode lama (tanpa login Supabase) dan perangkat yang belum update tetap jalan
++    execute format('drop policy if exists "anon_all_%s" on %I', t, t);
++    execute format('create policy "anon_all_%s" on %I for all to anon using (true) with check (true)', t, t);
++    -- authenticated: dipakai setelah login Supabase
++    execute format('drop policy if exists "auth_all_%s" on %I', t, t);
++    execute format('create policy "auth_all_%s" on %I for all to authenticated using (true) with check (true)', t, t);
++  end loop;
++end $$;
++
++grant execute on function close_payroll_period(text, date, date, date, text, jsonb) to authenticated;
++
++-- ---------------------------------------------------------------------
++-- NANTI, kalau mau database benar-benar tertutup untuk orang yang tidak login
++-- (setelah semua perangkat memakai login Supabase): jalankan blok ini.
++-- JANGAN dijalankan sekarang kalau env VITE_AUTH_OWNER_EMAIL belum terisi di
++-- Vercel, karena aplikasi akan kosong/gagal.
++--
++-- do $$
++-- declare t text;
++-- begin
++--   foreach t in array array[ ...daftar tabel di atas... ] loop
++--     execute format('drop policy if exists "anon_all_%s" on %I', t, t);
++--   end loop;
++-- end $$;
++-- revoke execute on function close_payroll_period(text, date, date, date, text, jsonb) from anon;
++-- ---------------------------------------------------------------------
+diff --git a/supabase/schema.sql b/supabase/schema.sql
+index 572ec40..91eb983 100644
+--- a/supabase/schema.sql
++++ b/supabase/schema.sql
+@@ -421,12 +421,27 @@ drop trigger if exists trg_block_closed_attendance_overrides on attendance_overr
+ create trigger trg_block_closed_attendance_overrides before insert or update or delete on attendance_overrides
+   for each row execute function block_closed_payroll_change();
+ 
++-- Pengaturan aplikasi & PIN karyawan (migrasi 008)
++create table if not exists app_settings (
++  key         text primary key,
++  value       jsonb not null,
++  updated_at  timestamptz not null default now()
++);
++
++create table if not exists employee_pins (
++  employee_id  uuid primary key references employees(id) on delete cascade,
++  salt         text not null,
++  pin_hash     text not null,           -- SHA-256(salt:employee_id:pin), bukan PIN asli
++  updated_at   timestamptz not null default now()
++);
++
+ -- ---------------------------------------------------------------------
+ -- RLS
+--- Disepakati: BELUM ada auth di C. Policy di bawah membuka akses penuh ke
+--- role `anon`, artinya siapa pun yang punya URL + anon key bisa baca/tulis.
+--- Ini SEMENTARA. Jangan bagikan URL app ke orang di luar tim, dan ganti
+--- dengan policy berbasis login sebelum app dipakai lebih luas.
++-- Tingkat keamanan "Longgar" (disepakati): policy di bawah membuka akses penuh
++-- ke role `anon` (mode lama / perangkat yang belum update) DAN `authenticated`
++-- (setelah login Supabase, migrasi 008). Artinya login Supabase mengatur siapa
++-- yang bisa MASUK APLIKASI, tapi siapa pun yang punya URL + anon key masih bisa
++-- baca/tulis lewat API. Untuk menutupnya, lihat blok "NANTI" di migrasi 008.
+ -- ---------------------------------------------------------------------
+ do $$
+ declare t text;
+@@ -434,11 +449,16 @@ begin
+   foreach t in array array[
+     'categories','menu_items','variant_categories','variant_groups','variant_options',
+     'menu_item_variant_groups','customers','vouchers','expense_categories','transactions',
+-    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines','attendance_overrides'
++    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines','attendance_overrides','app_settings','employee_pins'
+   ] loop
+     execute format('alter table %I enable row level security', t);
+     execute format('drop policy if exists "anon_all_%s" on %I', t, t);
+     execute format(
+       'create policy "anon_all_%s" on %I for all to anon using (true) with check (true)', t, t);
++    execute format('drop policy if exists "auth_all_%s" on %I', t, t);
++    execute format(
++      'create policy "auth_all_%s" on %I for all to authenticated using (true) with check (true)', t, t);
+   end loop;
+ end $$;
++
++grant execute on function close_payroll_period(text, date, date, date, text, jsonb) to authenticated;

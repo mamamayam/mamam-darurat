@@ -8,6 +8,8 @@ import { toLocalDateString } from '../../utils/formatters';
 import AbsensiSetupCard from './AbsensiSetupCard';
 import AttendanceEditSheet from '../attendance/AttendanceEditSheet';
 import { summarizeDay } from '../attendance/dayRules';
+import { useAuth } from '../../auth/AuthContext';
+import MyPayroll from './MyPayroll';
 
 /**
  * PayrollView — Penggajian. Semua angka dihitung payrollEngine (aturan sama
@@ -33,7 +35,16 @@ const shiftMonth = (key, delta) => {
   return formatIsoDate(d).slice(0, 7);
 };
 
+/**
+ * Penggajian. Owner: semua karyawan + edit. Staf: layar PIN karyawan, lalu hanya
+ * gaji sendiri (MyPayroll). Izin 'penggajian.semua' yang menentukan.
+ */
 export default function PayrollView() {
+  const { can } = useAuth();
+  return can('penggajian.semua') ? <OwnerPayroll /> : <MyPayroll />;
+}
+
+function OwnerPayroll() {
   const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
 
   const today = toLocalDateString();

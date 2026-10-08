@@ -421,12 +421,27 @@ drop trigger if exists trg_block_closed_attendance_overrides on attendance_overr
 create trigger trg_block_closed_attendance_overrides before insert or update or delete on attendance_overrides
   for each row execute function block_closed_payroll_change();
 
+-- Pengaturan aplikasi & PIN karyawan (migrasi 008)
+create table if not exists app_settings (
+  key         text primary key,
+  value       jsonb not null,
+  updated_at  timestamptz not null default now()
+);
+
+create table if not exists employee_pins (
+  employee_id  uuid primary key references employees(id) on delete cascade,
+  salt         text not null,
+  pin_hash     text not null,           -- SHA-256(salt:employee_id:pin), bukan PIN asli
+  updated_at   timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------
 -- RLS
--- Disepakati: BELUM ada auth di C. Policy di bawah membuka akses penuh ke
--- role `anon`, artinya siapa pun yang punya URL + anon key bisa baca/tulis.
--- Ini SEMENTARA. Jangan bagikan URL app ke orang di luar tim, dan ganti
--- dengan policy berbasis login sebelum app dipakai lebih luas.
+-- Tingkat keamanan "Longgar" (disepakati): policy di bawah membuka akses penuh
+-- ke role `anon` (mode lama / perangkat yang belum update) DAN `authenticated`
+-- (setelah login Supabase, migrasi 008). Artinya login Supabase mengatur siapa
+-- yang bisa MASUK APLIKASI, tapi siapa pun yang punya URL + anon key masih bisa
+-- baca/tulis lewat API. Untuk menutupnya, lihat blok "NANTI" di migrasi 008.
 -- ---------------------------------------------------------------------
 do $$
 declare t text;
@@ -434,11 +449,16 @@ begin
   foreach t in array array[
     'categories','menu_items','variant_categories','variant_groups','variant_options',
     'menu_item_variant_groups','customers','vouchers','expense_categories','transactions',
-    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines','attendance_overrides'
+    'transaction_items','expenses','shifts','employees','payroll_additions','payroll_deductions','payroll_opening_balances','payroll_closings','payroll_closing_lines','attendance_overrides','app_settings','employee_pins'
   ] loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists "anon_all_%s" on %I', t, t);
     execute format(
       'create policy "anon_all_%s" on %I for all to anon using (true) with check (true)', t, t);
+    execute format('drop policy if exists "auth_all_%s" on %I', t, t);
+    execute format(
+      'create policy "auth_all_%s" on %I for all to authenticated using (true) with check (true)', t, t);
   end loop;
 end $$;
+
+grant execute on function close_payroll_period(text, date, date, date, text, jsonb) to authenticated;
