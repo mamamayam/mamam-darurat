@@ -1,0 +1,184 @@
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index e3f2e2f..c092805 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -1,6 +1,7 @@
+ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+ import { Modal, Button } from '../components/ui';
+ import AppRoutes, { VIEWS } from './AppRoutes';
++import { readSavedNav, saveNav } from './navPersist';
+ import BottomSheetMenu from './layout/BottomSheetMenu';
+ import Header from './layout/Header';
+ import BottomNav from './layout/BottomNav';
+@@ -69,9 +70,12 @@ export default function App() {
+   const triggerAlert = useCallback((message) => setAlertModal({ isOpen: true, message }), []);
+ 
+   // --- STACK NAVIGATION PER-ROOT (dipertahankan dari test-app-baru) ---
+-  const [currentView, setCurrentView] = useState('beranda');
+-  const [viewHistory, setViewHistory] = useState([]);
+-  const [mountedViews, setMountedViews] = useState(() => new Set(['beranda']));
++  // Refresh halaman (tarik-ke-bawah) kembali ke layar yang sama, bukan Beranda (lihat navPersist.js).
++  const initialNav = useRef(null);
++  if (!initialNav.current) initialNav.current = readSavedNav((v) => Boolean(VIEWS[v])) || { view: 'beranda', history: [] };
++  const [currentView, setCurrentView] = useState(initialNav.current.view);
++  const [viewHistory, setViewHistory] = useState(initialNav.current.history);
++  const [mountedViews, setMountedViews] = useState(() => new Set([...initialNav.current.history, initialNav.current.view]));
+   const [navDirection, setNavDirection] = useState('forward-root');
+ 
+   const navigate = useCallback((view) => {
+@@ -105,6 +109,8 @@ export default function App() {
+     // backStack ("ketuk lagi untuk keluar", notifnya = components/ui/ExitToast).
+   }, [viewHistory, currentView]);
+ 
++  useEffect(() => { saveNav(currentView, viewHistory); }, [currentView, viewHistory]);
++
+   // --- Tombol Back browser/HP <-> stack navigasi ---
+   // Kedalaman stack = jumlah sub-layar, ditambah 1 kalau stack berakar di layar selain
+   // Beranda (Back dari layar itu kembali ke Beranda, seperti navigateBack di atas).
+diff --git a/src/app/navPersist.js b/src/app/navPersist.js
+new file mode 100644
+index 0000000..642951a
+--- /dev/null
++++ b/src/app/navPersist.js
+@@ -0,0 +1,21 @@
++/**
++ * navPersist — simpan layar yang sedang dibuka di sessionStorage supaya refresh halaman
++ * (tarik-ke-bawah / tombol reload) tetap di layar yang sama, bukan balik ke Beranda.
++ * sessionStorage (bukan localStorage): hilang saat tab/aplikasi ditutup, jadi membuka
++ * aplikasi baru tetap mulai dari Beranda. Logout menimpanya dengan Beranda.
++ */
++export const NAV_KEY = 'mamam.nav';
++
++/** Baca layar tersimpan; null kalau tidak ada / rusak / layarnya sudah tidak ada. */
++export function readSavedNav(isValidView, storage = globalThis.sessionStorage) {
++  try {
++    const raw = JSON.parse(storage?.getItem(NAV_KEY) || 'null');
++    if (!raw || typeof raw.view !== 'string' || !isValidView(raw.view)) return null;
++    const history = Array.isArray(raw.history) ? raw.history.filter((v) => typeof v === 'string' && isValidView(v)) : [];
++    return { view: raw.view, history };
++  } catch { return null; }
++}
++
++export function saveNav(view, history, storage = globalThis.sessionStorage) {
++  try { storage?.setItem(NAV_KEY, JSON.stringify({ view, history })); } catch { /* storage penuh / diblokir: abaikan */ }
++}
+diff --git a/src/app/navPersist.test.js b/src/app/navPersist.test.js
+new file mode 100644
+index 0000000..443c05d
+--- /dev/null
++++ b/src/app/navPersist.test.js
+@@ -0,0 +1,25 @@
++import { describe, it, expect } from 'vitest';
++import { readSavedNav, saveNav, NAV_KEY } from './navPersist';
++
++const memStore = (init = {}) => { const m = { ...init }; return { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; };
++const valid = (v) => ['beranda', 'kasir', 'payroll', 'pelanggan'].includes(v);
++
++describe('navPersist', () => {
++  it('menyimpan lalu membaca layar + riwayat sub-layar', () => {
++    const s = memStore(); saveNav('pelanggan', ['kasir'], s);
++    expect(readSavedNav(valid, s)).toEqual({ view: 'pelanggan', history: ['kasir'] });
++  });
++  it('tidak ada / rusak / layar tak dikenal -> null', () => {
++    expect(readSavedNav(valid, memStore())).toBeNull();
++    expect(readSavedNav(valid, memStore({ [NAV_KEY]: '{rusak' }))).toBeNull();
++    expect(readSavedNav(valid, memStore({ [NAV_KEY]: JSON.stringify({ view: 'hilang', history: [] }) }))).toBeNull();
++  });
++  it('riwayat yang tak dikenal dibuang, sisanya tetap', () => {
++    const s = memStore({ [NAV_KEY]: JSON.stringify({ view: 'kasir', history: ['hilang', 'payroll', 7] }) });
++    expect(readSavedNav(valid, s)).toEqual({ view: 'kasir', history: ['payroll'] });
++  });
++  it('storage tidak tersedia tidak melempar error', () => {
++    expect(() => saveNav('kasir', [], null)).not.toThrow();
++    expect(readSavedNav(valid, null)).toBeNull();
++  });
++});
+diff --git a/src/components/PeriodNav.jsx b/src/components/PeriodNav.jsx
+index fd00e1d..e243fc9 100644
+--- a/src/components/PeriodNav.jsx
++++ b/src/components/PeriodNav.jsx
+@@ -9,9 +9,11 @@ import { Modal } from './ui';
+  *       [    Ke hari ini    ]
+  *
+  * - Label periode BISA DIKETUK untuk memilih periode langsung:
+- *     picker.type 'date'  -> kalender bawaan HP (input date transparan di atas label)
+- *     picker.type 'list'  -> bottom sheet daftar periode (minggu / bulan), yang aktif
+- *                            ditandai & otomatis digulir ke tengah
++ *     picker = { title, value, options:[{value,label,tag?}], onChange, dateInput? }
++ *     -> bottom sheet daftar periode (hari / minggu / bulan); yang aktif ditandai &
++ *        otomatis digulir ke tengah. `dateInput` menambah kolom tanggal biasa (kalender
++ *        bawaan HP) di atas daftar, untuk tanggal yang jauh. Semua lewat sheet karena
++ *        input tanggal transparan di atas label terbukti tidak andal di sebagian HP.
+  * - "Ke hari ini" = tombol lebar setinggi jari (44px), bukan teks kecil. Meredup kalau
+  *   sudah berada di periode berjalan.
+  */
+@@ -45,18 +47,7 @@ export default function PeriodNav({
+       <div className="flex items-center gap-2">
+         <button onClick={onPrev} aria-label={prevLabel} className={NAV_BTN}><ChevronLeft className="w-5 h-5" /></button>
+ 
+-        {picker?.type === 'date' ? (
+-          <div className={labelBox}>
+-            {labelInner}
+-            <input
+-              type="date" aria-label="Pilih tanggal" value={picker.value}
+-              onChange={(e) => { if (e.target.value) picker.onChange(e.target.value); }}
+-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+-            />
+-          </div>
+-        ) : (
+-          <button onClick={() => setOpen(true)} aria-label={`Pilih periode: ${label}`} aria-haspopup="dialog" className={labelBox}>{labelInner}</button>
+-        )}
++        <button onClick={() => setOpen(true)} aria-label={`Pilih periode: ${label}`} aria-haspopup="dialog" className={labelBox}>{labelInner}</button>
+ 
+         <button onClick={onNext} aria-label={nextLabel} className={NAV_BTN}><ChevronRight className="w-5 h-5" /></button>
+       </div>
+@@ -68,8 +59,18 @@ export default function PeriodNav({
+         {todayLabel}
+       </button>
+ 
+-      {picker?.type === 'list' && (
++      {picker && (
+         <Modal isOpen={open} onClose={() => setOpen(false)} sheet size="lg" maxHeight title={picker.title}>
++          {picker.dateInput && (
++            <div className="px-4 pb-3">
++              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{picker.dateInput.label || 'Pilih tanggal lain'}</label>
++              <input
++                type="date" value={picker.dateInput.value} data-testid="period-date-input"
++                onChange={(e) => { if (e.target.value) { picker.dateInput.onChange(e.target.value); setOpen(false); } }}
++                className="w-full h-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-4 text-sm font-medium outline-none focus:border-accent-500"
++              />
++            </div>
++          )}
+           <div ref={listRef} className="px-4 pb-6 space-y-1" data-testid="period-list">
+             {picker.options.map((o) => {
+               const selected = o.value === picker.value;
+diff --git a/src/features/attendance/AttendanceView.jsx b/src/features/attendance/AttendanceView.jsx
+index 420ba43..3cc53df 100644
+--- a/src/features/attendance/AttendanceView.jsx
++++ b/src/features/attendance/AttendanceView.jsx
+@@ -35,6 +35,12 @@ export default function AttendanceView() {
+   const canEdit = can('absensi.edit');
+   const [editRow, setEditRow] = useState(null);
+ 
++  // Pilihan hari: besok + 45 hari ke belakang (tanggal yang lebih jauh lewat kolom kalender).
++  const dayOptions = Array.from({ length: 47 }, (_, i) => {
++    const iso = shiftDay(today, 1 - i);
++    return { value: iso, label: longDate(iso), tag: i === 1 ? 'Hari ini' : i === 2 ? 'Kemarin' : undefined };
++  });
++
+   const warnings = [];
+   if (info) {
+     if (info.unknownEmployees.length) warnings.push(`Ada absensi dari ${info.unknownEmployees.length} orang yang belum ada di daftar Karyawan: ${info.unknownEmployees.slice(0, 4).map(u => u.name).join(', ')}${info.unknownEmployees.length > 4 ? ', dst' : ''}.`);
+@@ -50,7 +56,11 @@ export default function AttendanceView() {
+             onPrev={() => setDate(shiftDay(date, -1))} onNext={() => setDate(shiftDay(date, 1))}
+             prevLabel="Hari sebelumnya" nextLabel="Hari berikutnya"
+             onToday={() => setDate(today)} isCurrent={date === today}
+-            picker={{ type: 'date', value: date, onChange: setDate }}
++            picker={{
++              title: 'Pilih Tanggal', value: date, onChange: setDate,
++              options: dayOptions,
++              dateInput: { value: date, onChange: setDate, label: 'Atau pilih tanggal lain' },
++            }}
+           />
+           {configured && (
+             <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw, Fingerprint, Pencil } from 'lucide-react';
+import { RefreshCw, Fingerprint, Pencil } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useAttendanceDay } from '../../hook/useAttendanceDay';
 import AbsensiSetupCard from '../payroll/AbsensiSetupCard';
+import PeriodNav from '../../components/PeriodNav';
 import { parseIsoDate, formatIsoDate } from '../payroll/payrollEngine';
 import { toLocalDateString } from '../../utils/formatters';
 import { useAuth } from '../../auth/AuthContext';
@@ -34,6 +35,12 @@ export default function AttendanceView() {
   const canEdit = can('absensi.edit');
   const [editRow, setEditRow] = useState(null);
 
+  // Pilihan hari: besok + 45 hari ke belakang (tanggal yang lebih jauh lewat kolom kalender).
+  const dayOptions = Array.from({ length: 47 }, (_, i) => {
+    const iso = shiftDay(today, 1 - i);
+    return { value: iso, label: longDate(iso), tag: i === 1 ? 'Hari ini' : i === 2 ? 'Kemarin' : undefined };
+  });
+
   const warnings = [];
   if (info) {
     if (info.unknownEmployees.length) warnings.push(`Ada absensi dari ${info.unknownEmployees.length} orang yang belum ada di daftar Karyawan: ${info.unknownEmployees.slice(0, 4).map(u => u.name).join(', ')}${info.unknownEmployees.length > 4 ? ', dst' : ''}.`);
@@ -44,14 +51,17 @@ export default function AttendanceView() {
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       <div className="max-w-3xl w-full space-y-4 pb-10">
         <Card className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <button onClick={() => setDate(shiftDay(date, -1))} aria-label="Hari sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
-            <div className="text-center min-w-0">
-              <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm" data-testid="att-date">{longDate(date)}</p>
-              <button onClick={() => setDate(today)} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
-            </div>
-            <button onClick={() => setDate(shiftDay(date, 1))} aria-label="Hari berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
-          </div>
+          <PeriodNav
+            label={longDate(date)} labelTestId="att-date"
+            onPrev={() => setDate(shiftDay(date, -1))} onNext={() => setDate(shiftDay(date, 1))}
+            prevLabel="Hari sebelumnya" nextLabel="Hari berikutnya"
+            onToday={() => setDate(today)} isCurrent={date === today}
+            picker={{
+              title: 'Pilih Tanggal', value: date, onChange: setDate,
+              options: dayOptions,
+              dateInput: { value: date, onChange: setDate, label: 'Atau pilih tanggal lain' },
+            }}
+          />
           {configured && (
             <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
               <span data-testid="att-updated">{updatedAt ? `Diperbarui ${updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Memuat...'}</span>

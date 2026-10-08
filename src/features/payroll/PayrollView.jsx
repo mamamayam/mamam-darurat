@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
+import { Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
 import { Card, Button, Input, NominalInput, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
 import CategorySelect from '../../components/CategorySelect';
 import CategoryModal from '../../components/CategoryModal';
 import { useAppContext } from '../../context/AppContext';
 import { usePayrollData } from '../../hook/usePayrollData';
+import PeriodNav from '../../components/PeriodNav';
 import { usePayrollCategories } from '../../hook/usePayrollCategories';
 import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
 import { toLocalDateString } from '../../utils/formatters';
@@ -83,6 +84,23 @@ function OwnerPayroll() {
     ? `${fmtDay(period.start)} – ${fmtDayYear(period.end)}`
     : `${MON_FULL[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
 
+  // Pilihan periode (sheet): minggu = 26 minggu ke belakang + 1 ke depan; bulan = 24 bulan ke belakang + 1 ke depan. Terbaru di atas.
+  const isCurrentPeriod = mode === 'minggu' ? (today >= period.start && today <= period.end) : month === today.slice(0, 7);
+  const periodOptions = (() => {
+    if (mode === 'minggu') {
+      const cur = weekPeriodForDate(today);
+      return Array.from({ length: 28 }, (_, i) => 1 - i).map((n) => {
+        const w = shiftWeek(cur, n * 7);
+        return { value: w.start, label: `${fmtDay(w.start)} – ${fmtDayYear(w.end)}`, tag: n === 0 ? 'Minggu ini' : undefined };
+      });
+    }
+    const curKey = today.slice(0, 7);
+    return Array.from({ length: 26 }, (_, i) => 1 - i).map((n) => {
+      const key = shiftMonth(curKey, n);
+      return { value: key, label: `${MON_FULL[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`, tag: n === 0 ? 'Bulan ini' : undefined };
+    });
+  })();
+
   const selected = results.find(r => r.employee.id === selectedId) || null;
   // Penanda per hari: ada log otomatis (pulang/libur) atau hasil koreksi owner.
   const hasPulang = (employeeId, date) => (data.prepared?.logs || []).some(l => l.employeeId === employeeId && l.date === date && l.type === 'pulang');
@@ -127,14 +145,17 @@ function OwnerPayroll() {
 
         <Card className="space-y-3">
           <SegmentedControl value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan' }, { value: 'bulan', label: 'Bulanan' }]} />
-          <div className="flex items-center justify-between gap-2">
-            <button onClick={goPrev} aria-label="Sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
-            <div className="text-center min-w-0">
-              <p className="font-heading font-bold text-slate-800 dark:text-slate-100 text-sm truncate" data-testid="period-label">{label}</p>
-              <button onClick={goToday} className="text-xs font-bold text-accent-600 dark:text-accent-400">Ke hari ini</button>
-            </div>
-            <button onClick={goNext} aria-label="Berikutnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronRight className="w-4 h-4" /></button>
-          </div>
+          <PeriodNav
+            label={label} labelTestId="period-label"
+            onPrev={goPrev} onNext={goNext} onToday={goToday} isCurrent={isCurrentPeriod}
+            todayLabel={mode === 'minggu' ? 'Ke minggu ini' : 'Ke bulan ini'}
+            picker={{
+              type: 'list', title: mode === 'minggu' ? 'Pilih Minggu' : 'Pilih Bulan',
+              value: mode === 'minggu' ? period.start : month,
+              onChange: mode === 'minggu' ? setAnchor : setMonth,
+              options: periodOptions,
+            }}
+          />
         </Card>
 
         {status === 'not-configured' && <AbsensiSetupCard />}

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Modal, Button } from '../components/ui';
 import AppRoutes, { VIEWS } from './AppRoutes';
+import { readSavedNav, saveNav } from './navPersist';
 import BottomSheetMenu from './layout/BottomSheetMenu';
 import Header from './layout/Header';
 import BottomNav from './layout/BottomNav';
@@ -69,9 +70,12 @@ export default function App() {
   const triggerAlert = useCallback((message) => setAlertModal({ isOpen: true, message }), []);
 
   // --- STACK NAVIGATION PER-ROOT (dipertahankan dari test-app-baru) ---
-  const [currentView, setCurrentView] = useState('beranda');
-  const [viewHistory, setViewHistory] = useState([]);
-  const [mountedViews, setMountedViews] = useState(() => new Set(['beranda']));
+  // Refresh halaman (tarik-ke-bawah) kembali ke layar yang sama, bukan Beranda (lihat navPersist.js).
+  const initialNav = useRef(null);
+  if (!initialNav.current) initialNav.current = readSavedNav((v) => Boolean(VIEWS[v])) || { view: 'beranda', history: [] };
+  const [currentView, setCurrentView] = useState(initialNav.current.view);
+  const [viewHistory, setViewHistory] = useState(initialNav.current.history);
+  const [mountedViews, setMountedViews] = useState(() => new Set([...initialNav.current.history, initialNav.current.view]));
   const [navDirection, setNavDirection] = useState('forward-root');
 
   const navigate = useCallback((view) => {
@@ -104,6 +108,8 @@ export default function App() {
     // Di Beranda tanpa history tidak ada yang dilakukan di sini: Back ditangani
     // backStack ("ketuk lagi untuk keluar", notifnya = components/ui/ExitToast).
   }, [viewHistory, currentView]);
+
+  useEffect(() => { saveNav(currentView, viewHistory); }, [currentView, viewHistory]);
 
   // --- Tombol Back browser/HP <-> stack navigasi ---
   // Kedalaman stack = jumlah sub-layar, ditambah 1 kalau stack berakar di layar selain
