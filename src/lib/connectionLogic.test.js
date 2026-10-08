@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { initialConn, nextConn, connStatus, FAIL_THRESHOLD, CONN_MESSAGES, isChunkLoadError } from './connectionLogic.js';
+import { initialConn, nextConn, connStatus, FAIL_THRESHOLD, CONN_MESSAGES, isChunkLoadError, shouldAutoReload, AUTO_RELOAD_WINDOW_MS } from './connectionLogic.js';
 
 const run = (st, ...events) => events.reduce(nextConn, st);
 
@@ -56,4 +56,15 @@ describe('galat memuat halaman (lazy import)', () => {
   it('galat biasa bukan galat memuat halaman', () => {
     for (const e of [new Error('Cannot read properties of undefined'), new TypeError('x is not a function'), null, undefined, '']) expect(isChunkLoadError(e)).toBe(false);
   });
+});
+
+describe('muat ulang otomatis saat halaman lama hilang setelah deploy', () => {
+  const now = 1_000_000_000_000;
+  it('belum pernah memuat ulang -> boleh', () => { expect(shouldAutoReload(0, now)).toBe(true); expect(shouldAutoReload(null, now)).toBe(true); expect(shouldAutoReload(NaN, now)).toBe(true); });
+  it('baru saja memuat ulang -> jangan ulang (cegah putaran tanpa akhir)', () => {
+    expect(shouldAutoReload(now - 1000, now)).toBe(false);
+    expect(shouldAutoReload(now - AUTO_RELOAD_WINDOW_MS + 1, now)).toBe(false);
+  });
+  it('sudah lewat jendela waktu -> boleh lagi', () => { expect(shouldAutoReload(now - AUTO_RELOAD_WINDOW_MS, now)).toBe(true); expect(shouldAutoReload(now - 10 * 60 * 1000, now)).toBe(true); });
+  it('jam perangkat melompat (catatan dari masa depan dekat) -> jangan ulang', () => { expect(shouldAutoReload(now + 5000, now)).toBe(false); });
 });

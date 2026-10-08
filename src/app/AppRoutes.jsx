@@ -6,7 +6,7 @@ import { VIEW_PERMISSION } from '../auth/permissions';
 import { Button } from '../components/ui';
 import PullIndicator from '../components/PullIndicator';
 import { usePullToRefresh } from '../hook/usePullToRefresh';
-import { isChunkLoadError } from '../lib/connectionLogic';
+import { isChunkLoadError, shouldAutoReload } from '../lib/connectionLogic';
 
 // C — mamam-darurat: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
 // test-app-baru. Mesin render (mountedViews, animasi framer-motion,
@@ -44,6 +44,20 @@ export const VIEWS = {
     pengaturan:  SettingsView,
 };
 
+// Setelah deploy baru, berkas halaman lama hilang dari server; aplikasi yang masih terbuka dari
+// versi lama gagal memuat halaman yang belum pernah dibuka. Muat ulang SEKALI otomatis (ambil
+// versi terbaru); guard di shouldAutoReload mencegah putaran tanpa akhir.
+const RELOAD_KEY = 'mdr-chunk-reload-at';
+function reloadOnceForFreshChunk() {
+    try {
+        const last = Number(window.sessionStorage.getItem(RELOAD_KEY) || 0);
+        if (!shouldAutoReload(last, Date.now())) return false;
+        window.sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+    } catch { return false; }
+    window.location.reload();
+    return true;
+}
+
 // --- Error Boundary per-view (sama seperti A, minus chunk-reload logic) ---
 class ViewErrorBoundary extends Component {
     constructor(props) {
@@ -57,6 +71,7 @@ class ViewErrorBoundary extends Component {
 
     componentDidCatch(error, info) {
         console.error('[ErrorBoundary] Fitur crash:', error, info);
+        if (isChunkLoadError(error) && navigator.onLine !== false) reloadOnceForFreshChunk();
     }
 
     componentDidUpdate(prevProps) {
@@ -71,17 +86,19 @@ class ViewErrorBoundary extends Component {
 
     render() {
         if (this.state.hasError && isChunkLoadError(this.state.error)) {
-            // Halaman belum pernah dibuka di perangkat ini dan tidak ada internet untuk mengunduhnya.
             // Hasil import yang gagal tersimpan di React.lazy, jadi satu-satunya jalan ulang = muat ulang halaman.
+            const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
             return (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4" data-testid="halaman-gagal-dimuat">
                     <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/10 rounded-full flex items-center justify-center">
-                        <WifiOff className="w-8 h-8 text-amber-500 dark:text-amber-400" />
+                        {offline ? <WifiOff className="w-8 h-8 text-amber-500 dark:text-amber-400" /> : <RefreshCw className="w-8 h-8 text-amber-500 dark:text-amber-400" />}
                     </div>
                     <div>
-                        <h2 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-1">Halaman belum bisa dimuat</h2>
+                        <h2 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-1">{offline ? 'Halaman belum bisa dimuat' : 'Perlu memuat versi terbaru'}</h2>
                         <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs mx-auto">
-                            Koneksi internet terputus, dan halaman ini belum pernah dibuka di perangkat ini. Sambungkan internet lalu muat ulang.
+                            {offline
+                                ? 'Koneksi internet terputus, dan halaman ini belum pernah dibuka di perangkat ini. Sambungkan internet lalu muat ulang.'
+                                : 'Aplikasi baru saja diperbarui, jadi halaman ini perlu dimuat ulang. Data kamu aman.'}
                         </p>
                     </div>
                     <Button onClick={() => window.location.reload()} icon={<RefreshCw className="w-4 h-4" />}>Muat Ulang</Button>
