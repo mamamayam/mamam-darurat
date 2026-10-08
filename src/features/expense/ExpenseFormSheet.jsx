@@ -100,11 +100,6 @@ export default function ExpenseFormSheet({ isOpen, onClose, editing = null, data
                 <option value="kasir">Kasir / Toko</option>
                 {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
               </Select>
-              {cashHolderId !== 'kasir' && (
-                <p className="text-xs text-accent-600 dark:text-accent-400 mt-1 italic">
-                  *Dicatat pakai cash yang lagi dipegang kurir ini (belum disetor). Terlihat di rincian posisi uang pada Dompet.
-                </p>
-              )}
             </div>
           )}
 

@@ -45,3 +45,11 @@ export function isChunkLoadError(err) {
   const m = String(err?.message ?? err ?? '');
   return /dynamically imported module|importing a module script failed|error loading dynamically imported|loading chunk .* failed|loading css chunk/i.test(m);
 }
+
+/**
+ * Setelah deploy baru, berkas halaman lama (nama berhash) hilang dari server. Aplikasi yang
+ * masih terbuka dari versi lama gagal memuat halaman yang belum pernah dibuka -> perlu
+ * muat ulang SEKALI. Jangan mengulang kalau baru saja memuat ulang (cegah putaran tanpa akhir).
+ */
+export const AUTO_RELOAD_WINDOW_MS = 30 * 1000;
+export const shouldAutoReload = (lastAt, now) => !(Number(lastAt) > 0 && Math.abs(now - Number(lastAt)) < AUTO_RELOAD_WINDOW_MS);
