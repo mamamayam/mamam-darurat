@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { TrendingDown, Save, Pencil, Trash2, Settings2, History, ArrowUpDown, Plus } from 'lucide-react';
+import { TrendingDown, Save, Pencil, Trash2, History, ArrowUpDown, Plus } from 'lucide-react';
 import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar, Modal, BulletListInput } from '../../components/ui';
 import CategoryModal from '../../components/CategoryModal';
+import CategorySelect from '../../components/CategorySelect';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useExpenseData } from '../../hook/useExpenseData';
@@ -316,27 +317,5 @@ const ExpenseView = () => {
     </div>
   );
 };
-
-/**
- * Kategori: dropdown dari daftar kategori. Kategori baru ditambah lewat ikon gerigi
- * (Kelola Kategori). Kategori lama di catatan yang sedang diedit tetap muncul di
- * pilihan meski sudah tidak ada di daftar, supaya tidak hilang diam-diam.
- */
-function CategorySelect({ value, onChange, options, onManage }) {
-  const extra = value && !options.includes(value) ? [value] : [];
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Kategori</label>
-        <button type="button" onClick={onManage} aria-label="Kelola Kategori" title="Kelola Kategori"
-          className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 active:scale-90 transition-all"><Settings2 className="w-3.5 h-3.5" /></button>
-      </div>
-      <Select value={value} onChange={e => onChange(e.target.value)} data-testid="category-select">
-        <option value="">Pilih kategori</option>
-        {[...options, ...extra].map(o => <option key={o} value={o}>{o}</option>)}
-      </Select>
-    </div>
-  );
-}
 
 export default ExpenseView;

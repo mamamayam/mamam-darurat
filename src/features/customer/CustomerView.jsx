@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Users, Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { Card, Input, Button, EmptyState, BulkSelectBar, Modal } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useCustomerData } from '../../hook/useCustomerData';
@@ -69,11 +69,6 @@ const CustomerView = () => {
 
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col min-h-0 relative animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
-      <div className="flex items-center gap-2 mb-6 shrink-0">
-        <Users className="w-6 h-6 text-accent-500 dark:text-accent-400" />
-        <h2 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100">Pelanggan</h2>
-      </div>
-
       <Card padding="none" className="flex flex-col flex-1 min-h-0 max-w-2xl w-full">
         <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 flex gap-2 items-center">
           <div className="relative flex-1">

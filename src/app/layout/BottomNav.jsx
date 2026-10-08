@@ -12,7 +12,6 @@ import { Home, ShoppingCart, Menu } from "lucide-react";
 //    tombol tidak ketutup tapi bar tetap mentok di tepi layar
 // Elemen lain yang melayang di atas bar (FAB keranjang, ExitToast) memakai
 // offset yang sama: tinggi bar + safe-area.
-const LABEL = "text-xs short:text-xs leading-none font-bold transition-colors duration-300";
 
 export default function BottomNav({
     currentView,
@@ -35,32 +34,24 @@ export default function BottomNav({
             <div className="flex items-stretch h-16 short:h-12">
 
                 {/* Tombol Beranda */}
-                <button onClick={() => navigate('beranda')} className={tabClass(currentView === 'beranda')}>
-                    <Home className="w-5 h-5 short:w-4 short:h-4" />
-                    <span className={LABEL}>Beranda</span>
+                <button onClick={() => navigate('beranda')} aria-label="Beranda" aria-current={currentView === 'beranda' ? 'page' : undefined} className={tabClass(currentView === 'beranda')}>
+                    <Home className="w-6 h-6 short:w-5 short:h-5" />
                 </button>
 
                 {/* Tombol Kasir (aksen di tengah, tetap di dalam bar) */}
                 <button
                     onClick={() => navigate('kasir')}
+                    aria-label="Kasir" aria-current={currentView === 'kasir' ? 'page' : undefined}
                     className="group flex-1 min-w-0 flex flex-col items-center justify-center gap-1 short:gap-0.5"
                 >
                     <span className="w-11 h-11 short:w-8 short:h-8 rounded-2xl short:rounded-xl flex items-center justify-center shadow-[0_8px_20px_rgba(var(--color-accent-500),0.4)] transition-transform duration-300 group-active:scale-95 bg-gradient-to-br from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600">
-                        <ShoppingCart className="w-5 h-5 short:w-4 short:h-4 text-white" />
-                    </span>
-                    <span className={`${LABEL} ${
-                        currentView === 'kasir'
-                            ? 'text-accent-600 dark:text-accent-400'
-                            : 'text-slate-600 dark:text-slate-300'
-                    }`}>
-                        Kasir
+                        <ShoppingCart className="w-6 h-6 short:w-4 short:h-4 text-white" />
                     </span>
                 </button>
 
                 {/* Tombol Menu — buka BottomSheetMenu */}
-                <button onClick={onOpenMenu} className={tabClass(false)}>
-                    <Menu className="w-5 h-5 short:w-4 short:h-4" />
-                    <span className={LABEL}>Menu</span>
+                <button onClick={onOpenMenu} aria-label="Menu" className={tabClass(false)}>
+                    <Menu className="w-6 h-6 short:w-5 short:h-5" />
                 </button>
 
             </div>

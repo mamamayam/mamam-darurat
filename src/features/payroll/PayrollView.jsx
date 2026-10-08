@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, AlertTriangle, Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
-import { Card, Button, Input, NominalInput, Select, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
+import { Card, Button, Input, NominalInput, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
+import CategorySelect from '../../components/CategorySelect';
+import CategoryModal from '../../components/CategoryModal';
 import { useAppContext } from '../../context/AppContext';
 import { usePayrollData } from '../../hook/usePayrollData';
+import { usePayrollCategories } from '../../hook/usePayrollCategories';
 import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
 import { toLocalDateString } from '../../utils/formatters';
 import AbsensiSetupCard from './AbsensiSetupCard';
@@ -27,8 +30,9 @@ const clamp = (iso, a, b) => (iso < a ? a : iso > b ? b : iso);
 const STATUS_LABEL = { hadir: 'Hadir', libur: 'Libur', belumAbsen: 'Belum absen', belumPulang: 'Belum pulang', perluKlarifikasi: 'Perlu klarifikasi' };
 const STATUS_VARIANT = { hadir: 'success', libur: 'neutral', belumAbsen: 'neutral', belumPulang: 'warning', perluKlarifikasi: 'danger' };
 
-const ADD_CATEGORIES = ['Bonus', 'THR', 'Tambahan'];
-const DED_CATEGORIES = ['Kasbon', 'Denda', 'Potongan'];
+// Kategori Tambahan/Potongan kini bisa dikustomisasi (usePayrollCategories). Potongan berkategori
+// "Kasbon" dipisah jadi baris sendiri di rincian gaji.
+const isKasbon = (d) => String(d.category || '').trim().toLowerCase() === 'kasbon';
 
 const shiftMonth = (key, delta) => {
   const d = new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1 + delta, 1));
@@ -54,6 +58,9 @@ function OwnerPayroll() {
   const period = useMemo(() => (mode === 'minggu' ? weekPeriodForDate(anchor) : monthPeriod(month)), [mode, anchor, month]);
 
   const data = usePayrollData({ period });
+  const cats = usePayrollCategories();
+  const firstCat = (type) => (cats.categories[type] || [])[0] || '';
+  const [catModalOpen, setCatModalOpen] = useState(false);
   const { loading, error, attendance, status, isLocked, closing, closeBlockers, results, totals } = data;
 
   const [selectedId, setSelectedId] = useState(null);
@@ -85,7 +92,7 @@ function OwnerPayroll() {
   };
   const openDetail = (r) => {
     setSelectedId(r.employee.id);
-    setForm({ type: 'potongan', label: '', amount: '', date: clamp(today, period.start, period.end), category: 'Kasbon' });
+    setForm({ type: 'potongan', label: '', amount: '', date: clamp(today, period.start, period.end), category: firstCat('potongan') });
     setOpeningInput(String(r.payroll.openingBalance || ''));
   };
 
@@ -106,28 +113,13 @@ function OwnerPayroll() {
   });
 
   const handleClose = () => {
-    const note = warnings.length ? `\n\nPerhatian: masih ada ${warnings.length} peringatan data (lihat kotak kuning di atas).` : '';
-    triggerConfirm(`Tutup periode ${label}? Angka gaji ${results.length} karyawan (total ${formatRupiah(totals.net)}) dibekukan: perubahan upah atau absensi setelah ini tidak mengubahnya, dan tambahan/potongan di periode ini jadi terkunci. Bisa dibuka kembali kalau perlu koreksi.${note}`,
+    triggerConfirm(`Tutup periode ${label}? Angka gaji ${results.length} karyawan (total ${formatRupiah(totals.net)}) dibekukan: perubahan upah atau absensi setelah ini tidak mengubahnya, dan tambahan/potongan di periode ini jadi terkunci. Bisa dibuka kembali kalau perlu koreksi.`,
       () => run(async () => { await data.closePeriod(); triggerAlert('Periode ditutup. Angka gaji sudah dibekukan.'); }));
   };
   const handleReopen = () => {
     triggerConfirm(`Buka kembali periode ${label}? Angka beku dihapus dan gaji dihitung ulang dari data terbaru (tarif karyawan sekarang). Pakai ini hanya untuk koreksi.`,
       () => run(async () => { setSelectedId(null); await data.reopenPeriod(); }));
   };
-
-  const info = attendance.data;
-  const warnings = [];
-  if (info) {
-    if (info.unknownEmployees.length) warnings.push(`Absensi dari ${info.unknownEmployees.length} orang belum ada di daftar Karyawan (${info.unknownEmployees.slice(0, 4).map(u => u.name).join(', ')}${info.unknownEmployees.length > 4 ? ', dst' : ''}). Impor dari mamam-global atau tambahkan ID Absensi-nya, kalau tidak gaji mereka tidak terhitung.`);
-    if (info.withoutExternalId.length) warnings.push(`Belum punya ID Absensi, jadi absensinya tidak bisa dicocokkan: ${info.withoutExternalId.join(', ')}.`);
-    if (info.staleLiburIgnored) warnings.push(`${info.staleLiburIgnored} catatan "libur" otomatis diabaikan karena karyawannya ternyata masuk hari itu.`);
-    if (info.duplicatePulangIgnored) warnings.push(`${info.duplicatePulangIgnored} catatan pulang ganda diabaikan (dipakai yang terakhir).`);
-    if (info.skippedInvalid) warnings.push(`${info.skippedInvalid} baris absensi rusak dilewati.`);
-    const pr = data.prepared;
-    if (pr?.autoPulangCount) warnings.push(`${pr.autoPulangCount} hari lupa absen pulang dihitung pulang otomatis jam 19:00 (tandai di Rincian Harian; bisa dikoreksi dengan tombol pensil).`);
-    if (pr?.editedCount) warnings.push(`${pr.editedCount} hari memakai koreksi owner, bukan data sistem absensi.`);
-  }
-  const clarifyCount = results.reduce((s, r) => s + r.needsClarification.length, 0);
 
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
@@ -173,15 +165,6 @@ function OwnerPayroll() {
                 <Button variant="secondary" size="sm" onClick={handleReopen} disabled={busy}>Buka Kembali</Button>
               </Card>
             )}
-            {(warnings.length > 0 || clarifyCount > 0) && (
-              <Card className="space-y-2 border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
-                {clarifyCount > 0 && (
-                  <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-start gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" />{clarifyCount} hari perlu klarifikasi (bolong belum selesai) dan BELUM dibayar. Ketuk karyawan yang bertanda merah, lalu tekan Selesaikan.</p>
-                )}
-                {warnings.map((w, i) => <p key={i} className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{w}</p>)}
-              </Card>
-            )}
-
             {results.length === 0 ? (
               <EmptyState icon={<Wallet className="w-12 h-12" />} title="Belum ada karyawan. Tambah atau impor di menu Karyawan." />
             ) : results.map(r => {
@@ -221,6 +204,7 @@ function OwnerPayroll() {
       <Modal isOpen={!!selected} onClose={() => setSelectedId(null)} sheet size="lg" maxHeight title={selected ? selected.employee.name : ''}>
         {selected && (() => {
           const p = selected.payroll, a = p.attendance;
+          const kasbonTotal = p.deductions.filter(isKasbon).reduce((sum, d) => sum + d.amount, 0);
           return (
             <div className="p-5 space-y-5 text-sm">
               <div className="space-y-1.5">
@@ -228,7 +212,9 @@ function OwnerPayroll() {
                 <Row k={`Lembur (${a.totalOvertimeMinutes} mnt → ${a.overtimeBlocks30Min} blok × ${formatRupiah(a.overtimeRate)})`} v={a.overtimePay} f={formatRupiah} />
                 <Row k={`Bonus Full Time (${a.fullTimeDays} hari)`} v={a.fullTimeBonusPay} f={formatRupiah} />
                 <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
-                <Row k="Potongan" v={-p.deductionsTotal} f={formatRupiah} />
+                <div className="flex justify-between font-bold pt-2 border-t border-slate-200 dark:border-slate-700" data-testid="total-pendapatan"><span>Total Pendapatan</span><span>{formatRupiah(p.totalPenghasilan ?? (a.wagePay + a.overtimePay + a.fullTimeBonusPay + p.additionsTotal))}</span></div>
+                <Row k="Kasbon" v={-kasbonTotal} f={formatRupiah} />
+                <Row k="Potongan" v={-(p.deductionsTotal - kasbonTotal)} f={formatRupiah} />
                 {period.monthKey && <Row k="Saldo awal" v={-p.openingBalance} f={formatRupiah} />}
                 <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
               </div>
@@ -279,11 +265,9 @@ function OwnerPayroll() {
                   <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
                 ) : (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-                  <SegmentedControl value={form.type} onChange={(v) => setForm({ ...form, type: v, category: v === 'tambahan' ? ADD_CATEGORIES[0] : DED_CATEGORIES[0] })}
+                  <SegmentedControl value={form.type} onChange={(v) => setForm({ ...form, type: v, category: firstCat(v) })}
                     options={[{ value: 'potongan', label: 'Potongan' }, { value: 'tambahan', label: 'Tambahan' }]} />
-                  <Select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-                    {(form.type === 'tambahan' ? ADD_CATEGORIES : DED_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
-                  </Select>
+                  <CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} options={cats.categories[form.type] || []} onManage={() => setCatModalOpen(true)} />
                   <Input placeholder="Keterangan" value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} />
                   <NominalInput title="Nominal" placeholder="Nominal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
                   <Input type="date" value={form.date} min={period.start} max={period.end} onChange={e => setForm({ ...form, date: e.target.value })} />
@@ -307,6 +291,25 @@ function OwnerPayroll() {
           );
         })()}
       </Modal>
+
+      <CategoryModal
+        isOpen={catModalOpen}
+        onClose={() => setCatModalOpen(false)}
+        title={`Kelola Kategori ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}
+        categories={cats.categories[form.type] || []}
+        setCategories={(next) => run(() => cats.setCategoriesPersist(form.type, next))}
+        triggerAlert={triggerAlert}
+        triggerConfirm={triggerConfirm}
+        deleteMessage={(cat) => `Yakin ingin menghapus kategori "${cat}"? Catatan lama tetap tersimpan dengan nama kategori ini.`}
+        onRenameAsync={(oldCat, newCat) => {
+          run(() => cats.renameCategory(form.type, oldCat, newCat));
+          if (form.category === oldCat) setForm(f => ({ ...f, category: newCat }));
+        }}
+        onDeleteAsync={(deletedCat) => {
+          run(() => cats.deleteCategory(form.type, deletedCat));
+          if (form.category === deletedCat) setForm(f => ({ ...f, category: (cats.categories[f.type] || []).find(c => c !== deletedCat) || '' }));
+        }}
+      />
 
       {selected && editDate && (
         <AttendanceEditSheet

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   SplitSquareHorizontal, X, Wallet, QrCode, CreditCard, Trash2, Receipt, Bike,
 } from 'lucide-react';
@@ -44,6 +44,15 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
   const [busy, setBusy] = useState(false);
 
   useBackLayer(paymentModal.isOpen, () => setPaymentModal({ ...paymentModal, isOpen: false }));
+
+  // "Diterima Oleh" default ke kurir (kalau ada) tiap modal bayar dibuka untuk order Delivery.
+  // Hanya jalan saat modal BARU dibuka, jadi memilih "Kasir" secara manual tidak ditimpa lagi.
+  useEffect(() => {
+    if (!paymentModal.isOpen || orderType !== 'Delivery' || deliveryCourierId) return;
+    const first = employees.find(e => e.role === 'kurir' && e.status !== 'resign');
+    if (first) { setDeliveryCourierId(first.id); setDeliveryPaidTo('kurir'); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentModal.isOpen]);
 
   if (!paymentModal.isOpen) return <Overlay open={false} />; // tetap terpasang sampai animasi keluar selesai
 

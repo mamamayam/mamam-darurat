@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react';
-import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown, Upload } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Edit3, Trash2, Briefcase, ArrowUpDown } from 'lucide-react';
 import { Card, Button, Input, NominalInput, Select, IconButton, Badge, SortModal, EmptyState, Modal } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -18,9 +18,8 @@ import {
  * BEDA yang disengaja:
  *  - Data langsung ke Supabase; kalau gagal, user diberi tahu jelas
  *  - Hapus = permanen (histori transaksi/pengeluaran/dompet tetap utuh)
- *  - Ada tombol "Impor dari mamam-global": baca file backup JSON dari menu
- *    Backup di mamam-global. Diproses di browser, tidak ada kunci/akses ke
- *    database lama yang dibutuhkan.
+ *  - Tombol/kartu "Impor dari mamam-global" sudah dihapus dari layar ini (logika
+ *    impor masih ada di backupImport.js + useEmployeeData kalau suatu saat dibutuhkan).
  */
 const emptyForm = () => ({
   id: '', externalId: '', name: '', phone: '', address: '',
@@ -35,7 +34,7 @@ export default function EmployeeView() {
   const { can } = useAuth();
   const canManage = can('karyawan.kelola');   // tambah / edit / hapus / impor
   const canWage = can('karyawan.upah');        // melihat upah, bonus, tarif lembur
-  const { employees, loading, error, reload, saveEmployee, deleteEmployee, importFromBackup } = useEmployeeData();
+  const { employees, loading, error, reload, saveEmployee, deleteEmployee } = useEmployeeData();
 
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -44,7 +43,6 @@ export default function EmployeeView() {
   const [statusFilter, setStatusFilter] = useState('semua');
   const [roleFilter, setRoleFilter] = useState('semua');
   const [busy, setBusy] = useState(false);
-  const fileRef = useRef(null);
 
   const run = async (fn) => {
     if (busy) return;
@@ -63,22 +61,6 @@ export default function EmployeeView() {
   const handleDelete = (emp) => {
     triggerConfirm(`Yakin ingin menghapus "${emp.name}"? Data hilang permanen, tapi riwayat transaksi, pengeluaran, dan dompet tetap tersimpan dengan nama ini. Karyawan yang masih punya data gaji tidak bisa dihapus (ubah jadi Resign).`, () =>
       run(async () => { await deleteEmployee(emp.id); }));
-  };
-
-  const handleFile = (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';           // supaya file yang sama bisa dipilih lagi
-    if (!file) return;
-    run(async () => {
-      let json;
-      try { json = JSON.parse(await file.text()); }
-      catch { throw new Error('File itu bukan JSON yang valid. Pakai file backup dari mamam-global (Backup → Export JSON).'); }
-      const r = await importFromBackup(json);
-      const dilewati = r.skipped.length
-        ? `\nDilewati: ${r.skipped.slice(0, 5).map(s => `${s.name} (${s.reason})`).join(', ')}${r.skipped.length > 5 ? ', dst.' : ''}`
-        : '';
-      triggerAlert(`Impor selesai: ${r.added} karyawan baru, ${r.alreadyThere} sudah ada (tidak ditimpa).${dilewati}`);
-    });
   };
 
   const sorted = useMemo(() => {
@@ -132,22 +114,9 @@ export default function EmployeeView() {
             </div>
           </Card>
 
-          {canManage && (
-          <Card className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
-            <div>
-              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Impor dari mamam-global</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pilih file backup JSON dari mamam-global (menu Backup → Export JSON). Karyawan yang sudah ada tidak ditimpa, jadi aman diulang.</p>
-            </div>
-            <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFile} data-testid="import-file" />
-            <Button variant="secondary" className="w-full md:w-auto shrink-0" icon={<Upload className="w-4 h-4" />} disabled={busy} onClick={() => fileRef.current?.click()}>
-              Pilih File Backup
-            </Button>
-          </Card>
-          )}
-
           {sorted.length === 0 ? (
             <EmptyState icon={<Briefcase className="w-12 h-12" />}
-              title={employees.length === 0 ? (canManage ? 'Belum ada karyawan. Tambah manual atau impor dari backup mamam-global.' : 'Belum ada karyawan.') : 'Tidak ada karyawan dengan filter ini.'} />
+              title={employees.length === 0 ? (canManage ? 'Belum ada karyawan. Tambah lewat tombol di atas.' : 'Belum ada karyawan.') : 'Tidak ada karyawan dengan filter ini.'} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-10">
               {sorted.map(emp => (
