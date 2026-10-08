@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Receipt, Wallet, ShoppingBag, Eye, DollarSign, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Receipt, Wallet, DollarSign, ChevronRight } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatters';
-import { DetailModal } from '../../components/ui';
+import QuickEntrySection from './QuickEntrySection';
 import { useAuth } from '../../auth/AuthContext';
 import { useAppContext } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
@@ -9,9 +9,10 @@ import { supabase } from '../../lib/supabase';
 /**
  * HomeView — Aplikasi C.
  *
- * Struktur JSX (hero card, grid 2x2, chart tren 11 hari, list riwayat,
- * DetailModal) di-port PERSIS dari HomeView.jsx test-app-baru (mamam-global),
- * sesuai arahan "ikutin visual look & navigasinya".
+ * Struktur JSX (hero card, grid 2x2) di-port dari HomeView.jsx test-app-baru (mamam-global),
+ * sesuai arahan "ikutin visual look & navigasinya". Daftar "Riwayat Pesanan Hari Ini" sudah
+ * dihapus: gantinya bagian "Catat Cepat" (QuickEntrySection). Riwayat penjualan lengkap ada di
+ * layar Riwayat (owner).
  *
  * BEDA dari versi asli — HANYA di layer data:
  *   - useSales() (SyncEngine V2) + AppContext (expenses)  →  query langsung
@@ -39,7 +40,7 @@ const HomeView = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [now, setNow] = useState(new Date());
-    const [detailOrder, setDetailOrder] = useState(null);
+    const [refreshKey, setRefreshKey] = useState(0);   // naik tiap Catat Cepat menyimpan, supaya kartu di atas ikut segar
 
     // Jam berjalan biar dashboard terasa hidup
     useEffect(() => {
@@ -56,7 +57,6 @@ const HomeView = () => {
         let cancelled = false;
 
         async function loadData() {
-            setLoading(true);
             setError(null);
 
             const since = new Date(now);
@@ -66,7 +66,7 @@ const HomeView = () => {
             const [salesRes, expensesRes] = await Promise.all([
                 supabase
                     .from('transactions')
-                    .select('id, display_number, order_type, customer_name, items:transaction_items(*), subtotal, voucher_discount, manual_discount_amount, tax_amount, service_amount, delivery_fee, total, payment_method, ojol_platform, created_at, status')
+                    .select('id, total, created_at')
                     .eq('status', 'paid')
                     .gte('created_at', since.toISOString())
                     .order('created_at', { ascending: false }),
@@ -92,7 +92,7 @@ const HomeView = () => {
 
         loadData();
         return () => { cancelled = true; };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- sengaja sekali muat per mount, bukan tiap `now` tick
+    }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps -- dimuat saat mount & saat Catat Cepat menyimpan, bukan tiap `now` tick
 
     const isToday = (dateString) => {
         const d = new Date(dateString);
@@ -206,88 +206,8 @@ const HomeView = () => {
                 </div>
             </div>
 
-            {/* Riwayat Pesanan Hari Ini */}
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Riwayat Pesanan Hari Ini</h3>
-                {salesToday.length > 0 && (
-                    <span className="text-xs font-bold text-accent-600 dark:text-accent-400 bg-accent-50 dark:bg-accent-500/10 px-2.5 py-1 rounded-full">{salesToday.length} pesanan</span>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {salesToday.map(order => (
-                    <div key={order.id} className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 p-4 relative flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
-                        <div className="flex justify-between items-start mb-3 border-b border-dashed border-slate-200 dark:border-slate-700 pb-3">
-                            <div>
-                                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-100">#{order.display_number}</h3>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
-                            </div>
-                            <span className={`px-2 py-1 rounded-md text-xs font-bold border ${order.payment_method === 'Ojol' ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 border-accent-100 dark:border-accent-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'}`}>
-                                {order.payment_method} {order.payment_method === 'Ojol' && order.ojol_platform && `(${order.ojol_platform})`}
-                            </span>
-                        </div>
-
-                        <div className="mb-4 flex-1 space-y-1">
-                            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Pelanggan: {order.customer_name || 'Umum'}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{(order.items || []).length} Item • {order.order_type}</p>
-                        </div>
-
-                        <div className="flex justify-between items-center border-t border-slate-50 dark:border-slate-900 pt-3 mt-auto">
-                            <span className="font-bold text-slate-800 dark:text-slate-100">{formatRupiah(order.total)}</span>
-                            <div className="flex gap-2">
-                                <button onClick={() => setDetailOrder(order)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors active:scale-95" title="Detail">
-                                    <Eye className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-
-                {!loading && salesToday.length === 0 && (
-                    <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
-                        <ShoppingBag className="w-12 h-12 text-slate-200 dark:text-slate-700 mb-3" />
-                        <h3 className="text-slate-600 dark:text-slate-300 font-bold mb-1">Belum ada pesanan hari ini</h3>
-                        <p className="text-slate-400 dark:text-slate-500 text-sm">Pesanan baru akan langsung muncul di sini.</p>
-                    </div>
-                )}
-            </div>
-
-            {/* Modal Detail Pesanan (khusus lihat, tanpa opsi hapus) */}
-            <DetailModal
-                isOpen={!!detailOrder}
-                onClose={() => setDetailOrder(null)}
-                icon={<Receipt className="w-4 h-4 text-accent-500 dark:text-accent-400" />}
-                title={detailOrder && `#${detailOrder.display_number}`}
-                subtitle={detailOrder && new Date(detailOrder.created_at).toLocaleString('id-ID')}
-                badges={detailOrder ? [
-                    {
-                        label: detailOrder.payment_method === 'Ojol' ? `Ojol (${detailOrder.ojol_platform || ''})` : detailOrder.payment_method,
-                        variant: detailOrder.payment_method === 'Ojol' ? 'orange' : 'success',
-                    },
-                    { label: detailOrder.order_type, variant: 'neutral' },
-                ] : []}
-                sections={[{
-                    rows: [
-                        { label: 'Pelanggan', value: detailOrder?.customer_name || 'Umum' },
-                        { label: 'No. Order', value: detailOrder?.display_number },
-                    ]
-                }]}
-                items={detailOrder?.items?.map(it => ({
-                    name: it.name,
-                    note: [it.variant_name, it.note].filter(Boolean).join(' • '),
-                    qty: it.qty,
-                    price: it.price,
-                }))}
-                summaryRows={[
-                    { label: 'Subtotal', value: detailOrder?.subtotal, type: 'currency' },
-                    { label: 'Diskon Voucher', value: detailOrder?.voucher_discount ? -detailOrder.voucher_discount : 0, type: 'currency' },
-                    { label: 'Diskon Manual', value: detailOrder?.manual_discount_amount ? -detailOrder.manual_discount_amount : 0, type: 'currency' },
-                    { label: 'Pajak', value: detailOrder?.tax_amount, type: 'currency' },
-                    { label: 'Service', value: detailOrder?.service_amount, type: 'currency' },
-                    { label: 'Ongkir', value: detailOrder?.delivery_fee, type: 'currency' },
-                ]}
-                highlight={{ label: 'Total Tagihan', value: detailOrder?.total }}
-            />
+            {/* Catat Cepat: pengeluaran toko, tambah/potongan karyawan, persetujuan, catatan hari ini */}
+            <QuickEntrySection onChanged={() => setRefreshKey(k => k + 1)} />
         </div>
     );
 };

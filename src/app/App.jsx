@@ -13,6 +13,7 @@ import ResetPinScreen from '../auth/ResetPinScreen';
 import ConnectionBanner from '../components/ConnectionBanner';
 import { VIEW_PERMISSION } from '../auth/permissions';
 import { backStack } from '../lib/backStack';
+import { usePendingApprovals, usePendingApprovalsPoller } from '../hook/usePendingApprovals';
 
 import {
   Briefcase,
@@ -56,6 +57,10 @@ import {
 export default function App() {
   const { role, logout, can: allowed, ready, recovery } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Owner: badge merah di ikon Beranda kalau ada pengajuan Tambahan karyawan yang menunggu keputusan.
+  usePendingApprovalsPoller(allowed('tambahan.setujui'));
+  const pendingApprovals = usePendingApprovals();
 
   // Modal konfirmasi generik — dipakai BottomSheetMenu (logout admin) dan
   // bisa dipakai fitur lain lewat context kalau nanti perlu.
@@ -211,6 +216,7 @@ export default function App() {
         currentView={currentView}
         navigate={navigate}
         onOpenMenu={() => setIsMenuOpen(true)}
+        pendingCount={pendingApprovals}
       />
 
       <BottomSheetMenu

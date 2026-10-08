@@ -7,6 +7,7 @@ import { toLocalDateString } from '../utils/formatters';
 import { employeeGrossCost } from '../features/payroll/payrollCost';
 import { prepareLogs, nowMinutesOf } from '../features/attendance/dayRules';
 import { fetchOverrides } from './attendanceOverrides';
+import { isCountedAddition, countPendingAdditions } from '../features/payroll/additionApproval';
 
 /**
  * usePayrollData — data Penggajian untuk satu periode (mingguan Jumat–Kamis
@@ -32,6 +33,7 @@ const toEngineEmployee = (e) => ({
 export function usePayrollData({ period, attendanceClient = absensiClient }) {
   const [employees, setEmployees] = useState([]);
   const [additions, setAdditions] = useState([]);
+  const [pendingAdditions, setPendingAdditions] = useState(0);   // pengajuan Tambahan yang belum diputuskan owner (tidak dihitung di gaji)
   const [deductions, setDeductions] = useState([]);
   const [openingBalances, setOpeningBalances] = useState({});
   const [closing, setClosing] = useState(null);           // penutupan periode ini (kalau sudah ditutup)
@@ -59,8 +61,10 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
 
       const empRows = (emps.data || []).map(e => ({ ...e, externalId: e.external_id || null, name: e.name }));
       setEmployees(empRows); setEmpList(empRows);
-      setAdditions((adds.data || []).map(a => ({ id: a.id, employeeId: a.employee_id, label: a.label, amount: a.amount, date: day(a.date), category: a.category })));
-      setDeductions((deds.data || []).map(d => ({ id: d.id, employeeId: d.employee_id, label: d.label, amount: d.amount, date: day(d.date), category: d.category })));
+      // Hanya Tambahan yang DISETUJUI yang masuk hitungan gaji (menunggu/ditolak diabaikan).
+      setAdditions((adds.data || []).filter(isCountedAddition).map(a => ({ id: a.id, employeeId: a.employee_id, label: a.label, amount: a.amount, date: day(a.date), category: a.category })));
+      setPendingAdditions(countPendingAdditions(adds.data));
+      setDeductions((deds.data || []).map(d => ({ id: d.id, employeeId: d.employee_id, label: d.label, amount: d.amount, date: day(d.date), category: d.category, expenseId: d.expense_id || null })));
       setOpeningBalances(Object.fromEntries((opens.data || []).map(o => [`${o.employee_id}|${o.month}`, o.amount])));
       const closed = (clos.data || [])[0] || null;
       if (closed) {
@@ -147,6 +151,7 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
       const klar = results.reduce((n, r) => n + r.needsClarification.length, 0);
       if (klar > 0) closeBlockers.push(`Ada ${klar} hari perlu klarifikasi (bolong belum selesai). Selesaikan dulu supaya gajinya tidak salah dibekukan.`);
       if (results.length === 0) closeBlockers.push('Tidak ada data gaji pada periode ini.');
+      if (pendingAdditions > 0) closeBlockers.push(`Ada ${pendingAdditions} pengajuan Tambahan yang belum diputuskan (lihat Beranda). Setujui atau tolak dulu supaya tidak terlewat dari gaji.`);
     }
   }
 
@@ -182,7 +187,12 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
     await reload();
   };
   const deleteDeduction = async (id) => {
-    const { error: e } = await supabase.from('payroll_deductions').delete().eq('id', id);
+    // Potongan dari "Catat Cepat" terhubung ke pengeluaran karyawan (dan saldo Dompet kalau tunai):
+    // menghapus pengeluarannya ikut menghapus potongan (ON DELETE CASCADE), jadi keduanya hilang bersama.
+    const target = deductions.find(d => d.id === id);
+    const { error: e } = target?.expenseId
+      ? await supabase.from('expenses').delete().eq('id', target.expenseId)
+      : await supabase.from('payroll_deductions').delete().eq('id', id);
     if (e) fail(e, 'Gagal menghapus potongan');
     await reload();
   };

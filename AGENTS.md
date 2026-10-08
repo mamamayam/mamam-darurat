@@ -60,3 +60,14 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 **Staf** tidak boleh melihat/membuka **Riwayat** dan **Laporan** (owner-only).
 
 **Gaji** mengikuti aturan hitung mamam-kasir (B): `docs/payroll-rules.md`. Jangan diubah diam-diam.
+
+**Catat Cepat (Beranda)** (`src/features/home/`): menggantikan daftar "Riwayat Pesanan Hari Ini". Tile **Pengeluaran** (toko, di atas), lalu **Tambah** dan **Potongan** (karyawan), dua kartu ringkasan
+(**Pengeluaran Karyawan** dan **Pengeluaran Toko**), pengajuan menunggu (owner), dan catatan hari ini.
+- Form-nya **komponen yang sama** dengan modul asli: Pengeluaran = `ExpenseFormSheet` (juga dipakai layar Pengeluaran); Tambah/Potongan = `AdjustmentFields` (juga dipakai Penggajian).
+  Jangan menduplikasi form; ubah komponen bersama.
+- **Persetujuan owner HANYA untuk Tambah** dari staf (`payroll_additions.status`: `menunggu`/`disetujui`/`ditolak`, izin `tambahan.setujui`). Tambah yang belum disetujui **tidak dihitung gaji**
+  dan menahan penutupan periode gaji. Potongan dan Pengeluaran **langsung dicatat**, tanpa persetujuan.
+- **Potongan = pengeluaran karyawan**: RPC `catat_potongan` (migrasi `009_catat_cepat.sql`) menulis `expenses` (dengan `employee_id`) + `payroll_deductions` dalam satu transaksi.
+  Sumber dana Tunai otomatis mengurangi saldo Dompet (rumus Dompet tidak diubah: hanya `payment_method = 'Tunai'`). Menghapus pengeluaran karyawan ikut menghapus potongannya (FK cascade), begitu juga sebaliknya lewat `usePayrollData.deleteDeduction`.
+- Potongan yang dibuat dari layar **Penggajian** tetap hanya mencatat potongan gaji (tidak jadi pengeluaran, tidak menyentuh Dompet).
+- Staf tidak melihat nominal Tambah/Potongan (izin `karyawan.upah`), hanya nominal toko.

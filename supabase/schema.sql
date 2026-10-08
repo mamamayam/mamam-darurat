@@ -278,9 +278,14 @@ create table if not exists payroll_additions (
   source       text not null default 'owner' check (source in ('owner','staff')),
   approved_by  text,
   approved_at  timestamptz,
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  -- migrasi 009: persetujuan Tambahan (staf mengajukan, owner memutuskan; gaji hanya menghitung 'disetujui')
+  status        text not null default 'disetujui' check (status in ('menunggu','disetujui','ditolak')),
+  requested_by  text,
+  reject_reason text
 );
 create index if not exists idx_payroll_additions_emp_date on payroll_additions (employee_id, date);
+create index if not exists idx_payroll_additions_pending on payroll_additions (created_at) where status = 'menunggu';
 
 create table if not exists payroll_deductions (
   id           uuid primary key default gen_random_uuid(),
@@ -292,6 +297,40 @@ create table if not exists payroll_deductions (
   created_at   timestamptz not null default now()
 );
 create index if not exists idx_payroll_deductions_emp_date on payroll_deductions (employee_id, date);
+
+-- Migrasi 009: pengeluaran karyawan + tautan potongan <-> pengeluaran + catat_potongan()
+alter table expenses add column if not exists employee_id uuid references employees(id) on delete set null;
+alter table expenses add column if not exists employee_name text;
+create index if not exists idx_expenses_employee on expenses (employee_id) where employee_id is not null;
+alter table payroll_deductions add column if not exists expense_id uuid references expenses(id) on delete cascade;
+create index if not exists idx_payroll_deductions_expense on payroll_deductions (expense_id) where expense_id is not null;
+
+create or replace function catat_potongan(
+  p_employee_id uuid, p_label text, p_amount integer, p_date date, p_category text, p_payment_method text
+) returns uuid language plpgsql as $$
+declare
+  v_name text; v_cat text; v_label text; v_pay text; v_expense uuid; v_deduction uuid;
+begin
+  select name into v_name from employees where id = p_employee_id;
+  if v_name is null then raise exception 'Karyawan tidak ditemukan'; end if;
+  if p_amount is null or p_amount <= 0 then raise exception 'Nominal harus lebih dari 0'; end if;
+  v_cat := nullif(trim(p_category), '');
+  if v_cat is null then raise exception 'Kategori wajib diisi'; end if;
+  v_label := coalesce(nullif(trim(p_label), ''), v_cat);
+  v_pay := case when p_payment_method = 'Non-Tunai' then 'Non-Tunai' else 'Tunai' end;
+
+  insert into expenses (direction, category, amount, transaction_date, store_or_supplier_name, detail, payment_method, employee_id, employee_name)
+  values ('pengeluaran', v_cat, p_amount, p_date, v_name, v_label, v_pay, p_employee_id, v_name)
+  returning id into v_expense;
+
+  insert into payroll_deductions (employee_id, label, amount, date, category, expense_id)
+  values (p_employee_id, v_label, p_amount, p_date, v_cat, v_expense)
+  returning id into v_deduction;
+
+  return v_deduction;
+end $$;
+grant execute on function catat_potongan(uuid, text, integer, date, text, text) to anon;
+grant execute on function catat_potongan(uuid, text, integer, date, text, text) to authenticated;
 
 -- Saldo awal bulan: positif = karyawan berutang ke toko; negatif = toko berutang.
 create table if not exists payroll_opening_balances (

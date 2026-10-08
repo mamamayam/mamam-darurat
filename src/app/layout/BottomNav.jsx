@@ -17,6 +17,7 @@ export default function BottomNav({
     currentView,
     navigate,
     onOpenMenu,
+    pendingCount = 0,
 }) {
     const tabClass = (active) =>
         `flex-1 min-w-0 flex flex-col items-center justify-center gap-1 short:gap-0.5 transition-all duration-300 active:scale-95 ${
@@ -34,8 +35,15 @@ export default function BottomNav({
             <div className="flex items-stretch h-16 short:h-12">
 
                 {/* Tombol Beranda */}
-                <button onClick={() => navigate('beranda')} aria-label="Beranda" aria-current={currentView === 'beranda' ? 'page' : undefined} className={tabClass(currentView === 'beranda')}>
-                    <Home className="w-6 h-6 short:w-5 short:h-5" />
+                <button onClick={() => navigate('beranda')} aria-label={pendingCount > 0 ? `Beranda, ${pendingCount} pengajuan menunggu persetujuan` : 'Beranda'} aria-current={currentView === 'beranda' ? 'page' : undefined} className={tabClass(currentView === 'beranda')}>
+                    <span className="relative">
+                        <Home className="w-6 h-6 short:w-5 short:h-5" />
+                        {pendingCount > 0 && (
+                            <span data-testid="badge-pengajuan" className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center ring-2 ring-white dark:ring-slate-950">
+                                {pendingCount > 9 ? '9+' : pendingCount}
+                            </span>
+                        )}
+                    </span>
                 </button>
 
                 {/* Tombol Kasir (aksen di tengah, tetap di dalam bar) */}

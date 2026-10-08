@@ -5,9 +5,9 @@ import { supabase } from '../lib/supabase';
  * useExpenseData — layer data Pengeluaran, ONLINE-FIRST.
  *
  * BEDA dari mamam-global (sengaja, sesuai keputusan gelombang 1):
- *  - TANPA Kasbon Karyawan — dipindah ke modul Karyawan/Payroll saat
- *    digarap (kasbon butuh logic "otomatis potong gaji" yang menyatu
- *    dengan payroll, bukan sekadar kategori pengeluaran biasa).
+ *  - Kasbon/potongan karyawan TIDAK dicatat dari sini: lewat "Catat Cepat" di Beranda
+ *    (RPC catat_potongan, migrasi 009) yang menulis potongan gaji + pengeluaran
+ *    karyawan (expenses.employee_id) dalam satu transaksi.
  *  - HARD DELETE (tanpa RecycleBin/useRecycleBin) — hapus = hilang dari
  *    Supabase saat itu juga.
  *  - TANPA gating admin (isAdminMode) — semua orang boleh edit/hapus,
@@ -19,7 +19,11 @@ import { supabase } from '../lib/supabase';
 
 const fail = (error, aksi) => { throw new Error(`${aksi}: ${error.message}`); };
 
-export function useExpenseData() {
+/**
+ * `withExpenses: false` = hanya kategori + karyawan (tanpa memuat seluruh riwayat pengeluaran).
+ * Dipakai form Pengeluaran di Beranda, yang cuma butuh menyimpan satu catatan.
+ */
+export function useExpenseData({ withExpenses = true } = {}) {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -35,7 +39,9 @@ export function useExpenseData() {
   const reload = useCallback(async () => {
     const [cats, exps, emps] = await Promise.all([
       supabase.from('expense_categories').select('*').order('sort_order').order('created_at'),
-      supabase.from('expenses').select('*').eq('direction', 'pengeluaran').order('transaction_date', { ascending: false }).order('created_at', { ascending: false }),
+      withExpenses
+        ? supabase.from('expenses').select('*').eq('direction', 'pengeluaran').order('transaction_date', { ascending: false }).order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
       supabase.from('employees').select('id, name, role, status').order('name'),
     ]);
     if (cats.error || exps.error || emps.error) { setError((cats.error || exps.error || emps.error).message); setLoading(false); return; }
@@ -47,6 +53,7 @@ export function useExpenseData() {
       id: e.id, amount: e.amount, category: e.category, note: e.detail, supplier: e.store_or_supplier_name,
       date: e.transaction_date, paymentMethod: e.payment_method,
       cashHolderEmployeeId: e.cash_holder_employee_id, cashHolderName: e.cash_holder_name,
+      employeeId: e.employee_id || null,   // terisi = pengeluaran karyawan dari potongan (Catat Cepat), diubah lewat Penggajian
     })));
     setError(null);
     setLoading(false);
