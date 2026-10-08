@@ -24,6 +24,7 @@ export const PERMISSIONS = {
   'laporan.labaKotor': ['owner'],        // kartu Laba Kotor di tab Laba Rugi
   'laporan.hapusTransaksi': ['owner'],   // tombol hapus transaksi di Riwayat
   'beranda.laba': ['owner'],             // kartu Laba Kotor di Beranda
+  'tambahan.setujui': ['owner'],         // setujui/tolak pengajuan Tambahan karyawan dari staf (Catat Cepat di Beranda)
   'pengeluaran.ubah': ['owner'],         // edit & hapus pengeluaran (mencatat baru boleh semua)
   'karyawan.kelola': ['owner'],          // tambah/edit/hapus/impor karyawan
   'karyawan.upah': ['owner'],            // melihat upah, bonus, tarif lembur

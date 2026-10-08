@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
-import { Card, Button, Input, NominalInput, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
-import CategorySelect from '../../components/CategorySelect';
+import { Card, Button, NominalInput, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
+import AdjustmentFields from './AdjustmentFields';
 import CategoryModal from '../../components/CategoryModal';
 import { useAppContext } from '../../context/AppContext';
 import { usePayrollData } from '../../hook/usePayrollData';
@@ -286,12 +286,7 @@ function OwnerPayroll() {
                   <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
                 ) : (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-                  <SegmentedControl value={form.type} onChange={(v) => setForm({ ...form, type: v, category: firstCat(v) })}
-                    options={[{ value: 'potongan', label: 'Potongan' }, { value: 'tambahan', label: 'Tambahan' }]} />
-                  <CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} options={cats.categories[form.type] || []} onManage={() => setCatModalOpen(true)} />
-                  <Input placeholder="Keterangan" value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} />
-                  <NominalInput title="Nominal" placeholder="Nominal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
-                  <Input type="date" value={form.date} min={period.start} max={period.end} onChange={e => setForm({ ...form, date: e.target.value })} />
+                  <AdjustmentFields form={form} onChange={setForm} categories={cats.categories} onManage={() => setCatModalOpen(true)} minDate={period.start} maxDate={period.end} />
                   <Button size="full" onClick={handleAdd} disabled={busy} icon={<Plus className="w-4 h-4" />}>{busy ? 'Menyimpan...' : `Tambah ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}</Button>
                   <p className="text-xs text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
                 </div>

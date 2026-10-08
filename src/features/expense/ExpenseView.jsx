@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react';
 import { TrendingDown, Save, Pencil, Trash2, History, ArrowUpDown, Plus } from 'lucide-react';
-import { Card, Input, NominalInput, Select, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar, Modal, BulletListInput } from '../../components/ui';
-import CategoryModal from '../../components/CategoryModal';
-import CategorySelect from '../../components/CategorySelect';
+import { Card, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar } from '../../components/ui';
+import ExpenseFormSheet from './ExpenseFormSheet';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useExpenseData } from '../../hook/useExpenseData';
@@ -13,7 +12,9 @@ import { toLocalDateString } from '../../utils/formatters';
 /**
  * ExpenseView — Pengeluaran. Form, filter periode, urutkan, pilih-banyak,
  * dan Kelola Kategori di-port dari mamam-global, dengan BEDA yang disengaja:
- *   - TANPA Kasbon Karyawan (dipindah ke fitur Karyawan nanti)
+ *   - Kasbon & potongan karyawan dicatat lewat "Catat Cepat" di Beranda (jadi pengeluaran karyawan di sini,
+ *     angkanya terhubung ke gaji, jadi tidak diedit dari layar ini; menghapusnya ikut menghapus potongannya)
+ *   - Form-nya komponen bersama ExpenseFormSheet (dipakai juga tombol Pengeluaran di Beranda)
  *   - HARD DELETE (tanpa RecycleBin)
  *   - Edit/hapus terbuka untuk semua (belum ada login/admin di C)
  *   - Data langsung ke Supabase; kalau gagal, user diberi tahu jelas
@@ -26,7 +27,6 @@ import { toLocalDateString } from '../../utils/formatters';
 const dayOf = (v) => String(v).slice(0, 10);
 // Detail disimpan sebagai teks, satu poin per baris. Catatan lama (satu baris) = satu poin.
 const noteLines = (note) => String(note || '').split(/\r?\n/).map(t => t.trim()).filter(Boolean);
-const toItems = (note) => { const l = noteLines(note); return l.length ? l : ['']; };
 const showDate = (v) => {
   const [y, m, d] = dayOf(v).split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('id-ID');
@@ -36,25 +36,14 @@ const ExpenseView = () => {
   const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
   const { can } = useAuth();
   const canChange = can('pengeluaran.ubah');   // edit & hapus; mencatat baru boleh semua peran
-  const {
-    expenses, categories, employees, loading, error, reload,
-    saveExpense, deleteExpense, bulkDeleteExpenses,
-    setCategoriesPersist, renameCategory, deleteCategory,
-  } = useExpenseData();
+  const expenseData = useExpenseData();
+  const { expenses, loading, error, reload, deleteExpense, bulkDeleteExpenses } = expenseData;
 
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
-  const [supplier, setSupplier] = useState('');
-  const [detailItems, setDetailItems] = useState(['']);
-  const [dateInput, setDateInput] = useState(toLocalDateString());
-  const [paymentMethod, setPaymentMethod] = useState('Tunai');
-  const [cashHolderId, setCashHolderId] = useState('kasir');
+  const [editing, setEditing] = useState(null);   // catatan yang sedang diedit; null = catatan baru
   const [filterMode, setFilterMode] = useState('hari-ini');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [sortKey, setSortKey] = useState('date-desc');
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -66,11 +55,6 @@ const ExpenseView = () => {
     try { await fn(); } catch (e) { triggerAlert(e.message || 'Terjadi kesalahan.'); }
     finally { setBusy(false); }
   };
-
-  const couriers = useMemo(
-    () => employees.filter(e => e.role === 'kurir' && e.status !== 'resign'),
-    [employees]
-  );
 
   const matchesDateFilter = (date) => {
     const d = dayOf(date);
@@ -111,40 +95,14 @@ const ExpenseView = () => {
 
   const { selectedIds, allSelected, toggleOne, toggleAll, reset: resetSelection, count } = useBulkSelect(sortedExpenses);
 
-  const resetForm = () => {
-    setEditingId(null); setAmount(''); setSupplier(''); setDetailItems(['']); setPaymentMethod('Tunai'); setCashHolderId('kasir');
-    setDateInput(toLocalDateString());
-    setCategory('');
-  };
+  const openNew = () => { setEditing(null); setIsFormOpen(true); };
+  const closeForm = () => { setIsFormOpen(false); setEditing(null); };
 
-  const openNew = () => { resetForm(); setIsFormOpen(true); };
-  const closeForm = () => { resetForm(); setIsFormOpen(false); };
-
-  const handleSave = () => run(async () => {
-    const holder = paymentMethod === 'Tunai' && cashHolderId !== 'kasir' ? couriers.find(c => c.id === cashHolderId) : null;
-    await saveExpense({
-      id: editingId, amount, category, note: detailItems.map(t => t.trim()).filter(Boolean).join('\n'),
-      supplier: supplier.trim(), date: dateInput, paymentMethod,
-      cashHolderEmployeeId: holder?.id || null, cashHolderName: holder?.name || null,
-    });
-    closeForm();
-  });
-
-  const handleEditClick = (exp) => {
-    setEditingId(exp.id);
-    setAmount(String(exp.amount));
-    setCategory(exp.category);
-    setSupplier(exp.supplier || '');
-    setDetailItems(toItems(exp.note));
-    setDateInput(dayOf(exp.date));
-    setPaymentMethod(exp.paymentMethod === 'Non-Tunai' ? 'Non-Tunai' : 'Tunai');
-    setCashHolderId(exp.cashHolderEmployeeId || 'kasir');
-    setIsFormOpen(true);
-  };
+  const handleEditClick = (exp) => { setEditing(exp); setIsFormOpen(true); };
 
   const handleDelete = (exp) => {
     triggerConfirm('Yakin ingin menghapus catatan pengeluaran ini? Data akan hilang permanen.', () =>
-      run(async () => { await deleteExpense(exp.id); if (editingId === exp.id) resetForm(); }));
+      run(async () => { await deleteExpense(exp.id); if (editing?.id === exp.id) closeForm(); }));
   };
 
   const handleBulkDelete = () => {
@@ -227,6 +185,7 @@ const ExpenseView = () => {
                       <Badge variant="neutral">{showDate(exp.date)}</Badge>
                       {exp.paymentMethod === 'Non-Tunai' && <Badge variant="info">Bank</Badge>}
                       {exp.cashHolderName && <Badge variant="warning">💰 {exp.cashHolderName}</Badge>}
+                      {exp.employeeId && <Badge variant="orange">Karyawan</Badge>}
                     </p>
                     {exp.supplier && <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1">🏪 {exp.supplier}</p>}
                     {(() => {
@@ -241,7 +200,8 @@ const ExpenseView = () => {
                   <p className="font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-1.5 rounded-xl text-sm border border-red-100 dark:border-red-500/20">-{formatRupiah(exp.amount)}</p>
                   {canChange && (
                   <div className="flex gap-1">
-                    <IconButton variant="edit" onClick={() => handleEditClick(exp)} title="Edit Catatan"><Pencil className="w-3.5 h-3.5" /></IconButton>
+                    {/* Pengeluaran karyawan (dari potongan) angkanya terhubung ke gaji: diubah lewat Penggajian, bukan di sini. */}
+                    {!exp.employeeId && <IconButton variant="edit" onClick={() => handleEditClick(exp)} title="Edit Catatan"><Pencil className="w-3.5 h-3.5" /></IconButton>}
                     <IconButton variant="delete" onClick={() => handleDelete(exp)} title="Hapus Catatan"><Trash2 className="w-3.5 h-3.5" /></IconButton>
                   </div>
                   )}
@@ -256,64 +216,9 @@ const ExpenseView = () => {
         </Button>
       </div>
 
-      <Modal isOpen={isFormOpen} onClose={closeForm} sheet size="lg" maxHeight title={editingId ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}>
-        <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          <div className="grid grid-cols-2 gap-4 items-start">
-            <CategorySelect value={category} onChange={setCategory} options={categories} onManage={() => setIsCategoryModalOpen(true)} />
-            <Select label="Sumber Dana" value={paymentMethod}
-              onChange={e => { setPaymentMethod(e.target.value); if (e.target.value === 'Non-Tunai') setCashHolderId('kasir'); }}>
-              <option value="Tunai">Tunai</option>
-              <option value="Non-Tunai">Non-Tunai</option>
-            </Select>
-            <NominalInput label="Jumlah" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" />
-            <Input type="date" label="Tanggal Transaksi" value={dateInput} onChange={e => setDateInput(e.target.value)} />
-          </div>
-
-          {paymentMethod === 'Tunai' && couriers.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Dibayar Pakai Uang Siapa?</label>
-              <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
-                <option value="kasir">Kasir / Toko</option>
-                {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
-              </Select>
-              {cashHolderId !== 'kasir' && (
-                <p className="text-xs text-accent-600 dark:text-accent-400 mt-1 italic">
-                  *Dicatat pakai cash yang lagi dipegang kurir ini (belum disetor). Terlihat di rincian posisi uang pada Dompet.
-                </p>
-              )}
-            </div>
-          )}
-
-          <Input label="Nama Toko/Supplier" value={supplier} onChange={e => setSupplier(e.target.value)} placeholder="Opsional" />
-
-          <BulletListInput label="Detail" value={detailItems} onChange={setDetailItems} placeholder="Opsional, mis. Ayam 5 kg" />
-
-          <Button onClick={handleSave} disabled={busy} size="full" variant={editingId ? 'primary' : 'dark'} className="mt-2">
-            {busy ? 'Menyimpan...' : editingId ? 'Perbarui Data' : 'Simpan Data'}
-          </Button>
-        </div>
-      </Modal>
+      <ExpenseFormSheet isOpen={isFormOpen} onClose={closeForm} editing={editing} data={expenseData} />
 
       <SortModal isOpen={isSortOpen} onClose={() => setIsSortOpen(false)} value={sortKey} onChange={setSortKey} options={sortOptions} />
-
-      <CategoryModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
-        title="Kelola Kategori Pengeluaran"
-        categories={categories}
-        setCategories={(next) => run(() => setCategoriesPersist(next))}
-        triggerAlert={triggerAlert}
-        triggerConfirm={triggerConfirm}
-        deleteMessage={(cat) => `Yakin ingin menghapus kategori "${cat}"? Catatan pengeluaran lama tetap tersimpan dengan nama kategori ini.`}
-        onRenameAsync={(oldCat, newCat) => {
-          run(() => renameCategory(oldCat, newCat));
-          if (category === oldCat) setCategory(newCat);
-        }}
-        onDeleteAsync={(deletedCat) => {
-          run(() => deleteCategory(deletedCat));
-          if (category === deletedCat) setCategory(categories.find(c => c !== deletedCat) || '');
-        }}
-      />
     </div>
   );
 };
