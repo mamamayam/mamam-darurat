@@ -1,11 +1,12 @@
 import { lazy, Suspense, Component, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, RefreshCw, Lock } from 'lucide-react';
+import { AlertCircle, RefreshCw, Lock, WifiOff } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { VIEW_PERMISSION } from '../auth/permissions';
 import { Button } from '../components/ui';
 import PullIndicator from '../components/PullIndicator';
 import { usePullToRefresh } from '../hook/usePullToRefresh';
+import { isChunkLoadError } from '../lib/connectionLogic';
 
 // C — mamam-darurat: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
 // test-app-baru. Mesin render (mountedViews, animasi framer-motion,
@@ -69,6 +70,24 @@ class ViewErrorBoundary extends Component {
     };
 
     render() {
+        if (this.state.hasError && isChunkLoadError(this.state.error)) {
+            // Halaman belum pernah dibuka di perangkat ini dan tidak ada internet untuk mengunduhnya.
+            // Hasil import yang gagal tersimpan di React.lazy, jadi satu-satunya jalan ulang = muat ulang halaman.
+            return (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4" data-testid="halaman-gagal-dimuat">
+                    <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/10 rounded-full flex items-center justify-center">
+                        <WifiOff className="w-8 h-8 text-amber-500 dark:text-amber-400" />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-1">Halaman belum bisa dimuat</h2>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs mx-auto">
+                            Koneksi internet terputus, dan halaman ini belum pernah dibuka di perangkat ini. Sambungkan internet lalu muat ulang.
+                        </p>
+                    </div>
+                    <Button onClick={() => window.location.reload()} icon={<RefreshCw className="w-4 h-4" />}>Muat Ulang</Button>
+                </div>
+            );
+        }
         if (this.state.hasError) {
             return (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">

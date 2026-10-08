@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { isLocked, secondsLeft, MAX_ATTEMPTS } from './authLogic';
 import PinPad from './PinPad';
 import { Modal, Button } from '../components/ui';
+import ConnectionBanner from '../components/ConnectionBanner';
 import { versionLabel } from '../lib/appVersion';
 
 const fmtLock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -42,6 +43,7 @@ export default function LoginScreen() {
 
   return (
     <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-7 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
+      <ConnectionBanner floating />
       <div className="text-center">
         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><Lock className="w-6 h-6 text-white" /></div>
         <h1 className="font-heading font-bold text-2xl">Mamam Darurat</h1>

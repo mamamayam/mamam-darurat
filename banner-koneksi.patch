@@ -1,0 +1,379 @@
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index c092805..7758aef 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -10,6 +10,7 @@ import { formatRupiah } from '../utils/formatters';
+ import { useAuth } from '../auth/AuthContext';
+ import LoginScreen from '../auth/LoginScreen';
+ import ResetPinScreen from '../auth/ResetPinScreen';
++import ConnectionBanner from '../components/ConnectionBanner';
+ import { VIEW_PERMISSION } from '../auth/permissions';
+ import { backStack } from '../lib/backStack';
+ 
+@@ -198,6 +199,8 @@ export default function App() {
+         today={today}
+       />
+ 
++      <ConnectionBanner />
++
+       <AppRoutes
+         currentView={currentView}
+         mountedViews={mountedViews}
+diff --git a/src/app/AppRoutes.jsx b/src/app/AppRoutes.jsx
+index cb85690..ea990ef 100644
+--- a/src/app/AppRoutes.jsx
++++ b/src/app/AppRoutes.jsx
+@@ -1,11 +1,12 @@
+ import { lazy, Suspense, Component, useEffect, useRef } from 'react';
+ import { motion } from 'framer-motion';
+-import { AlertCircle, RefreshCw, Lock } from 'lucide-react';
++import { AlertCircle, RefreshCw, Lock, WifiOff } from 'lucide-react';
+ import { useAuth } from '../auth/AuthContext';
+ import { VIEW_PERMISSION } from '../auth/permissions';
+ import { Button } from '../components/ui';
+ import PullIndicator from '../components/PullIndicator';
+ import { usePullToRefresh } from '../hook/usePullToRefresh';
++import { isChunkLoadError } from '../lib/connectionLogic';
+ 
+ // C — mamam-darurat: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
+ // test-app-baru. Mesin render (mountedViews, animasi framer-motion,
+@@ -69,6 +70,24 @@ class ViewErrorBoundary extends Component {
+     };
+ 
+     render() {
++        if (this.state.hasError && isChunkLoadError(this.state.error)) {
++            // Halaman belum pernah dibuka di perangkat ini dan tidak ada internet untuk mengunduhnya.
++            // Hasil import yang gagal tersimpan di React.lazy, jadi satu-satunya jalan ulang = muat ulang halaman.
++            return (
++                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4" data-testid="halaman-gagal-dimuat">
++                    <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/10 rounded-full flex items-center justify-center">
++                        <WifiOff className="w-8 h-8 text-amber-500 dark:text-amber-400" />
++                    </div>
++                    <div>
++                        <h2 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-1">Halaman belum bisa dimuat</h2>
++                        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs mx-auto">
++                            Koneksi internet terputus, dan halaman ini belum pernah dibuka di perangkat ini. Sambungkan internet lalu muat ulang.
++                        </p>
++                    </div>
++                    <Button onClick={() => window.location.reload()} icon={<RefreshCw className="w-4 h-4" />}>Muat Ulang</Button>
++                </div>
++            );
++        }
+         if (this.state.hasError) {
+             return (
+                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">
+diff --git a/src/auth/LoginScreen.jsx b/src/auth/LoginScreen.jsx
+index e4db333..8a68183 100644
+--- a/src/auth/LoginScreen.jsx
++++ b/src/auth/LoginScreen.jsx
+@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
+ import { isLocked, secondsLeft, MAX_ATTEMPTS } from './authLogic';
+ import PinPad from './PinPad';
+ import { Modal, Button } from '../components/ui';
++import ConnectionBanner from '../components/ConnectionBanner';
+ import { versionLabel } from '../lib/appVersion';
+ 
+ const fmtLock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+@@ -42,6 +43,7 @@ export default function LoginScreen() {
+ 
+   return (
+     <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-7 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="login-screen">
++      <ConnectionBanner floating />
+       <div className="text-center">
+         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><Lock className="w-6 h-6 text-white" /></div>
+         <h1 className="font-heading font-bold text-2xl">Mamam Darurat</h1>
+diff --git a/src/auth/ResetPinScreen.jsx b/src/auth/ResetPinScreen.jsx
+index 17631a5..85847f8 100644
+--- a/src/auth/ResetPinScreen.jsx
++++ b/src/auth/ResetPinScreen.jsx
+@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
+ import { roleLabel } from './permissions';
+ import PinPad from './PinPad';
+ import { Button } from '../components/ui';
++import ConnectionBanner from '../components/ConnectionBanner';
+ 
+ /** Muncul saat aplikasi dibuka dari tautan "Lupa PIN" di email: buat PIN baru (2x ketik). */
+ export default function ResetPinScreen() {
+@@ -23,6 +24,7 @@ export default function ResetPinScreen() {
+ 
+   return (
+     <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-7 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="reset-pin-screen">
++      <ConnectionBanner floating />
+       <div className="text-center">
+         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><KeyRound className="w-6 h-6 text-white" /></div>
+         <h1 className="font-heading font-bold text-2xl">Buat PIN baru{recovery?.role ? ` ${roleLabel(recovery.role)}` : ''}</h1>
+diff --git a/src/components/ConnectionBanner.jsx b/src/components/ConnectionBanner.jsx
+new file mode 100644
+index 0000000..674a3db
+--- /dev/null
++++ b/src/components/ConnectionBanner.jsx
+@@ -0,0 +1,55 @@
++import { useState, useEffect, useRef } from 'react';
++import { WifiOff, CloudOff, Wifi, RefreshCw } from 'lucide-react';
++import { useConnectionStatus, checkConnection } from '../lib/connection';
++import { CONN_MESSAGES } from '../lib/connectionLogic';
++
++/**
++ * ConnectionBanner — pemberitahuan koneksi untuk SEMUA halaman.
++ *  - tidak ada internet / server tidak terjangkau: bar peringatan + tombol "Coba lagi"
++ *  - begitu pulih: bar hijau "Tersambung kembali" 4 detik + "Muat ulang" (untuk halaman yang tadi gagal memuat)
++ * Di dalam aplikasi bar ini mengisi ruang di bawah header (tidak menutupi konten).
++ * Di layar login (floating) bar menempel di atas layar.
++ */
++export default function ConnectionBanner({ floating = false }) {
++  const status = useConnectionStatus();
++  const [showBack, setShowBack] = useState(false);
++  const [checking, setChecking] = useState(false);
++  const prev = useRef(status);
++
++  useEffect(() => {
++    const wasDown = prev.current !== 'ok';
++    prev.current = status;
++    if (!(wasDown && status === 'ok')) return undefined;
++    setShowBack(true);
++    const id = setTimeout(() => setShowBack(false), 4000);
++    return () => clearTimeout(id);
++  }, [status]);
++
++  if (status === 'ok' && !showBack) return null;
++
++  const retry = async () => { setChecking(true); await checkConnection(); setChecking(false); };
++  const down = status !== 'ok';
++  const tone = !down
++    ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200'
++    : status === 'offline'
++      ? 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
++      : 'bg-red-100 text-red-900 dark:bg-red-500/20 dark:text-red-200';
++  const Icon = !down ? Wifi : status === 'offline' ? WifiOff : CloudOff;
++  const text = !down ? CONN_MESSAGES.back : CONN_MESSAGES[status];
++
++  return (
++    <div role="status" aria-live="polite" data-testid="connection-banner" data-status={down ? status : 'back'}
++      className={`${floating ? 'fixed top-0 inset-x-0 z-[120] pt-[max(0.5rem,env(safe-area-inset-top))] shadow-md' : 'shrink-0 py-2'} px-4 flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-300 ${tone}`}>
++      <Icon className="w-4 h-4 shrink-0" />
++      <span className="flex-1 min-w-0">{text}</span>
++      {down ? (
++        <button type="button" onClick={retry} disabled={checking} data-testid="connection-retry"
++          className="shrink-0 flex items-center gap-1 font-bold underline underline-offset-2 disabled:opacity-60">
++          <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />{checking ? 'Memeriksa...' : 'Coba lagi'}
++        </button>
++      ) : (
++        <button type="button" onClick={() => window.location.reload()} className="shrink-0 font-bold underline underline-offset-2">Muat ulang</button>
++      )}
++    </div>
++  );
++}
+diff --git a/src/lib/absensiClient.js b/src/lib/absensiClient.js
+index 314d677..4c3f188 100644
+--- a/src/lib/absensiClient.js
++++ b/src/lib/absensiClient.js
+@@ -1,4 +1,5 @@
+ import { createClient } from '@supabase/supabase-js';
++import { trackedFetch } from './connection';
+ 
+ /**
+  * Klien BACA-SAJA ke database sistem absensi (project Supabase A, tabel
+@@ -22,5 +23,5 @@ export const absensiConfigured = Boolean(url && key);
+ 
+ // Tanpa sesi/penyimpanan login: klien ini cuma membaca data publik.
+ export const absensiClient = absensiConfigured
+-  ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
++  ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, global: { fetch: trackedFetch } })
+   : null;
+diff --git a/src/lib/connection.js b/src/lib/connection.js
+new file mode 100644
+index 0000000..d048573
+--- /dev/null
++++ b/src/lib/connection.js
+@@ -0,0 +1,56 @@
++import { useSyncExternalStore } from 'react';
++import { initialConn, nextConn, connStatus, FAIL_THRESHOLD } from './connectionLogic.js';
++
++/**
++ * connection — penyimpan keadaan koneksi (dipakai ConnectionBanner).
++ * Diisi dari event online/offline browser dan dari tiap permintaan Supabase
++ * (lewat trackedFetch yang dipasang di klien Supabase).
++ */
++let state = initialConn(typeof navigator === 'undefined' ? true : navigator.onLine !== false);
++const subs = new Set();
++
++function dispatch(event) {
++  const next = nextConn(state, event);
++  if (next === state) return;
++  state = next;
++  subs.forEach((fn) => fn());
++}
++
++if (typeof window !== 'undefined') {
++  window.addEventListener('offline', () => dispatch('offline'));
++  window.addEventListener('online', () => dispatch('online'));
++}
++
++const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn); };
++
++/** 'ok' | 'offline' | 'server' */
++export const useConnectionStatus = () => useSyncExternalStore(subscribe, () => connStatus(state), () => 'ok');
++
++/** Pengganti fetch untuk klien Supabase: hasil tiap permintaan ikut mengabari status koneksi. */
++export async function trackedFetch(input, init) {
++  try {
++    const res = await fetch(input, init);
++    dispatch('ok');                                   // ada balasan (status berapa pun) = server terjangkau
++    return res;
++  } catch (e) {
++    if (e?.name !== 'AbortError') dispatch('fail');   // dibatalkan sengaja bukan putus koneksi
++    throw e;
++  }
++}
++
++/** Tombol "Coba lagi": cek langsung ke server. @returns {Promise<boolean>} true kalau terjangkau */
++export async function checkConnection() {
++  const url = import.meta.env.VITE_SUPABASE_URL;
++  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
++  const ctrl = new AbortController();
++  const timer = setTimeout(() => ctrl.abort(), 6000);
++  try {
++    await trackedFetch(`${url}/rest/v1/`, { headers: { apikey: key }, signal: ctrl.signal, cache: 'no-store' });
++    return true;
++  } catch {
++    for (let i = 0; i < FAIL_THRESHOLD; i++) dispatch('fail');   // timeout/gagal: pastikan banner tetap tampil
++    return false;
++  } finally {
++    clearTimeout(timer);
++  }
++}
+diff --git a/src/lib/connectionLogic.js b/src/lib/connectionLogic.js
+new file mode 100644
+index 0000000..1715446
+--- /dev/null
++++ b/src/lib/connectionLogic.js
+@@ -0,0 +1,47 @@
++/**
++ * connectionLogic — keadaan koneksi aplikasi. FUNGSI MURNI (tanpa window/fetch),
++ * supaya bisa dites. Penyimpan keadaan + pendengarnya ada di connection.js.
++ *
++ * Dua sumber sinyal:
++ *  - browser: event online/offline (HP masuk mode pesawat, WiFi putus)
++ *  - permintaan ke server yang gagal tersambung (sinyal ada tapi tidak tembus,
++ *    server tidak terjangkau). Permintaan yang sengaja dibatalkan (AbortError)
++ *    tidak dihitung — itu disaring di connection.js. Satu permintaan yang
++ *    berhasil langsung memulihkan status.
++ */
++export const FAIL_THRESHOLD = 1;
++
++export const initialConn = (online = true) => ({ online: Boolean(online), failures: 0 });
++
++/** event: 'online' | 'offline' | 'fail' | 'ok' */
++export function nextConn(st, event) {
++  switch (event) {
++    case 'offline': return st.online ? { ...st, online: false } : st;
++    case 'online':
++    case 'ok': return st.online && st.failures === 0 ? st : { online: true, failures: 0 };
++    case 'fail': return st.failures >= 99 ? st : { ...st, failures: st.failures + 1 };
++    default: return st;
++  }
++}
++
++/** 'offline' (tidak ada internet) | 'server' (internet ada, server tidak terjangkau) | 'ok' */
++export function connStatus(st) {
++  if (!st.online) return 'offline';
++  return st.failures >= FAIL_THRESHOLD ? 'server' : 'ok';
++}
++
++export const CONN_MESSAGES = {
++  offline: 'Tidak ada koneksi internet. Data belum bisa dimuat atau disimpan sampai tersambung lagi.',
++  server: 'Koneksi ke server terputus. Cek internet kamu, lalu coba lagi.',
++  back: 'Tersambung kembali.',
++};
++
++/**
++ * Gagal memuat potongan kode halaman (lazy import) — hampir selalu karena tidak ada
++ * internet saat membuka halaman yang belum pernah dibuka di perangkat ini.
++ * Pesan galatnya beda-beda tiap browser.
++ */
++export function isChunkLoadError(err) {
++  const m = String(err?.message ?? err ?? '');
++  return /dynamically imported module|importing a module script failed|error loading dynamically imported|loading chunk .* failed|loading css chunk/i.test(m);
++}
+diff --git a/src/lib/connectionLogic.test.js b/src/lib/connectionLogic.test.js
+new file mode 100644
+index 0000000..371823b
+--- /dev/null
++++ b/src/lib/connectionLogic.test.js
+@@ -0,0 +1,59 @@
++import { describe, it, expect } from 'vitest';
++import { initialConn, nextConn, connStatus, FAIL_THRESHOLD, CONN_MESSAGES, isChunkLoadError } from './connectionLogic.js';
++
++const run = (st, ...events) => events.reduce(nextConn, st);
++
++describe('status koneksi', () => {
++  it('awal: online, status ok', () => { expect(connStatus(initialConn())).toBe('ok'); expect(connStatus(initialConn(false))).toBe('offline'); });
++  it('event offline browser -> offline; online lagi -> ok', () => {
++    const off = run(initialConn(), 'offline');
++    expect(connStatus(off)).toBe('offline');
++    expect(connStatus(run(off, 'online'))).toBe('ok');
++  });
++  it('permintaan yang gagal tersambung -> server tidak terjangkau (internet ada, server tidak tembus)', () => {
++    expect(FAIL_THRESHOLD).toBe(1);
++    expect(connStatus(run(initialConn(), 'fail'))).toBe('server');
++    expect(connStatus(run(initialConn(), 'fail', 'fail'))).toBe('server');
++  });
++  it('satu permintaan berhasil memulihkan dan mereset hitungan gagal', () => {
++    const down = run(initialConn(), 'fail', 'fail', 'fail');
++    expect(connStatus(down)).toBe('server');
++    expect(connStatus(run(down, 'ok'))).toBe('ok');
++    expect(run(run(initialConn(), 'fail'), 'ok').failures).toBe(0);   // gagal tidak menumpuk melewati keberhasilan
++  });
++  it('permintaan berhasil saat browser mengira offline (sinyal basi) -> ok', () => {
++    expect(connStatus(run(initialConn(false), 'ok'))).toBe('ok');
++  });
++  it('offline lebih utama daripada server (tidak ada internet sama sekali)', () => {
++    expect(connStatus(run(initialConn(), 'fail', 'fail', 'offline'))).toBe('offline');
++  });
++  it('kembali online membersihkan hitungan gagal lama', () => {
++    expect(connStatus(run(initialConn(), 'fail', 'fail', 'offline', 'online'))).toBe('ok');
++  });
++  it('tidak membuat objek baru kalau tidak ada perubahan (hemat render)', () => {
++    const st = initialConn();
++    expect(nextConn(st, 'ok')).toBe(st); expect(nextConn(st, 'online')).toBe(st); expect(nextConn(st, 'apa-ini')).toBe(st);
++    const off = nextConn(st, 'offline'); expect(nextConn(off, 'offline')).toBe(off);
++  });
++  it('hitungan gagal dibatasi (tidak membengkak tanpa batas)', () => {
++    let st = initialConn(); for (let i = 0; i < 500; i++) st = nextConn(st, 'fail');
++    expect(st.failures).toBeLessThanOrEqual(99);
++  });
++  it('pesan tersedia untuk tiap keadaan', () => {
++    for (const k of ['offline', 'server', 'back']) expect(CONN_MESSAGES[k].length).toBeGreaterThan(10);
++  });
++});
++
++describe('galat memuat halaman (lazy import)', () => {
++  it('dikenali dari pesan berbagai browser', () => {
++    for (const m of [
++      'Failed to fetch dynamically imported module: https://x/assets/Foo-abc.js',        // Chrome
++      'error loading dynamically imported module: https://x/assets/Foo.js',               // Firefox
++      'Importing a module script failed.',                                                // Safari
++      'Loading chunk 12 failed.', 'Loading CSS chunk 3 failed.',
++    ]) expect(isChunkLoadError(new Error(m))).toBe(true);
++  });
++  it('galat biasa bukan galat memuat halaman', () => {
++    for (const e of [new Error('Cannot read properties of undefined'), new TypeError('x is not a function'), null, undefined, '']) expect(isChunkLoadError(e)).toBe(false);
++  });
++});
+diff --git a/src/lib/supabase.js b/src/lib/supabase.js
+index a8199bf..fed557a 100644
+--- a/src/lib/supabase.js
++++ b/src/lib/supabase.js
+@@ -1,4 +1,5 @@
+ import { createClient } from '@supabase/supabase-js';
++import { trackedFetch } from './connection';
+ 
+ // Client Supabase C — ONLINE-FIRST, bukan hasil port dari sync engine
+ // mamam-global. Tidak ada usePersistState, tidak ada Dexie, tidak ada
+@@ -19,4 +20,5 @@ if (!supabaseUrl || !supabaseAnonKey) {
+   );
+ }
+ 
+-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
++// trackedFetch: hasil tiap permintaan ikut mengabari ConnectionBanner (internet putus / server tidak terjangkau).
++export const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { fetch: trackedFetch } });

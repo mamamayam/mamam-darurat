@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { trackedFetch } from './connection';
 
 /**
  * Klien BACA-SAJA ke database sistem absensi (project Supabase A, tabel
@@ -22,5 +23,5 @@ export const absensiConfigured = Boolean(url && key);
 
 // Tanpa sesi/penyimpanan login: klien ini cuma membaca data publik.
 export const absensiClient = absensiConfigured
-  ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
+  ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, global: { fetch: trackedFetch } })
   : null;

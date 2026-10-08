@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { roleLabel } from './permissions';
 import PinPad from './PinPad';
 import { Button } from '../components/ui';
+import ConnectionBanner from '../components/ConnectionBanner';
 
 /** Muncul saat aplikasi dibuka dari tautan "Lupa PIN" di email: buat PIN baru (2x ketik). */
 export default function ResetPinScreen() {
@@ -23,6 +24,7 @@ export default function ResetPinScreen() {
 
   return (
     <div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center gap-7 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6" data-testid="reset-pin-screen">
+      <ConnectionBanner floating />
       <div className="text-center">
         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><KeyRound className="w-6 h-6 text-white" /></div>
         <h1 className="font-heading font-bold text-2xl">Buat PIN baru{recovery?.role ? ` ${roleLabel(recovery.role)}` : ''}</h1>

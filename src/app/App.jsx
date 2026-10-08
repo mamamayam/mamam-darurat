@@ -10,6 +10,7 @@ import { formatRupiah } from '../utils/formatters';
 import { useAuth } from '../auth/AuthContext';
 import LoginScreen from '../auth/LoginScreen';
 import ResetPinScreen from '../auth/ResetPinScreen';
+import ConnectionBanner from '../components/ConnectionBanner';
 import { VIEW_PERMISSION } from '../auth/permissions';
 import { backStack } from '../lib/backStack';
 
@@ -197,6 +198,8 @@ export default function App() {
         currentView={currentView}
         today={today}
       />
+
+      <ConnectionBanner />
 
       <AppRoutes
         currentView={currentView}

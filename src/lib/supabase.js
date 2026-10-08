@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { trackedFetch } from './connection';
 
 // Client Supabase C — ONLINE-FIRST, bukan hasil port dari sync engine
 // mamam-global. Tidak ada usePersistState, tidak ada Dexie, tidak ada
@@ -19,4 +20,5 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// trackedFetch: hasil tiap permintaan ikut mengabari ConnectionBanner (internet putus / server tidak terjangkau).
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { fetch: trackedFetch } });
