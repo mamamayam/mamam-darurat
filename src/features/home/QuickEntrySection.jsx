@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Minus, ShoppingBag, Users, Check, X, Clock, Wallet } from 'lucide-react';
-import { Badge, Button, Input, EmptyState, SegmentedControl } from '../../components/ui';
+import { Badge, Button, Input, EmptyState, PillTabs } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useQuickEntries } from '../../hook/useQuickEntries';
@@ -151,7 +151,7 @@ export default function QuickEntrySection({ onChanged }) {
       <div className={`${CARD} overflow-hidden`}>
         <div className="px-4 pt-3 pb-2 space-y-2">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Catatan Hari Ini</p>
-          <SegmentedControl size="sm" value={tab} onChange={setTab} options={TABS} />
+          <PillTabs size="sm" value={tab} onChange={setTab} options={TABS} />
         </div>
         {feed.length === 0 ? (
           <EmptyState icon={<Wallet className="w-10 h-10" />} title="Belum ada catatan hari ini." className="py-8" />
