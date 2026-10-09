@@ -1,0 +1,256 @@
+From 0afe0727f22ebfe660a306d81afb3be5a85f55e5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 10:30:37 +0700
+Subject: [PATCH] refactor: Penggajian bersih tanpa formulir Tambahan/Potongan
+ (hanya lewat Catat Cepat), Kasbon tidak ditawarkan di form Pengeluaran
+
+---
+ AGENTS.md                                     |  5 +-
+ src/features/expense/ExpenseFormSheet.jsx     |  3 +-
+ src/features/expense/expenseCategories.js     |  8 +++
+ .../expense/expenseCategories.test.js         | 12 +++++
+ src/features/payroll/PayrollView.jsx          | 51 +++----------------
+ src/hook/usePayrollData.js                    | 27 +---------
+ 6 files changed, 33 insertions(+), 73 deletions(-)
+ create mode 100644 src/features/expense/expenseCategories.js
+ create mode 100644 src/features/expense/expenseCategories.test.js
+
+diff --git a/AGENTS.md b/AGENTS.md
+index 3689267..9b90285 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -69,5 +69,8 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
+   dan menahan penutupan periode gaji. Potongan dan Pengeluaran **langsung dicatat**, tanpa persetujuan.
+ - **Potongan = pengeluaran karyawan**: RPC `catat_potongan` (migrasi `009_catat_cepat.sql`) menulis `expenses` (dengan `employee_id`) + `payroll_deductions` dalam satu transaksi.
+   Sumber dana Tunai otomatis mengurangi saldo Dompet (rumus Dompet tidak diubah: hanya `payment_method = 'Tunai'`). Menghapus pengeluaran karyawan ikut menghapus potongannya (FK cascade), begitu juga sebaliknya lewat `usePayrollData.deleteDeduction`.
+-- Potongan yang dibuat dari layar **Penggajian** tetap hanya mencatat potongan gaji (tidak jadi pengeluaran, tidak menyentuh Dompet).
++- **Tambahan & Potongan HANYA dicatat lewat Catat Cepat** (satu tempat). Layar **Penggajian** bersih dari formulir Tambahan/Potongan: hanya menampilkan rincian (+ tombol hapus) dan saldo awal.
++  Semua Potongan jadi pengeluaran karyawan, jadi selalu masuk gaji, Laporan pengeluaran, dan Dompet (kalau Tunai).
++- **Kasbon hanya lewat Potongan karyawan**: kategori yang berawalan "Kasbon" tidak ditawarkan di dropdown form Pengeluaran (toko), tapi pengeluaran karyawan hasil Potongan tetap tampil di daftar Pengeluaran
++  (badge Karyawan) dan dihitung di Laporan dan Dompet.
+ - Staf tidak melihat nominal Tambah/Potongan (izin `karyawan.upah`), hanya nominal toko.
+diff --git a/src/features/expense/ExpenseFormSheet.jsx b/src/features/expense/ExpenseFormSheet.jsx
+index a726412..cadf96e 100644
+--- a/src/features/expense/ExpenseFormSheet.jsx
++++ b/src/features/expense/ExpenseFormSheet.jsx
+@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
+ import { Input, NominalInput, Select, Button, Modal, BulletListInput } from '../../components/ui';
+ import CategoryModal from '../../components/CategoryModal';
+ import CategorySelect from '../../components/CategorySelect';
++import { storeExpenseCategories } from './expenseCategories';
+ import { useAppContext } from '../../context/AppContext';
+ import { toLocalDateString } from '../../utils/formatters';
+ 
+@@ -83,7 +84,7 @@ export default function ExpenseFormSheet({ isOpen, onClose, editing = null, data
+       <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight title={editing ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}>
+         <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+           <div className="grid grid-cols-2 gap-4 items-start">
+-            <CategorySelect value={category} onChange={setCategory} options={categories} onManage={() => setIsCategoryModalOpen(true)} />
++            <CategorySelect value={category} onChange={setCategory} options={storeExpenseCategories(categories)} onManage={() => setIsCategoryModalOpen(true)} />
+             <Select label="Sumber Dana" value={paymentMethod}
+               onChange={e => { setPaymentMethod(e.target.value); if (e.target.value === 'Non-Tunai') setCashHolderId('kasir'); }}>
+               <option value="Tunai">Tunai</option>
+diff --git a/src/features/expense/expenseCategories.js b/src/features/expense/expenseCategories.js
+new file mode 100644
+index 0000000..d004f7d
+--- /dev/null
++++ b/src/features/expense/expenseCategories.js
+@@ -0,0 +1,8 @@
++import { isKasbon } from '../payroll/payrollCost';
++
++/**
++ * Kategori yang boleh dipilih di form Pengeluaran (toko). Kasbon TIDAK ditawarkan di sini:
++ * kasbon hanya dicatat sebagai Potongan karyawan lewat Catat Cepat (yang otomatis jadi
++ * pengeluaran karyawan, tetap masuk gaji, Dompet, dan Laporan). FUNGSI MURNI (dites).
++ */
++export const storeExpenseCategories = (categories) => (categories || []).filter((c) => !isKasbon(c));
+diff --git a/src/features/expense/expenseCategories.test.js b/src/features/expense/expenseCategories.test.js
+new file mode 100644
+index 0000000..b2d7c3e
+--- /dev/null
++++ b/src/features/expense/expenseCategories.test.js
+@@ -0,0 +1,12 @@
++import { describe, it, expect } from 'vitest';
++import { storeExpenseCategories } from './expenseCategories';
++
++describe('storeExpenseCategories', () => {
++  it('menyembunyikan Kasbon (apa pun huruf besar/kecilnya) dari pilihan form Pengeluaran', () => {
++    expect(storeExpenseCategories(['Belanja', 'Kasbon', 'Gaji', ' kasbon karyawan', 'Lainnya'])).toEqual(['Belanja', 'Gaji', 'Lainnya']);
++  });
++  it('aman untuk daftar kosong / undefined', () => {
++    expect(storeExpenseCategories([])).toEqual([]);
++    expect(storeExpenseCategories(undefined)).toEqual([]);
++  });
++});
+diff --git a/src/features/payroll/PayrollView.jsx b/src/features/payroll/PayrollView.jsx
+index 4e4005b..b3db73c 100644
+--- a/src/features/payroll/PayrollView.jsx
++++ b/src/features/payroll/PayrollView.jsx
+@@ -1,12 +1,9 @@
+ import { useState, useMemo } from 'react';
+-import { Plus, Trash2, Wallet, RefreshCw, Info, Lock, Pencil } from 'lucide-react';
++import { Trash2, Wallet, RefreshCw, Lock, Pencil } from 'lucide-react';
+ import { Card, Button, NominalInput, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
+-import AdjustmentFields from './AdjustmentFields';
+-import CategoryModal from '../../components/CategoryModal';
+ import { useAppContext } from '../../context/AppContext';
+ import { usePayrollData } from '../../hook/usePayrollData';
+ import PeriodNav from '../../components/PeriodNav';
+-import { usePayrollCategories } from '../../hook/usePayrollCategories';
+ import { weekPeriodForDate, shiftWeek, monthPeriod, parseIsoDate, formatIsoDate } from './payrollEngine';
+ import { toLocalDateString } from '../../utils/formatters';
+ import AbsensiSetupCard from './AbsensiSetupCard';
+@@ -18,7 +15,8 @@ import MyPayroll from './MyPayroll';
+ /**
+  * PayrollView — Penggajian. Semua angka dihitung payrollEngine (aturan sama
+  * dengan mamam-kasir) dari absensi yang DIBACA dari sistem absensi. Layar ini
+- * hanya menampilkan dan mencatat tambahan/potongan/saldo awal.
++ * menampilkan gaji, rincian tambahan/potongan (hanya baca + hapus), dan mencatat saldo awal.
++ * Tambahan & Potongan dicatat HANYA lewat Catat Cepat di Beranda (satu tempat, tanpa formulir ganda).
+  */
+ 
+ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+@@ -26,13 +24,11 @@ const MON_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'
+ const fmtDay = (iso) => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
+ const fmtDayYear = (iso) => `${fmtDay(iso)} ${iso.slice(0, 4)}`;
+ const fmtHM = (min) => `${Math.floor(min / 60)}j ${String(min % 60).padStart(2, '0')}m`;
+-const clamp = (iso, a, b) => (iso < a ? a : iso > b ? b : iso);
+ 
+ const STATUS_LABEL = { hadir: 'Hadir', libur: 'Libur', belumAbsen: 'Belum absen', belumPulang: 'Belum pulang', perluKlarifikasi: 'Perlu klarifikasi' };
+ const STATUS_VARIANT = { hadir: 'success', libur: 'neutral', belumAbsen: 'neutral', belumPulang: 'warning', perluKlarifikasi: 'danger' };
+ 
+-// Kategori Tambahan/Potongan kini bisa dikustomisasi (usePayrollCategories). Potongan berkategori
+-// "Kasbon" dipisah jadi baris sendiri di rincian gaji.
++// Potongan berkategori "Kasbon" dipisah jadi baris sendiri di rincian gaji.
+ const isKasbon = (d) => String(d.category || '').trim().toLowerCase() === 'kasbon';
+ 
+ const shiftMonth = (key, delta) => {
+@@ -59,14 +55,10 @@ function OwnerPayroll() {
+   const period = useMemo(() => (mode === 'minggu' ? weekPeriodForDate(anchor) : monthPeriod(month)), [mode, anchor, month]);
+ 
+   const data = usePayrollData({ period });
+-  const cats = usePayrollCategories();
+-  const firstCat = (type) => (cats.categories[type] || [])[0] || '';
+-  const [catModalOpen, setCatModalOpen] = useState(false);
+   const { loading, error, attendance, status, isLocked, closing, closeBlockers, results, totals } = data;
+ 
+   const [selectedId, setSelectedId] = useState(null);
+   const [busy, setBusy] = useState(false);
+-  const [form, setForm] = useState({ type: 'potongan', label: '', amount: '', date: '', category: 'Kasbon' });
+   const [openingInput, setOpeningInput] = useState('');
+   const [editDate, setEditDate] = useState(null);   // tanggal yang sedang dikoreksi (karyawan = selected)
+ 
+@@ -110,16 +102,9 @@ function OwnerPayroll() {
+   };
+   const openDetail = (r) => {
+     setSelectedId(r.employee.id);
+-    setForm({ type: 'potongan', label: '', amount: '', date: clamp(today, period.start, period.end), category: firstCat('potongan') });
+     setOpeningInput(String(r.payroll.openingBalance || ''));
+   };
+ 
+-  const handleAdd = () => run(async () => {
+-    const f = { employeeId: selected.employee.id, label: form.label, amount: form.amount, date: form.date, category: form.category };
+-    if (form.type === 'tambahan') await data.addAddition(f); else await data.addDeduction(f);
+-    setForm(prev => ({ ...prev, label: '', amount: '' }));
+-  });
+-
+   const handleDeleteItem = (kind, item) => {
+     triggerConfirm(`Hapus "${item.label}" (${formatRupiah(item.amount)})?`, () =>
+       run(() => (kind === 'tambahan' ? data.deleteAddition(item.id) : data.deleteDeduction(item.id))));
+@@ -275,6 +260,7 @@ function OwnerPayroll() {
+ 
+               <div className="space-y-2">
+                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Tambahan & Potongan</p>
++                {p.additions.length + p.deductions.length === 0 && <p className="text-xs text-slate-400">Belum ada tambahan atau potongan pada periode ini.</p>}
+                 {[...p.additions.map(x => ['tambahan', x]), ...p.deductions.map(x => ['potongan', x])].map(([kind, it]) => (
+                   <div key={kind + it.id} className="flex justify-between items-center gap-2 bg-slate-50 dark:bg-slate-950 rounded-xl p-2.5 text-xs" data-testid="adj-row">
+                     <div className="min-w-0"><Badge size="sm" variant={kind === 'tambahan' ? 'success' : 'danger'}>{it.category}</Badge> <span className="font-semibold">{it.label}</span> <span className="text-slate-400">{fmtDay(it.date)}</span></div>
+@@ -282,14 +268,8 @@ function OwnerPayroll() {
+                       {!isLocked && <button aria-label="Hapus" onClick={() => handleDeleteItem(kind, it)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>}</div>
+                   </div>
+                 ))}
+-                {isLocked ? (
++                {isLocked && (
+                   <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
+-                ) : (
+-                <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+-                  <AdjustmentFields form={form} onChange={setForm} categories={cats.categories} onManage={() => setCatModalOpen(true)} minDate={period.start} maxDate={period.end} />
+-                  <Button size="full" onClick={handleAdd} disabled={busy} icon={<Plus className="w-4 h-4" />}>{busy ? 'Menyimpan...' : `Tambah ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}</Button>
+-                  <p className="text-xs text-slate-400">Kasbon otomatis dari fitur Karyawan menyusul. Sementara, catat sebagai Potongan kategori Kasbon.</p>
+-                </div>
+                 )}
+               </div>
+ 
+@@ -308,25 +288,6 @@ function OwnerPayroll() {
+         })()}
+       </Modal>
+ 
+-      <CategoryModal
+-        isOpen={catModalOpen}
+-        onClose={() => setCatModalOpen(false)}
+-        title={`Kelola Kategori ${form.type === 'tambahan' ? 'Tambahan' : 'Potongan'}`}
+-        categories={cats.categories[form.type] || []}
+-        setCategories={(next) => run(() => cats.setCategoriesPersist(form.type, next))}
+-        triggerAlert={triggerAlert}
+-        triggerConfirm={triggerConfirm}
+-        deleteMessage={(cat) => `Yakin ingin menghapus kategori "${cat}"? Catatan lama tetap tersimpan dengan nama kategori ini.`}
+-        onRenameAsync={(oldCat, newCat) => {
+-          run(() => cats.renameCategory(form.type, oldCat, newCat));
+-          if (form.category === oldCat) setForm(f => ({ ...f, category: newCat }));
+-        }}
+-        onDeleteAsync={(deletedCat) => {
+-          run(() => cats.deleteCategory(form.type, deletedCat));
+-          if (form.category === deletedCat) setForm(f => ({ ...f, category: (cats.categories[f.type] || []).find(c => c !== deletedCat) || '' }));
+-        }}
+-      />
+-
+       {selected && editDate && (
+         <AttendanceEditSheet
+           isOpen onClose={() => setEditDate(null)} employee={selected.employee} date={editDate}
+diff --git a/src/hook/usePayrollData.js b/src/hook/usePayrollData.js
+index 0ab7b6a..5b8c755 100644
+--- a/src/hook/usePayrollData.js
++++ b/src/hook/usePayrollData.js
+@@ -156,31 +156,6 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+   }
+ 
+   // ── Penulisan (semua ke server, gagal = pesan jelas) ────────────────
+-  const validate = ({ employeeId, label, amount, date }) => {
+-    const amt = Number(amount);
+-    if (!employeeId) throw new Error('Pilih karyawan.');
+-    if (!(label || '').trim()) throw new Error('Isi keterangan.');
+-    if (!Number.isInteger(amt) || amt <= 0) throw new Error('Nominal harus angka bulat lebih dari 0.');
+-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('Pilih tanggal.');
+-    return amt;
+-  };
+-
+-  const addAddition = async (f) => {
+-    const amt = validate(f);
+-    const { error: e } = await supabase.from('payroll_additions').insert({
+-      employee_id: f.employeeId, label: f.label.trim(), amount: amt, date: f.date, category: (f.category || 'Tambahan').trim() || 'Tambahan',
+-    });
+-    if (e) fail(e, 'Gagal menyimpan tambahan');
+-    await reload();
+-  };
+-  const addDeduction = async (f) => {
+-    const amt = validate(f);
+-    const { error: e } = await supabase.from('payroll_deductions').insert({
+-      employee_id: f.employeeId, label: f.label.trim(), amount: amt, date: f.date, category: (f.category || 'Potongan').trim() || 'Potongan',
+-    });
+-    if (e) fail(e, 'Gagal menyimpan potongan');
+-    await reload();
+-  };
+   const deleteAddition = async (id) => {
+     const { error: e } = await supabase.from('payroll_additions').delete().eq('id', id);
+     if (e) fail(e, 'Gagal menghapus tambahan');
+@@ -246,6 +221,6 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
+   return {
+     configured, loading, error, attendance, status, isLocked, closing, closeBlockers, results, totals, employees,
+     prepared, overrideKeys: new Set(overrides.map(o => `${o.employeeId}|${o.date}`)),
+-    reload, addAddition, addDeduction, deleteAddition, deleteDeduction, setOpeningBalance, closePeriod, reopenPeriod,
++    reload, deleteAddition, deleteDeduction, setOpeningBalance, closePeriod, reopenPeriod,
+   };
+ }
+-- 
+2.43.0
+

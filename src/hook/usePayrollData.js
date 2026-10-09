@@ -156,31 +156,6 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
   }
 
   // ── Penulisan (semua ke server, gagal = pesan jelas) ────────────────
-  const validate = ({ employeeId, label, amount, date }) => {
-    const amt = Number(amount);
-    if (!employeeId) throw new Error('Pilih karyawan.');
-    if (!(label || '').trim()) throw new Error('Isi keterangan.');
-    if (!Number.isInteger(amt) || amt <= 0) throw new Error('Nominal harus angka bulat lebih dari 0.');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('Pilih tanggal.');
-    return amt;
-  };
-
-  const addAddition = async (f) => {
-    const amt = validate(f);
-    const { error: e } = await supabase.from('payroll_additions').insert({
-      employee_id: f.employeeId, label: f.label.trim(), amount: amt, date: f.date, category: (f.category || 'Tambahan').trim() || 'Tambahan',
-    });
-    if (e) fail(e, 'Gagal menyimpan tambahan');
-    await reload();
-  };
-  const addDeduction = async (f) => {
-    const amt = validate(f);
-    const { error: e } = await supabase.from('payroll_deductions').insert({
-      employee_id: f.employeeId, label: f.label.trim(), amount: amt, date: f.date, category: (f.category || 'Potongan').trim() || 'Potongan',
-    });
-    if (e) fail(e, 'Gagal menyimpan potongan');
-    await reload();
-  };
   const deleteAddition = async (id) => {
     const { error: e } = await supabase.from('payroll_additions').delete().eq('id', id);
     if (e) fail(e, 'Gagal menghapus tambahan');
@@ -246,6 +221,6 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
   return {
     configured, loading, error, attendance, status, isLocked, closing, closeBlockers, results, totals, employees,
     prepared, overrideKeys: new Set(overrides.map(o => `${o.employeeId}|${o.date}`)),
-    reload, addAddition, addDeduction, deleteAddition, deleteDeduction, setOpeningBalance, closePeriod, reopenPeriod,
+    reload, deleteAddition, deleteDeduction, setOpeningBalance, closePeriod, reopenPeriod,
   };
 }

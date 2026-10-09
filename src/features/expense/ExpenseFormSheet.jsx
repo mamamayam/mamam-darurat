@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Input, NominalInput, Select, Button, Modal, BulletListInput } from '../../components/ui';
 import CategoryModal from '../../components/CategoryModal';
 import CategorySelect from '../../components/CategorySelect';
+import { storeExpenseCategories } from './expenseCategories';
 import { useAppContext } from '../../context/AppContext';
 import { toLocalDateString } from '../../utils/formatters';
 
@@ -83,7 +84,7 @@ export default function ExpenseFormSheet({ isOpen, onClose, editing = null, data
       <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight title={editing ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}>
         <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <div className="grid grid-cols-2 gap-4 items-start">
-            <CategorySelect value={category} onChange={setCategory} options={categories} onManage={() => setIsCategoryModalOpen(true)} />
+            <CategorySelect value={category} onChange={setCategory} options={storeExpenseCategories(categories)} onManage={() => setIsCategoryModalOpen(true)} />
             <Select label="Sumber Dana" value={paymentMethod}
               onChange={e => { setPaymentMethod(e.target.value); if (e.target.value === 'Non-Tunai') setCashHolderId('kasir'); }}>
               <option value="Tunai">Tunai</option>

@@ -68,5 +68,8 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
   dan menahan penutupan periode gaji. Potongan dan Pengeluaran **langsung dicatat**, tanpa persetujuan.
 - **Potongan = pengeluaran karyawan**: RPC `catat_potongan` (migrasi `009_catat_cepat.sql`) menulis `expenses` (dengan `employee_id`) + `payroll_deductions` dalam satu transaksi.
   Sumber dana Tunai otomatis mengurangi saldo Dompet (rumus Dompet tidak diubah: hanya `payment_method = 'Tunai'`). Menghapus pengeluaran karyawan ikut menghapus potongannya (FK cascade), begitu juga sebaliknya lewat `usePayrollData.deleteDeduction`.
-- Potongan yang dibuat dari layar **Penggajian** tetap hanya mencatat potongan gaji (tidak jadi pengeluaran, tidak menyentuh Dompet).
+- **Tambahan & Potongan HANYA dicatat lewat Catat Cepat** (satu tempat). Layar **Penggajian** bersih dari formulir Tambahan/Potongan: hanya menampilkan rincian (+ tombol hapus) dan saldo awal.
+  Semua Potongan jadi pengeluaran karyawan, jadi selalu masuk gaji, Laporan pengeluaran, dan Dompet (kalau Tunai).
+- **Kasbon hanya lewat Potongan karyawan**: kategori yang berawalan "Kasbon" tidak ditawarkan di dropdown form Pengeluaran (toko), tapi pengeluaran karyawan hasil Potongan tetap tampil di daftar Pengeluaran
+  (badge Karyawan) dan dihitung di Laporan dan Dompet.
 - Staf tidak melihat nominal Tambah/Potongan (izin `karyawan.upah`), hanya nominal toko.
