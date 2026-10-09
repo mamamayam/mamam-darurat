@@ -42,10 +42,9 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 - Uang = integer rupiah. Tanggal pengeluaran = string `YYYY-MM-DD` apa adanya (jangan di-parse sebagai UTC). Rumus murni ditaruh di berkas `*Math.js` / engine dan **dites**.
 - Hapus = hard delete (tanpa recycle bin). Tampilan mengikuti pola komponen di `src/components/ui/` (Card, Select, Badge, SegmentedControl, dst).
 - Setelah mengubah kode: `npm test` dan `npm run build` harus lolos. Tambah/ubah tes untuk logika yang berubah.
-- **Folder `mamam-darurat/` di dalam repo adalah salinan lama (duplikat `src`)** yang ikut terbawa dan ikut dijalankan Vitest. Jangan jadikan acuan dan jangan
-  diedit untuk fitur. Satu pengecualian: tes izin (`src/auth/auth.test.js`) membaca kode `src/` lalu mencocokkannya dengan daftar izin di salinan itu,
-  jadi **kalau mengubah `permissions.js`, ubah juga `mamam-darurat/src/auth/permissions.js`** supaya tes tidak merah. Idealnya folder salinan itu dihapus
-  (tanya pemilik dulu).
+- Patch lama yang sudah di-apply diarsipkan di `patches/`. Itu hanya catatan sejarah (isinya sudah ada di kode, sebagian sudah ditimpa
+  patch berikutnya): jangan di-apply ulang dan jangan dijadikan acuan. Patch baru dari agent cukup diserahkan lewat chat; pemilik bebas
+  menyimpannya di `patches/` atau menghapusnya.
 
 ## Keputusan produk yang sudah ditetapkan pemilik
 
