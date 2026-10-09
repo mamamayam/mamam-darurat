@@ -1,0 +1,47 @@
+From ee5dc226f637ffbed7713b0756734f009929cd1c Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 10:58:09 +0700
+Subject: [PATCH 2/2] chore: mulai versi 1.0.0 (Mamam POS jadi aplikasi utama)
+
+Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MJDeZMDrXc2t29VbGTx2iM
+---
+ package-lock.json | 4 ++--
+ package.json      | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/package-lock.json b/package-lock.json
+index 11446bb..e1d9583 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "mamam-pos",
+-  "version": "0.2.4",
++  "version": "1.0.0",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "mamam-pos",
+-      "version": "0.2.4",
++      "version": "1.0.0",
+       "dependencies": {
+         "@dnd-kit/core": "^6.3.1",
+         "@dnd-kit/sortable": "^10.0.0",
+diff --git a/package.json b/package.json
+index c26376b..e3b234f 100644
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "mamam-pos",
+   "private": true,
+-  "version": "0.2.4",
++  "version": "1.0.0",
+   "type": "module",
+   "scripts": {
+     "dev": "vite",
+-- 
+2.43.0
+

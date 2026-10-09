@@ -6,7 +6,7 @@
  * ditaruh di belakang (urutan bawaan), dan id yang sudah tidak ada diabaikan, jadi
  * menambah/menghapus menu di kode tidak merusak urutan pilihan pengguna.
  */
-export const MENU_ORDER_KEY = 'mamam-darurat-menu-order';
+export const MENU_ORDER_KEY = 'mamam-pos-menu-order';
 
 /** Susun `items` ({ id, ... }) menurut `savedIds`; sisanya mengikuti urutan bawaan di belakang. */
 export function orderMenus(items, savedIds) {

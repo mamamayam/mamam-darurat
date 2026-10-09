@@ -8,7 +8,7 @@ import PullIndicator from '../components/PullIndicator';
 import { usePullToRefresh } from '../hook/usePullToRefresh';
 import { isChunkLoadError, shouldAutoReload } from '../lib/connectionLogic';
 
-// C — mamam-darurat: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
+// Mamam POS: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
 // test-app-baru. Mesin render (mountedViews, animasi framer-motion,
 // error boundary per-view) TIDAK diubah — cuma isi VIEWS yang disesuaikan
 // dengan 9 fitur gelombang 1 milik C (lihat breakdown UI yang disepakati).
@@ -47,7 +47,7 @@ export const VIEWS = {
 // Setelah deploy baru, berkas halaman lama hilang dari server; aplikasi yang masih terbuka dari
 // versi lama gagal memuat halaman yang belum pernah dibuka. Muat ulang SEKALI otomatis (ambil
 // versi terbaru); guard di shouldAutoReload mencegah putaran tanpa akhir.
-const RELOAD_KEY = 'mdr-chunk-reload-at';
+const RELOAD_KEY = 'mamam-pos-chunk-reload-at';
 function reloadOnceForFreshChunk() {
     try {
         const last = Number(window.sessionStorage.getItem(RELOAD_KEY) || 0);

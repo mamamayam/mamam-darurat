@@ -73,7 +73,7 @@ describe('service worker — pemasangan', () => {
     const sw = loadSW({ fetchImpl: async () => res({ contentType: 'text/html', body: 'SHELL' }) });
     await sw.lifecycle('install');
     expect(sw.calls.skipWaiting).toBe(1);
-    expect((await sw.store.get('mdr-shell-v1').get(SCOPE)).body).toBe('SHELL');
+    expect((await sw.store.get('mamam-pos-shell-v1').get(SCOPE)).body).toBe('SHELL');
   });
 
   it('install tetap berhasil walau jaringan gagal (tidak menggagalkan pemasangan)', async () => {
@@ -84,9 +84,9 @@ describe('service worker — pemasangan', () => {
 
   it('activate: membuang cache lama/asing, menyimpan dua cache sekarang, lalu mengambil alih halaman', async () => {
     const sw = loadSW();
-    for (const n of ['mdr-shell-v1', 'mdr-assets-v1', 'mdr-shell-v0', 'cache-asing']) sw.store.set(n, new Map([['u', res()]]));
+    for (const n of ['mamam-pos-shell-v1', 'mamam-pos-assets-v1', 'mamam-pos-shell-v0', 'cache-asing']) sw.store.set(n, new Map([['u', res()]]));
     await sw.lifecycle('activate');
-    expect([...sw.store.keys()].sort()).toEqual(['mdr-assets-v1', 'mdr-shell-v1']);
+    expect([...sw.store.keys()].sort()).toEqual(['mamam-pos-assets-v1', 'mamam-pos-shell-v1']);
     expect(sw.calls.claim).toBe(1);
   });
 });
@@ -124,7 +124,7 @@ describe('service worker — membuka aplikasi (navigasi): jaringan dulu', () => 
     const out = await sw.request(`${ORIGIN}/`, nav);
     expect(out.body).toBe('BARU');
     await tick();
-    expect(sw.store.get('mdr-shell-v1').get(SCOPE).body).toBe('BARU');
+    expect(sw.store.get('mamam-pos-shell-v1').get(SCOPE).body).toBe('BARU');
   });
 
   it('offline: memakai cangkang tersimpan', async () => {
@@ -148,7 +148,7 @@ describe('service worker — membuka aplikasi (navigasi): jaringan dulu', () => 
     status = 500;
     const out = await sw.request(`${ORIGIN}/`, nav); await tick();
     expect(out.body).toBe('RUSAK');
-    expect(sw.store.get('mdr-shell-v1').get(SCOPE).body).toBe('BAGUS');
+    expect(sw.store.get('mamam-pos-shell-v1').get(SCOPE).body).toBe('BAGUS');
   });
 });
 
@@ -167,7 +167,7 @@ describe('service worker — berkas /assets/ (cache dulu)', () => {
   it('respons HTML untuk berkas aset (SPA-fallback) TIDAK disimpan', async () => {
     const sw = loadSW({ fetchImpl: async () => res({ contentType: 'text/html; charset=utf-8', body: '<html>' }) });
     await sw.request(A); await tick();
-    expect(sw.store.get('mdr-assets-v1')?.size ?? 0).toBe(0);
+    expect(sw.store.get('mamam-pos-assets-v1')?.size ?? 0).toBe(0);
   });
 
   it.each([
@@ -179,7 +179,7 @@ describe('service worker — berkas /assets/ (cache dulu)', () => {
   ])('respons %s tidak disimpan', async (_n, opts) => {
     const sw = loadSW({ fetchImpl: async () => res(opts) });
     await sw.request(A); await tick();
-    expect(sw.store.get('mdr-assets-v1')?.size ?? 0).toBe(0);
+    expect(sw.store.get('mamam-pos-assets-v1')?.size ?? 0).toBe(0);
   });
 
   it('jaringan gagal dan belum ada di cache: galat diteruskan', async () => {
@@ -190,7 +190,7 @@ describe('service worker — berkas /assets/ (cache dulu)', () => {
   it('cache dibatasi 60 berkas: yang tertua dibuang', async () => {
     const sw = loadSW({ fetchImpl: async () => res() });
     for (let i = 0; i < 65; i += 1) { await sw.request(`${ORIGIN}/assets/f${i}.js`); await tick(); }
-    const keys = [...sw.store.get('mdr-assets-v1').keys()];
+    const keys = [...sw.store.get('mamam-pos-assets-v1').keys()];
     expect(keys.length).toBe(60);
     expect(keys).not.toContain(`${ORIGIN}/assets/f0.js`);
     expect(keys).toContain(`${ORIGIN}/assets/f64.js`);

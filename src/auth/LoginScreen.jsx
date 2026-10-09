@@ -46,7 +46,7 @@ export default function LoginScreen() {
       <ConnectionBanner floating />
       <div className="text-center">
         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><Lock className="w-6 h-6 text-white" /></div>
-        <h1 className="font-heading font-bold text-2xl">Mamam Darurat</h1>
+        <h1 className="font-heading font-bold text-2xl">Mamam POS</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Masukkan PIN</p>
       </div>
 

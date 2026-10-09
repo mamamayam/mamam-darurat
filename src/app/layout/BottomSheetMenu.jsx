@@ -11,7 +11,7 @@ import { versionLabel } from '../../lib/appVersion';
 
 /**
  * BottomSheetMenu — swipe-up sheet, ported dari test-app-baru (mamam-global).
- * Grid 3-kolom untuk 9 menu gelombang 1 Aplikasi C.
+ * Grid 3-kolom untuk 9 menu gelombang 1 Mamam POS.
  *
  * BEDA dari versi asli: card "Notifikasi" di atas grid DIHAPUS — C belum
  * punya push notifications/NotificationBell (di luar scope gelombang 1).

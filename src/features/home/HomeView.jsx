@@ -7,7 +7,7 @@ import { useAppContext } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
 /**
- * HomeView — Aplikasi C.
+ * HomeView — Mamam POS.
  *
  * Struktur JSX (hero card, grid 2x2) di-port dari HomeView.jsx test-app-baru (mamam-global),
  * sesuai arahan "ikutin visual look & navigasinya". Daftar "Riwayat Pesanan Hari Ini" sudah

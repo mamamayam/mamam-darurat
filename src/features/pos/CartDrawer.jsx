@@ -11,7 +11,7 @@ import NominalInput from '../../components/ui/NominalInput';
 
 /**
  * CartDrawer — di-port dari mamam-global, DIPANGKAS sesuai scope
- * gelombang 1 Aplikasi C:
+ * gelombang 1 Mamam POS:
  *  - TANPA "Simpan Bill" (savedBills) — sesuai keputusan: checkout
  *    langsung selesai atau batal. Draft cart tetap aman lewat
  *    usePosStore (persist localStorage), bukan lewat mekanisme bill

@@ -1,6 +1,6 @@
 # Aturan hitung gaji
 
-**Keputusan pemilik:** Aplikasi C mengikuti aturan hitung **mamam-kasir (B)**, karena dinilai lebih matang
+**Keputusan pemilik:** Mamam POS mengikuti aturan hitung **mamam-kasir (B)**, karena dinilai lebih matang
 dan supaya migrasi ke B tidak menghasilkan angka yang berbeda. Pemilik juga menilai aturan di
 mamam-global (A) lebih adil pada beberapa titik (lihat bawah) — itu dicatat di sini untuk dipertimbangkan
 ulang saat B disempurnakan, BUKAN untuk diubah diam-diam di C.

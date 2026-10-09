@@ -20,8 +20,8 @@ import { supabase } from '../lib/supabase';
  * Di kedua mode: batas 3x salah dihitung di aplikasi (localStorage), sesi
  * aplikasi punya masa berlaku sendiri (Pengaturan -> Lama sesi).
  */
-const SESSION_KEY = 'mamam-darurat-session';
-const ATTEMPTS_KEY = 'mamam-darurat-attempts';
+const SESSION_KEY = 'mamam-pos-session';
+const ATTEMPTS_KEY = 'mamam-pos-attempts';
 
 const store = {
   get: (k) => { try { return window.localStorage.getItem(k); } catch { return null; } },

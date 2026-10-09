@@ -1,5 +1,5 @@
 /**
- * Service worker Mamam Darurat (PWA).
+ * Service worker Mamam POS (PWA).
  *
  * Tugasnya SEMPIT: membuat aplikasi bisa dipasang ke HP dan terbuka cepat. C tetap
  * online-first, jadi yang disimpan hanya "cangkang" aplikasi (halaman utama + berkas
@@ -18,8 +18,8 @@
  *
  * Kalau logika di sini berubah, naikkan nomor versi cache supaya cache lama dibuang.
  */
-const SHELL_CACHE = 'mdr-shell-v1';
-const ASSET_CACHE = 'mdr-assets-v1';
+const SHELL_CACHE = 'mamam-pos-shell-v1';
+const ASSET_CACHE = 'mamam-pos-assets-v1';
 const MAX_ASSETS = 60;   // batas jumlah berkas di cache aset; yang tertua dibuang
 
 const SCOPE = self.registration.scope;                       // mis. https://situs.vercel.app/

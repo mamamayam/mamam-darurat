@@ -30,7 +30,7 @@ const shiftMonth = (key, delta) => formatIsoDate(new Date(Date.UTC(Number(key.sl
 const STATUS_LABEL = { hadir: 'Hadir', libur: 'Libur', belumAbsen: 'Belum absen', belumPulang: 'Belum pulang', perluKlarifikasi: 'Perlu klarifikasi' };
 const STATUS_VARIANT = { hadir: 'success', libur: 'neutral', belumAbsen: 'neutral', belumPulang: 'warning', perluKlarifikasi: 'danger' };
 
-const ATTEMPTS_KEY = 'mamam-darurat-emp-attempts';
+const ATTEMPTS_KEY = 'mamam-pos-emp-attempts';
 const readMap = () => { try { return JSON.parse(window.localStorage.getItem(ATTEMPTS_KEY)) || {}; } catch { return {}; } };
 const writeMap = (m) => { try { window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(m)); } catch { /* abaikan */ } };
 const attemptsFor = (id) => readAttempts(JSON.stringify(readMap()[id]), Date.now(), EMPLOYEE_ATTEMPT_RULES);

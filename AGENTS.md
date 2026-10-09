@@ -1,11 +1,11 @@
-# Panduan untuk agent — mamam-darurat
+# Panduan untuk agent — Mamam POS (repo: mamam-darurat)
 
 Baca ini dulu sebelum mengubah apa pun. Berlaku untuk agent apa pun (Claude, Codex, Cursor, dll).
 Pemilik repo: Mamam. Bahasa kerja: **Indonesia** (teks tampilan, komentar kode, pesan ke pemilik).
 
 ## Aplikasi ini
 
-- **Mamam Darurat ("Aplikasi C")**: POS + admin untuk usaha F&B MamamAyam, dipangkas dari
+- **Mamam POS** (dulu "Mamam Darurat", repo tetap `mamam-darurat`): POS + admin untuk usaha F&B MamamAyam, dipangkas dari
   `mamam-global`. Kasir, Dompet/Shift, Pelanggan, Pengeluaran, Karyawan, Absensi, Riwayat, Laporan, Penggajian, Menu.
 - Stack: React 19 + Vite + Tailwind 4, Supabase (Postgres), PWA tulis tangan (`public/sw.js`, tanpa VitePWA). Dites dengan Vitest.
 - **Online-first**: data langsung ke Supabase. Service worker hanya menyimpan cangkang app, **tidak pernah data**.

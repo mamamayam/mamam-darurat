@@ -1,0 +1,418 @@
+From b86438c60c329a3eabddd7430021616daeecd272 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 10:58:08 +0700
+Subject: [PATCH 1/2] chore: ganti nama aplikasi jadi Mamam POS (judul, PWA,
+ kunci penyimpanan, cache)
+
+Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MJDeZMDrXc2t29VbGTx2iM
+---
+ AGENTS.md                          |  4 ++--
+ docs/payroll-rules.md              |  2 +-
+ index.html                         |  4 ++--
+ package-lock.json                  |  4 ++--
+ package.json                       |  2 +-
+ public/manifest.webmanifest        |  4 ++--
+ public/sw.js                       |  6 +++---
+ scripts/migrasi/cli.mjs            |  2 +-
+ src/app/App.jsx                    |  6 +++---
+ src/app/AppRoutes.jsx              |  4 ++--
+ src/app/layout/BottomSheetMenu.jsx |  2 +-
+ src/app/layout/menuOrder.js        |  2 +-
+ src/app/layout/menuOrder.test.js   |  2 +-
+ src/auth/AuthContext.jsx           |  4 ++--
+ src/auth/LoginScreen.jsx           |  2 +-
+ src/features/home/HomeView.jsx     |  2 +-
+ src/features/payroll/MyPayroll.jsx |  2 +-
+ src/features/pos/CartDrawer.jsx    |  2 +-
+ src/lib/sw.test.js                 | 16 ++++++++--------
+ src/store/usePosStore.js           |  2 +-
+ supabase/schema.sql                |  2 +-
+ 21 files changed, 38 insertions(+), 38 deletions(-)
+
+diff --git a/AGENTS.md b/AGENTS.md
+index fa0faff..4995700 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -1,11 +1,11 @@
+-# Panduan untuk agent — mamam-darurat
++# Panduan untuk agent — Mamam POS (repo: mamam-darurat)
+ 
+ Baca ini dulu sebelum mengubah apa pun. Berlaku untuk agent apa pun (Claude, Codex, Cursor, dll).
+ Pemilik repo: Mamam. Bahasa kerja: **Indonesia** (teks tampilan, komentar kode, pesan ke pemilik).
+ 
+ ## Aplikasi ini
+ 
+-- **Mamam Darurat ("Aplikasi C")**: POS + admin untuk usaha F&B MamamAyam, dipangkas dari
++- **Mamam POS** (dulu "Mamam Darurat", repo tetap `mamam-darurat`): POS + admin untuk usaha F&B MamamAyam, dipangkas dari
+   `mamam-global`. Kasir, Dompet/Shift, Pelanggan, Pengeluaran, Karyawan, Absensi, Riwayat, Laporan, Penggajian, Menu.
+ - Stack: React 19 + Vite + Tailwind 4, Supabase (Postgres), PWA tulis tangan (`public/sw.js`, tanpa VitePWA). Dites dengan Vitest.
+ - **Online-first**: data langsung ke Supabase. Service worker hanya menyimpan cangkang app, **tidak pernah data**.
+diff --git a/docs/payroll-rules.md b/docs/payroll-rules.md
+index cac9b2d..b4764c7 100644
+--- a/docs/payroll-rules.md
++++ b/docs/payroll-rules.md
+@@ -1,6 +1,6 @@
+ # Aturan hitung gaji
+ 
+-**Keputusan pemilik:** Aplikasi C mengikuti aturan hitung **mamam-kasir (B)**, karena dinilai lebih matang
++**Keputusan pemilik:** Mamam POS mengikuti aturan hitung **mamam-kasir (B)**, karena dinilai lebih matang
+ dan supaya migrasi ke B tidak menghasilkan angka yang berbeda. Pemilik juga menilai aturan di
+ mamam-global (A) lebih adil pada beberapa titik (lihat bawah) — itu dicatat di sini untuk dipertimbangkan
+ ulang saat B disempurnakan, BUKAN untuk diubah diam-diam di C.
+diff --git a/index.html b/index.html
+index 00e53d5..7b44e35 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,7 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+-    <title>Mamam Darurat</title>
++    <title>Mamam POS</title>
+ 
+     <!-- PWA: bisa dipasang ke layar utama HP -->
+     <link rel="manifest" href="/manifest.webmanifest" />
+@@ -12,7 +12,7 @@
+     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+     <meta name="mobile-web-app-capable" content="yes" />
+     <meta name="apple-mobile-web-app-capable" content="yes" />
+-    <meta name="apple-mobile-web-app-title" content="Mamam Darurat" />
++    <meta name="apple-mobile-web-app-title" content="Mamam POS" />
+     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+   </head>
+   <body>
+diff --git a/package-lock.json b/package-lock.json
+index 3c13167..11446bb 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,11 +1,11 @@
+ {
+-  "name": "mamam-darurat",
++  "name": "mamam-pos",
+   "version": "0.2.4",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+-      "name": "mamam-darurat",
++      "name": "mamam-pos",
+       "version": "0.2.4",
+       "dependencies": {
+         "@dnd-kit/core": "^6.3.1",
+diff --git a/package.json b/package.json
+index e4d324b..c26376b 100644
+--- a/package.json
++++ b/package.json
+@@ -1,5 +1,5 @@
+ {
+-  "name": "mamam-darurat",
++  "name": "mamam-pos",
+   "private": true,
+   "version": "0.2.4",
+   "type": "module",
+diff --git a/public/manifest.webmanifest b/public/manifest.webmanifest
+index 0ce0cf1..8e491ac 100644
+--- a/public/manifest.webmanifest
++++ b/public/manifest.webmanifest
+@@ -1,7 +1,7 @@
+ {
+   "id": "/",
+-  "name": "Mamam Darurat",
+-  "short_name": "Mamam Darurat",
++  "name": "Mamam POS",
++  "short_name": "Mamam POS",
+   "description": "Kasir, dompet/shift, pengeluaran, absensi, dan penggajian Mamam Ayam.",
+   "lang": "id",
+   "start_url": "/",
+diff --git a/public/sw.js b/public/sw.js
+index ee9f6b0..fd69498 100644
+--- a/public/sw.js
++++ b/public/sw.js
+@@ -1,5 +1,5 @@
+ /**
+- * Service worker Mamam Darurat (PWA).
++ * Service worker Mamam POS (PWA).
+  *
+  * Tugasnya SEMPIT: membuat aplikasi bisa dipasang ke HP dan terbuka cepat. C tetap
+  * online-first, jadi yang disimpan hanya "cangkang" aplikasi (halaman utama + berkas
+@@ -18,8 +18,8 @@
+  *
+  * Kalau logika di sini berubah, naikkan nomor versi cache supaya cache lama dibuang.
+  */
+-const SHELL_CACHE = 'mdr-shell-v1';
+-const ASSET_CACHE = 'mdr-assets-v1';
++const SHELL_CACHE = 'mamam-pos-shell-v1';
++const ASSET_CACHE = 'mamam-pos-assets-v1';
+ const MAX_ASSETS = 60;   // batas jumlah berkas di cache aset; yang tertua dibuang
+ 
+ const SCOPE = self.registration.scope;                       // mis. https://situs.vercel.app/
+diff --git a/scripts/migrasi/cli.mjs b/scripts/migrasi/cli.mjs
+index 9c5fc08..8b74d11 100644
+--- a/scripts/migrasi/cli.mjs
++++ b/scripts/migrasi/cli.mjs
+@@ -248,7 +248,7 @@ export async function run(argv, { cwd = process.cwd(), log = console.log, fetchI
+     saveLog();
+     log(`\n✓ Selesai. ${total} baris ditulis.`);
+     log(`  Catatan penulisan disimpan di ${path.basename(logPath)} (simpan; dipakai kalau mau membatalkan: node scripts/migrasi-dari-a.mjs --batalkan ${path.basename(logPath)} --apply).`);
+-    log('  Langkah berikut: muat ulang aplikasi C dan periksa Menu, Pelanggan, Karyawan (dan Laporan kalau memakai --riwayat).\n');
++    log('  Langkah berikut: muat ulang Mamam POS dan periksa Menu, Pelanggan, Karyawan (dan Laporan kalau memakai --riwayat).\n');
+     return 0;
+   } catch (err) {
+     log(`\n✗ ${err.message}\n`);
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index 09122b9..d0b7704 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -30,7 +30,7 @@ import {
+ } from 'lucide-react';
+ 
+ /**
+- * App.jsx — Aplikasi C ("mamam-darurat").
++ * App.jsx — Mamam POS.
+  *
+  * Ini BUKAN port 1:1 dari App.jsx test-app-baru (mamam-global) — itu file
+  * monolitik yang nyampur mesin navigasi dengan SEMUA state bisnis (POS
+@@ -42,7 +42,7 @@ import {
+  *     (visibility:hidden di AppRoutes), state internal tidak reset
+  *   - navDirection — dibaca AppRoutes.jsx untuk varian animasi slide
+  *
+- * Yang DIBUANG (di luar scope Aplikasi C / gelombang 1):
++ * Yang DIBUANG (di luar scope Mamam POS / gelombang 1):
+  *   - syncEngine, usePersistState, usePosStore (Dexie/offline) — C online-first
+  *   - PIN admin sungguhan, push notifications, Capacitor back-button
+  *     (App.jsx test-app-baru target APK Android; C web/PWA — tombol Back dan
+@@ -144,7 +144,7 @@ export default function App() {
+     [triggerAlert, triggerConfirm, navigate, navigateToSub, navigateBack]
+   );
+ 
+-  // --- Menu untuk BottomSheetMenu — fitur gelombang 1 Aplikasi C + Pengaturan ---
++  // --- Menu untuk BottomSheetMenu — fitur gelombang 1 Mamam POS + Pengaturan ---
+   // NB: 'laporan' sudah termasuk Laba Rugi (bukan menu terpisah seperti
+   // 'labarugi' di test-app-baru) — lihat ReportsView.
+   const menuItems = useMemo(() => [
+diff --git a/src/app/AppRoutes.jsx b/src/app/AppRoutes.jsx
+index ca5fc83..a83cc25 100644
+--- a/src/app/AppRoutes.jsx
++++ b/src/app/AppRoutes.jsx
+@@ -8,7 +8,7 @@ import PullIndicator from '../components/PullIndicator';
+ import { usePullToRefresh } from '../hook/usePullToRefresh';
+ import { isChunkLoadError, shouldAutoReload } from '../lib/connectionLogic';
+ 
+-// C — mamam-darurat: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
++// Mamam POS: PORT 1:1 dari AppRoutes.jsx mamam-global (A) branch
+ // test-app-baru. Mesin render (mountedViews, animasi framer-motion,
+ // error boundary per-view) TIDAK diubah — cuma isi VIEWS yang disesuaikan
+ // dengan 9 fitur gelombang 1 milik C (lihat breakdown UI yang disepakati).
+@@ -47,7 +47,7 @@ export const VIEWS = {
+ // Setelah deploy baru, berkas halaman lama hilang dari server; aplikasi yang masih terbuka dari
+ // versi lama gagal memuat halaman yang belum pernah dibuka. Muat ulang SEKALI otomatis (ambil
+ // versi terbaru); guard di shouldAutoReload mencegah putaran tanpa akhir.
+-const RELOAD_KEY = 'mdr-chunk-reload-at';
++const RELOAD_KEY = 'mamam-pos-chunk-reload-at';
+ function reloadOnceForFreshChunk() {
+     try {
+         const last = Number(window.sessionStorage.getItem(RELOAD_KEY) || 0);
+diff --git a/src/app/layout/BottomSheetMenu.jsx b/src/app/layout/BottomSheetMenu.jsx
+index ab99630..bbf083b 100644
+--- a/src/app/layout/BottomSheetMenu.jsx
++++ b/src/app/layout/BottomSheetMenu.jsx
+@@ -11,7 +11,7 @@ import { versionLabel } from '../../lib/appVersion';
+ 
+ /**
+  * BottomSheetMenu — swipe-up sheet, ported dari test-app-baru (mamam-global).
+- * Grid 3-kolom untuk 9 menu gelombang 1 Aplikasi C.
++ * Grid 3-kolom untuk 9 menu gelombang 1 Mamam POS.
+  *
+  * BEDA dari versi asli: card "Notifikasi" di atas grid DIHAPUS — C belum
+  * punya push notifications/NotificationBell (di luar scope gelombang 1).
+diff --git a/src/app/layout/menuOrder.js b/src/app/layout/menuOrder.js
+index 5e5a5c4..a8b12c5 100644
+--- a/src/app/layout/menuOrder.js
++++ b/src/app/layout/menuOrder.js
+@@ -6,7 +6,7 @@
+  * ditaruh di belakang (urutan bawaan), dan id yang sudah tidak ada diabaikan, jadi
+  * menambah/menghapus menu di kode tidak merusak urutan pilihan pengguna.
+  */
+-export const MENU_ORDER_KEY = 'mamam-darurat-menu-order';
++export const MENU_ORDER_KEY = 'mamam-pos-menu-order';
+ 
+ /** Susun `items` ({ id, ... }) menurut `savedIds`; sisanya mengikuti urutan bawaan di belakang. */
+ export function orderMenus(items, savedIds) {
+diff --git a/src/app/layout/menuOrder.test.js b/src/app/layout/menuOrder.test.js
+index aa906ff..8e45463 100644
+--- a/src/app/layout/menuOrder.test.js
++++ b/src/app/layout/menuOrder.test.js
+@@ -59,7 +59,7 @@ describe('simpan / baca per peran', () => {
+     expect(readMenuOrder('staff', s)).toEqual(['c']);
+     clearMenuOrder('owner', s);
+     expect(readMenuOrder('owner', s)).toBeNull();
+-    s.setItem('mamam-darurat-menu-order:staff', '{rusak');
++    s.setItem('mamam-pos-menu-order:staff', '{rusak');
+     expect(readMenuOrder('staff', s)).toBeNull();
+   });
+ });
+diff --git a/src/auth/AuthContext.jsx b/src/auth/AuthContext.jsx
+index 85954e8..bb011ef 100644
+--- a/src/auth/AuthContext.jsx
++++ b/src/auth/AuthContext.jsx
+@@ -20,8 +20,8 @@ import { supabase } from '../lib/supabase';
+  * Di kedua mode: batas 3x salah dihitung di aplikasi (localStorage), sesi
+  * aplikasi punya masa berlaku sendiri (Pengaturan -> Lama sesi).
+  */
+-const SESSION_KEY = 'mamam-darurat-session';
+-const ATTEMPTS_KEY = 'mamam-darurat-attempts';
++const SESSION_KEY = 'mamam-pos-session';
++const ATTEMPTS_KEY = 'mamam-pos-attempts';
+ 
+ const store = {
+   get: (k) => { try { return window.localStorage.getItem(k); } catch { return null; } },
+diff --git a/src/auth/LoginScreen.jsx b/src/auth/LoginScreen.jsx
+index 8a68183..1de1fe2 100644
+--- a/src/auth/LoginScreen.jsx
++++ b/src/auth/LoginScreen.jsx
+@@ -46,7 +46,7 @@ export default function LoginScreen() {
+       <ConnectionBanner floating />
+       <div className="text-center">
+         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-500 flex items-center justify-center shadow-md"><Lock className="w-6 h-6 text-white" /></div>
+-        <h1 className="font-heading font-bold text-2xl">Mamam Darurat</h1>
++        <h1 className="font-heading font-bold text-2xl">Mamam POS</h1>
+         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Masukkan PIN</p>
+       </div>
+ 
+diff --git a/src/features/home/HomeView.jsx b/src/features/home/HomeView.jsx
+index 0ef3609..5c30292 100644
+--- a/src/features/home/HomeView.jsx
++++ b/src/features/home/HomeView.jsx
+@@ -7,7 +7,7 @@ import { useAppContext } from '../../context/AppContext';
+ import { supabase } from '../../lib/supabase';
+ 
+ /**
+- * HomeView — Aplikasi C.
++ * HomeView — Mamam POS.
+  *
+  * Struktur JSX (hero card, grid 2x2) di-port dari HomeView.jsx test-app-baru (mamam-global),
+  * sesuai arahan "ikutin visual look & navigasinya". Daftar "Riwayat Pesanan Hari Ini" sudah
+diff --git a/src/features/payroll/MyPayroll.jsx b/src/features/payroll/MyPayroll.jsx
+index 892223b..d4e548a 100644
+--- a/src/features/payroll/MyPayroll.jsx
++++ b/src/features/payroll/MyPayroll.jsx
+@@ -30,7 +30,7 @@ const shiftMonth = (key, delta) => formatIsoDate(new Date(Date.UTC(Number(key.sl
+ const STATUS_LABEL = { hadir: 'Hadir', libur: 'Libur', belumAbsen: 'Belum absen', belumPulang: 'Belum pulang', perluKlarifikasi: 'Perlu klarifikasi' };
+ const STATUS_VARIANT = { hadir: 'success', libur: 'neutral', belumAbsen: 'neutral', belumPulang: 'warning', perluKlarifikasi: 'danger' };
+ 
+-const ATTEMPTS_KEY = 'mamam-darurat-emp-attempts';
++const ATTEMPTS_KEY = 'mamam-pos-emp-attempts';
+ const readMap = () => { try { return JSON.parse(window.localStorage.getItem(ATTEMPTS_KEY)) || {}; } catch { return {}; } };
+ const writeMap = (m) => { try { window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(m)); } catch { /* abaikan */ } };
+ const attemptsFor = (id) => readAttempts(JSON.stringify(readMap()[id]), Date.now(), EMPLOYEE_ATTEMPT_RULES);
+diff --git a/src/features/pos/CartDrawer.jsx b/src/features/pos/CartDrawer.jsx
+index 5a570cb..96fbe87 100644
+--- a/src/features/pos/CartDrawer.jsx
++++ b/src/features/pos/CartDrawer.jsx
+@@ -11,7 +11,7 @@ import NominalInput from '../../components/ui/NominalInput';
+ 
+ /**
+  * CartDrawer — di-port dari mamam-global, DIPANGKAS sesuai scope
+- * gelombang 1 Aplikasi C:
++ * gelombang 1 Mamam POS:
+  *  - TANPA "Simpan Bill" (savedBills) — sesuai keputusan: checkout
+  *    langsung selesai atau batal. Draft cart tetap aman lewat
+  *    usePosStore (persist localStorage), bukan lewat mekanisme bill
+diff --git a/src/lib/sw.test.js b/src/lib/sw.test.js
+index 7f590f5..40385cb 100644
+--- a/src/lib/sw.test.js
++++ b/src/lib/sw.test.js
+@@ -73,7 +73,7 @@ describe('service worker — pemasangan', () => {
+     const sw = loadSW({ fetchImpl: async () => res({ contentType: 'text/html', body: 'SHELL' }) });
+     await sw.lifecycle('install');
+     expect(sw.calls.skipWaiting).toBe(1);
+-    expect((await sw.store.get('mdr-shell-v1').get(SCOPE)).body).toBe('SHELL');
++    expect((await sw.store.get('mamam-pos-shell-v1').get(SCOPE)).body).toBe('SHELL');
+   });
+ 
+   it('install tetap berhasil walau jaringan gagal (tidak menggagalkan pemasangan)', async () => {
+@@ -84,9 +84,9 @@ describe('service worker — pemasangan', () => {
+ 
+   it('activate: membuang cache lama/asing, menyimpan dua cache sekarang, lalu mengambil alih halaman', async () => {
+     const sw = loadSW();
+-    for (const n of ['mdr-shell-v1', 'mdr-assets-v1', 'mdr-shell-v0', 'cache-asing']) sw.store.set(n, new Map([['u', res()]]));
++    for (const n of ['mamam-pos-shell-v1', 'mamam-pos-assets-v1', 'mamam-pos-shell-v0', 'cache-asing']) sw.store.set(n, new Map([['u', res()]]));
+     await sw.lifecycle('activate');
+-    expect([...sw.store.keys()].sort()).toEqual(['mdr-assets-v1', 'mdr-shell-v1']);
++    expect([...sw.store.keys()].sort()).toEqual(['mamam-pos-assets-v1', 'mamam-pos-shell-v1']);
+     expect(sw.calls.claim).toBe(1);
+   });
+ });
+@@ -124,7 +124,7 @@ describe('service worker — membuka aplikasi (navigasi): jaringan dulu', () =>
+     const out = await sw.request(`${ORIGIN}/`, nav);
+     expect(out.body).toBe('BARU');
+     await tick();
+-    expect(sw.store.get('mdr-shell-v1').get(SCOPE).body).toBe('BARU');
++    expect(sw.store.get('mamam-pos-shell-v1').get(SCOPE).body).toBe('BARU');
+   });
+ 
+   it('offline: memakai cangkang tersimpan', async () => {
+@@ -148,7 +148,7 @@ describe('service worker — membuka aplikasi (navigasi): jaringan dulu', () =>
+     status = 500;
+     const out = await sw.request(`${ORIGIN}/`, nav); await tick();
+     expect(out.body).toBe('RUSAK');
+-    expect(sw.store.get('mdr-shell-v1').get(SCOPE).body).toBe('BAGUS');
++    expect(sw.store.get('mamam-pos-shell-v1').get(SCOPE).body).toBe('BAGUS');
+   });
+ });
+ 
+@@ -167,7 +167,7 @@ describe('service worker — berkas /assets/ (cache dulu)', () => {
+   it('respons HTML untuk berkas aset (SPA-fallback) TIDAK disimpan', async () => {
+     const sw = loadSW({ fetchImpl: async () => res({ contentType: 'text/html; charset=utf-8', body: '<html>' }) });
+     await sw.request(A); await tick();
+-    expect(sw.store.get('mdr-assets-v1')?.size ?? 0).toBe(0);
++    expect(sw.store.get('mamam-pos-assets-v1')?.size ?? 0).toBe(0);
+   });
+ 
+   it.each([
+@@ -179,7 +179,7 @@ describe('service worker — berkas /assets/ (cache dulu)', () => {
+   ])('respons %s tidak disimpan', async (_n, opts) => {
+     const sw = loadSW({ fetchImpl: async () => res(opts) });
+     await sw.request(A); await tick();
+-    expect(sw.store.get('mdr-assets-v1')?.size ?? 0).toBe(0);
++    expect(sw.store.get('mamam-pos-assets-v1')?.size ?? 0).toBe(0);
+   });
+ 
+   it('jaringan gagal dan belum ada di cache: galat diteruskan', async () => {
+@@ -190,7 +190,7 @@ describe('service worker — berkas /assets/ (cache dulu)', () => {
+   it('cache dibatasi 60 berkas: yang tertua dibuang', async () => {
+     const sw = loadSW({ fetchImpl: async () => res() });
+     for (let i = 0; i < 65; i += 1) { await sw.request(`${ORIGIN}/assets/f${i}.js`); await tick(); }
+-    const keys = [...sw.store.get('mdr-assets-v1').keys()];
++    const keys = [...sw.store.get('mamam-pos-assets-v1').keys()];
+     expect(keys.length).toBe(60);
+     expect(keys).not.toContain(`${ORIGIN}/assets/f0.js`);
+     expect(keys).toContain(`${ORIGIN}/assets/f64.js`);
+diff --git a/src/store/usePosStore.js b/src/store/usePosStore.js
+index 086d53b..77a94ed 100644
+--- a/src/store/usePosStore.js
++++ b/src/store/usePosStore.js
+@@ -21,7 +21,7 @@ import { persist } from 'zustand/middleware';
+  *    kehilangan makna tanpa itu
+  */
+ 
+-const DRAFT_KEY = 'mamam-darurat-pos-draft-v1';
++const DRAFT_KEY = 'mamam-pos-draft-v1';
+ 
+ export const usePosStore = create(
+   persist(
+diff --git a/supabase/schema.sql b/supabase/schema.sql
+index c047c64..1e51404 100644
+--- a/supabase/schema.sql
++++ b/supabase/schema.sql
+@@ -1,5 +1,5 @@
+ -- =====================================================================
+--- mamam-darurat (Aplikasi C) — Supabase schema, gelombang 1
++-- Mamam POS (repo mamam-darurat) — Supabase schema, gelombang 1
+ --
+ -- Cara pakai: Supabase Dashboard -> SQL Editor -> New query -> paste
+ -- seluruh file ini -> Run. Aman dijalankan ulang (IF NOT EXISTS).
+-- 
+2.43.0
+

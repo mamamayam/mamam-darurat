@@ -59,7 +59,7 @@ describe('simpan / baca per peran', () => {
     expect(readMenuOrder('staff', s)).toEqual(['c']);
     clearMenuOrder('owner', s);
     expect(readMenuOrder('owner', s)).toBeNull();
-    s.setItem('mamam-darurat-menu-order:staff', '{rusak');
+    s.setItem('mamam-pos-menu-order:staff', '{rusak');
     expect(readMenuOrder('staff', s)).toBeNull();
   });
 });

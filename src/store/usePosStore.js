@@ -21,7 +21,7 @@ import { persist } from 'zustand/middleware';
  *    kehilangan makna tanpa itu
  */
 
-const DRAFT_KEY = 'mamam-darurat-pos-draft-v1';
+const DRAFT_KEY = 'mamam-pos-draft-v1';
 
 export const usePosStore = create(
   persist(

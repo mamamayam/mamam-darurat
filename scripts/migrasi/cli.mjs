@@ -248,7 +248,7 @@ export async function run(argv, { cwd = process.cwd(), log = console.log, fetchI
     saveLog();
     log(`\n✓ Selesai. ${total} baris ditulis.`);
     log(`  Catatan penulisan disimpan di ${path.basename(logPath)} (simpan; dipakai kalau mau membatalkan: node scripts/migrasi-dari-a.mjs --batalkan ${path.basename(logPath)} --apply).`);
-    log('  Langkah berikut: muat ulang aplikasi C dan periksa Menu, Pelanggan, Karyawan (dan Laporan kalau memakai --riwayat).\n');
+    log('  Langkah berikut: muat ulang Mamam POS dan periksa Menu, Pelanggan, Karyawan (dan Laporan kalau memakai --riwayat).\n');
     return 0;
   } catch (err) {
     log(`\n✗ ${err.message}\n`);

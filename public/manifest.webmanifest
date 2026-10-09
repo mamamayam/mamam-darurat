@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Mamam Darurat",
-  "short_name": "Mamam Darurat",
+  "name": "Mamam POS",
+  "short_name": "Mamam POS",
   "description": "Kasir, dompet/shift, pengeluaran, absensi, dan penggajian Mamam Ayam.",
   "lang": "id",
   "start_url": "/",

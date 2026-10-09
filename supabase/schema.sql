@@ -1,5 +1,5 @@
 -- =====================================================================
--- mamam-darurat (Aplikasi C) — Supabase schema, gelombang 1
+-- Mamam POS (repo mamam-darurat) — Supabase schema, gelombang 1
 --
 -- Cara pakai: Supabase Dashboard -> SQL Editor -> New query -> paste
 -- seluruh file ini -> Run. Aman dijalankan ulang (IF NOT EXISTS).

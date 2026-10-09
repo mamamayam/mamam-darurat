@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 /**
- * App.jsx — Aplikasi C ("mamam-darurat").
+ * App.jsx — Mamam POS.
  *
  * Ini BUKAN port 1:1 dari App.jsx test-app-baru (mamam-global) — itu file
  * monolitik yang nyampur mesin navigasi dengan SEMUA state bisnis (POS
@@ -42,7 +42,7 @@ import {
  *     (visibility:hidden di AppRoutes), state internal tidak reset
  *   - navDirection — dibaca AppRoutes.jsx untuk varian animasi slide
  *
- * Yang DIBUANG (di luar scope Aplikasi C / gelombang 1):
+ * Yang DIBUANG (di luar scope Mamam POS / gelombang 1):
  *   - syncEngine, usePersistState, usePosStore (Dexie/offline) — C online-first
  *   - PIN admin sungguhan, push notifications, Capacitor back-button
  *     (App.jsx test-app-baru target APK Android; C web/PWA — tombol Back dan
@@ -144,7 +144,7 @@ export default function App() {
     [triggerAlert, triggerConfirm, navigate, navigateToSub, navigateBack]
   );
 
-  // --- Menu untuk BottomSheetMenu — fitur gelombang 1 Aplikasi C + Pengaturan ---
+  // --- Menu untuk BottomSheetMenu — fitur gelombang 1 Mamam POS + Pengaturan ---
   // NB: 'laporan' sudah termasuk Laba Rugi (bukan menu terpisah seperti
   // 'labarugi' di test-app-baru) — lihat ReportsView.
   const menuItems = useMemo(() => [
