@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
 
 // Ported dari test-app-baru (mamam-global). BEDA dari versi asli:
@@ -11,11 +11,28 @@ import { Clock } from "lucide-react";
 //   BottomSheetMenu) — jadi wajar terhapus di C, bukan fitur yang hilang.
 // currentShift tetap dipertahankan sebagai boolean/object sederhana yang
 // disuplai App.jsx dari state shift lokal.
+
+// Jam & tanggal di pojok kanan atas: tampil di semua ukuran layar (termasuk HP)
+// dan jalan sendiri. Dicek tiap 15 detik supaya menit berganti tanpa terlambat lama.
+function useNow(intervalMs = 15000) {
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), intervalMs);
+        return () => clearInterval(timer);
+    }, [intervalMs]);
+    return now;
+}
+
 export default function Header({
     currentShift,
     currentView,
-    today,
 }) {
+    const now = useNow();
+    const jam = now
+        .toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
+        .replace('.', ':');
+    const tanggal = now.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+
     return (
         <header className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-100/60 dark:border-slate-900 h-16 short:h-12 flex items-center justify-between px-4 short:px-3 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-none shrink-0">
             <div className="flex items-center gap-3 short:gap-2">
@@ -29,8 +46,9 @@ export default function Header({
                         <Clock className="w-3.5 h-3.5" /> Dompet Aktif
                     </span>
                 )}
-                <div className="hidden lg:flex short:!hidden items-center bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-4 py-2 rounded-full text-xs font-bold border border-slate-100 dark:border-slate-800 whitespace-nowrap">
-                    {today}
+                <div className="flex flex-col items-end leading-tight text-slate-500 dark:text-slate-400 whitespace-nowrap" data-testid="header-jam-tanggal">
+                    <span className="font-heading text-sm short:text-xs font-bold text-slate-800 dark:text-slate-100 tabular-nums">{jam}</span>
+                    <span className="text-[11px] short:text-[10px] font-semibold">{tanggal}</span>
                 </div>
             </div>
         </header>

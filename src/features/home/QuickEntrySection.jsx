@@ -57,7 +57,6 @@ export default function QuickEntrySection({ onChanged }) {
   };
 
   const feed = useMemo(() => filterFeed(quick.feed, tab), [quick.feed, tab]);
-  const dateLabel = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' });
   const money = (n, masked) => (masked ? MASK : formatRupiah(n));
 
   const approve = (r) => run(() => quick.decide(r.id, true));
@@ -66,10 +65,7 @@ export default function QuickEntrySection({ onChanged }) {
 
   return (
     <section className="mb-4" aria-label="Catat Cepat" data-testid="catat-cepat">
-      <div className="flex items-baseline justify-between mb-3">
-        <h3 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Catat Cepat</h3>
-        <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">{dateLabel}</span>
-      </div>
+      <h3 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 mb-3">Catat Cepat</h3>
 
       <p className={GROUP}>Operasional toko</p>
       <button type="button" onClick={() => setSheet('pengeluaran')} data-testid="tile-pengeluaran"

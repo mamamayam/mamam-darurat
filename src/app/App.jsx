@@ -177,11 +177,6 @@ export default function App() {
     logout();
   }, [logout]);
 
-  const today = useMemo(() => {
-    const now = new Date();
-    return now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
-  }, []);
-
   // TODO(gelombang berikutnya): currentShift ini harus berasal dari query
   // Supabase (`shifts` yang `closed_at IS NULL`), disuplai oleh ShiftView
   // lewat context/hook bersama — sekarang masih placeholder false supaya
@@ -201,7 +196,6 @@ export default function App() {
       <Header
         currentShift={currentShift}
         currentView={currentView}
-        today={today}
       />
 
       <ConnectionBanner />
