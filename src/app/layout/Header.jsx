@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
+import { formatJam, formatTanggal, msKeDetikBerikutnya } from "./clockFormat";
 
 // Ported dari test-app-baru (mamam-global). BEDA dari versi asli:
 // - NotificationBell dihapus (C belum punya push notif — di luar scope
@@ -12,27 +13,48 @@ import { Clock } from "lucide-react";
 // currentShift tetap dipertahankan sebagai boolean/object sederhana yang
 // disuplai App.jsx dari state shift lokal.
 
-// Jam & tanggal di pojok kanan atas: tampil di semua ukuran layar (termasuk HP)
-// dan jalan sendiri. Dicek tiap 15 detik supaya menit berganti tanpa terlambat lama.
-function useNow(intervalMs = 15000) {
+// Jam & tanggal di pojok kanan atas: tampil di semua ukuran layar (termasuk HP).
+// Sumber waktu = jam perangkat. Detik berganti tepat di pergantian detik (bukan setInterval
+// yang bisa melenceng), dan langsung disegarkan lagi saat app kembali dibuka dari background.
+function useNow() {
     const [now, setNow] = useState(() => new Date());
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), intervalMs);
-        return () => clearInterval(timer);
-    }, [intervalMs]);
+        let timer;
+        const tick = () => {
+            const sekarang = new Date();
+            setNow(sekarang);
+            timer = setTimeout(tick, msKeDetikBerikutnya(sekarang));
+        };
+        timer = setTimeout(tick, msKeDetikBerikutnya(new Date()));
+
+        const segarkan = () => {
+            if (document.visibilityState === 'visible') setNow(new Date());
+        };
+        document.addEventListener('visibilitychange', segarkan);
+
+        return () => {
+            clearTimeout(timer);
+            document.removeEventListener('visibilitychange', segarkan);
+        };
+    }, []);
     return now;
+}
+
+// Dipisah dari Header supaya hanya blok jam yang render ulang tiap detik.
+function HeaderClock() {
+    const now = useNow();
+    return (
+        <div className="flex flex-col items-end leading-tight text-slate-500 dark:text-slate-400 whitespace-nowrap" data-testid="header-jam-tanggal">
+            <span className="text-[11px] short:text-[10px] font-semibold">{formatTanggal(now)}</span>
+            <span className="font-heading text-sm short:text-xs font-bold text-slate-800 dark:text-slate-100 tabular-nums">{formatJam(now)}</span>
+        </div>
+    );
 }
 
 export default function Header({
     currentShift,
     currentView,
 }) {
-    const now = useNow();
-    const jam = now
-        .toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
-        .replace('.', ':');
-    const tanggal = now.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
-
     return (
         <header className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-100/60 dark:border-slate-900 h-16 short:h-12 flex items-center justify-between px-4 short:px-3 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-none shrink-0">
             <div className="flex items-center gap-3 short:gap-2">
@@ -46,10 +68,7 @@ export default function Header({
                         <Clock className="w-3.5 h-3.5" /> Dompet Aktif
                     </span>
                 )}
-                <div className="flex flex-col items-end leading-tight text-slate-500 dark:text-slate-400 whitespace-nowrap" data-testid="header-jam-tanggal">
-                    <span className="font-heading text-sm short:text-xs font-bold text-slate-800 dark:text-slate-100 tabular-nums">{jam}</span>
-                    <span className="text-[11px] short:text-[10px] font-semibold">{tanggal}</span>
-                </div>
+                <HeaderClock />
             </div>
         </header>
     );
