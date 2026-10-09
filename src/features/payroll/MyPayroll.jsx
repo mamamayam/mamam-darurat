@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Lock, LockKeyhole, UserRound, ArrowLeft, RefreshCw } from 'lucide-react';
-import { Card, Button, Badge, EmptyState, SegmentedControl } from '../../components/ui';
+import { Card, Button, Badge, EmptyState, PillTabs } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { usePayrollData } from '../../hook/usePayrollData';
 import { useAppSettings } from '../../hook/useAppSettings';
@@ -173,7 +173,7 @@ function MySalary({ employee, minutes, onLock }) {
         </Card>
 
         <Card className="space-y-3">
-          <SegmentedControl value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan' }, { value: 'bulan', label: 'Bulanan' }]} />
+          <PillTabs value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan' }, { value: 'bulan', label: 'Bulanan' }]} />
           <div className="flex items-center justify-between gap-2">
             <button onClick={goPrev} aria-label="Sebelumnya" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4" /></button>
             <div className="text-center min-w-0">

@@ -20,7 +20,6 @@ export default function EmployeePinSettings({ settings, saveSetting }) {
   return (
     <Card className="space-y-4" data-testid="employee-pin-settings">
       <p className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><UserCheck className="w-4 h-4 text-accent-600" /> PIN Karyawan</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400">Saat login sebagai staf, menu Penggajian meminta karyawan memilih namanya dan memasukkan PIN, lalu hanya gaji dia sendiri yang tampil. Menu Karyawan tidak muncul untuk staf.</p>
 
       <SegmentedControl value={settings.employee_pin_enabled ? 'on' : 'off'}
         onChange={(v) => guard(() => saveSetting('employee_pin_enabled', v === 'on'))}

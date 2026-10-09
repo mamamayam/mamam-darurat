@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Trash2, Wallet, RefreshCw, Lock, Pencil } from 'lucide-react';
-import { Card, Button, NominalInput, Badge, Modal, EmptyState, SegmentedControl } from '../../components/ui';
+import { Card, Button, NominalInput, Badge, Modal, EmptyState, PillTabs } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { usePayrollData } from '../../hook/usePayrollData';
 import PeriodNav from '../../components/PeriodNav';
@@ -129,7 +129,7 @@ function OwnerPayroll() {
       <div className="max-w-3xl w-full space-y-4 pb-10">
 
         <Card className="space-y-3">
-          <SegmentedControl value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan' }, { value: 'bulan', label: 'Bulanan' }]} />
+          <PillTabs value={mode} onChange={setMode} options={[{ value: 'minggu', label: 'Mingguan' }, { value: 'bulan', label: 'Bulanan' }]} />
           <PeriodNav
             label={label} labelTestId="period-label"
             onPrev={goPrev} onNext={goNext} onToday={goToday} isCurrent={isCurrentPeriod}

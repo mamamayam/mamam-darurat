@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Clock, FileText, History, AlertTriangle, Users } from 'lucide-react';
-import { Button, Card, Input, NominalInput, Select, PageHeader, EmptyState, Badge, Modal } from '../../components/ui';
+import { Button, Card, Input, NominalInput, Select, PillTabs, EmptyState, Badge, Modal } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useShiftData } from '../../hook/useShiftData';
 import { toLocalDateString } from '../../utils/formatters';
@@ -171,22 +171,13 @@ const ShiftView = () => {
 
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out custom-scrollbar relative">
-      <PageHeader title="Manajemen Dompet" icon={<Clock className="w-6 h-6 text-accent-500 dark:text-accent-400" />} />
-
       {/* Tab: Aktif / Riwayat */}
-      <div className="flex gap-2 mb-6 shrink-0">
-        {[{ key: 'aktif', label: 'Aktif' }, { key: 'riwayat', label: 'Riwayat' }].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-2xl text-sm font-bold transition-all duration-300 active:scale-95 ${
-              activeTab === tab.key
-                ? 'bg-gradient-to-br from-accent-600 to-accent-500 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'
-            }`}
-          >{tab.label}</button>
-        ))}
-      </div>
+      <PillTabs
+        className="mb-6 shrink-0 max-w-md"
+        value={activeTab}
+        onChange={setActiveTab}
+        options={[{ value: 'aktif', label: 'Aktif' }, { value: 'riwayat', label: 'Riwayat' }]}
+      />
 
       {activeTab === 'aktif' && currentShift && isCarriedOver && (
         <div className="max-w-4xl mb-6 shrink-0">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '../../components/ui';
+import { Button, PillTabs } from '../../components/ui';
 import MenuListTab from './tabs/MenuListTab';
 import VariantListTab from './tabs/VariantListTab';
 import { useMenuData } from '../../hook/useMenuData';
@@ -33,20 +33,13 @@ export default function MenuMgmt() {
 
   return (
     <div className="h-full w-full flex flex-col bg-slate-50 dark:bg-slate-950">
-      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 pt-4 md:pt-6 pb-3 overflow-x-auto hide-scrollbar shrink-0">
-        {[
-          { key: 'menu', label: 'Menu' },
-          { key: 'varian', label: 'Varian' },
-        ].map(tab => (
-          <Button
-            key={tab.key}
-            variant={activeTab === tab.key ? 'primary' : 'secondary'}
-            onClick={() => setActiveTab(tab.key)}
-            className="whitespace-nowrap"
-          >
-            {tab.label}
-          </Button>
-        ))}
+      <div className="border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 pt-4 md:pt-6 pb-3 shrink-0">
+        <PillTabs
+          className="max-w-md"
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[{ value: 'menu', label: 'Menu' }, { value: 'varian', label: 'Varian' }]}
+        />
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col">
