@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { RefreshCw, Trash2, Receipt, ShoppingBag, Utensils, Truck, Bike, RotateCcw } from 'lucide-react';
+import { RefreshCw, Trash2, Receipt, ShoppingBag, Utensils, Truck, Bike } from 'lucide-react';
 import { Card, EmptyState, DetailModal, Button, Badge, BulkSelectBar, FilterBar, SummaryPills } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -60,10 +60,6 @@ export default function RiwayatView() {
 
   const resetPaging = () => setLimit(PAGE);
   const isDirty = period.mode !== 'hari-ini' || typeFilter !== 'semua' || sortKey !== DEFAULT_SORT || query.trim() !== '' || methodFilter !== 'semua';
-  const resetAll = () => {
-    setPeriod({ mode: 'hari-ini', start: '', end: '' }); setTypeFilter('semua'); setSortKey(DEFAULT_SORT);
-    setQuery(''); setMethodFilter('semua'); resetPaging();
-  };
 
   // Daftar setelah tipe order + pencarian (BELUM metode bayar) — dasar ringkasan per metode.
   const base = useMemo(() => filterSales(sales, { type: typeFilter, query }), [sales, typeFilter, query]);
@@ -172,12 +168,6 @@ export default function RiwayatView() {
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <p className="text-xs text-slate-500 dark:text-slate-400"><span data-testid="hist-count">{visible.length}</span> transaksi</p>
               <div className="flex items-center gap-1 flex-wrap justify-end">
-                {isDirty && (
-                  <button onClick={resetAll} data-testid="riwayat-reset"
-                    className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 transition-all duration-300 active:scale-95 shrink-0">
-                    <RotateCcw className="w-3 h-3" /> Atur ulang
-                  </button>
-                )}
                 {canDelete && visible.length > 0 && (
                   <button
                     onClick={toggleSelecting} data-testid="riwayat-pilih"
@@ -199,7 +189,6 @@ export default function RiwayatView() {
               <EmptyState
                 icon={<ShoppingBag className="w-12 h-12" />}
                 title={isDirty ? 'Tidak ada transaksi yang cocok.' : 'Belum ada transaksi pada periode ini.'}
-                action={isDirty ? <Button variant="secondary" size="sm" onClick={resetAll}>Atur ulang filter</Button> : null}
                 className="animate-in fade-in duration-300"
               />
             ) : (

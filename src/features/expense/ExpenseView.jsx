@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { TrendingDown, Pencil, Trash2, Plus, Store, User, RotateCcw } from 'lucide-react';
+import { TrendingDown, Pencil, Trash2, Plus, Store, User } from 'lucide-react';
 import { Button, Badge, EmptyState, DetailModal, BulkSelectBar, FilterBar, SummaryPills } from '../../components/ui';
 import ExpenseFormSheet from './ExpenseFormSheet';
 import { useAppContext } from '../../context/AppContext';
@@ -64,10 +64,6 @@ const ExpenseView = () => {
 
   const resetPaging = () => setLimit(PAGE);
   const isDirty = period.mode !== 'hari-ini' || category !== 'semua' || sourceFilter !== 'semua' || sortKey !== DEFAULT_SORT || query.trim() !== '';
-  const resetAll = () => {
-    setPeriod({ mode: 'hari-ini', start: '', end: '' }); setCategory('semua'); setSourceFilter('semua');
-    setSortKey(DEFAULT_SORT); setQuery(''); resetPaging();
-  };
 
   const employeeNames = useMemo(() => new Map((employees || []).map(e => [e.id, e.name])), [employees]);
   const employeeName = (e) => (e.employeeId ? employeeNames.get(e.employeeId) || '' : '');
@@ -197,12 +193,6 @@ const ExpenseView = () => {
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <p className="text-xs text-slate-500 dark:text-slate-400"><span data-testid="exp-count">{sortedExpenses.length}</span> catatan</p>
           <div className="flex items-center gap-1 flex-wrap justify-end">
-            {isDirty && (
-              <button onClick={resetAll} data-testid="exp-reset"
-                className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 transition-all duration-300 active:scale-95 shrink-0">
-                <RotateCcw className="w-3 h-3" /> Atur ulang
-              </button>
-            )}
             {canChange && sortedExpenses.length > 0 && (
               <button onClick={() => { if (isSelecting) resetSelection(); setIsSelecting(v => !v); }}
                 className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-300 active:scale-95 shrink-0 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400'}`}>
@@ -216,7 +206,6 @@ const ExpenseView = () => {
           <EmptyState
             icon={<TrendingDown className="w-12 h-12" />}
             title={isDirty ? 'Tidak ada pengeluaran yang cocok.' : 'Belum ada pengeluaran pada periode ini.'}
-            action={isDirty ? <Button variant="secondary" size="sm" onClick={resetAll}>Atur ulang filter</Button> : null}
             className="animate-in fade-in duration-300"
           />
         ) : (
