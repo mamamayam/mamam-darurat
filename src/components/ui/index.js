@@ -24,3 +24,5 @@ export { default as SegmentedControl } from './SegmentedControl';
 export { default as PillTabs }         from './PillTabs';
 export { default as Alert }            from './Alert';
 export { default as BulkSelectBar }    from './BulkSelectBar';
+export { default as FilterBar }       from './FilterBar';
+export { default as SummaryPills }    from './SummaryPills';

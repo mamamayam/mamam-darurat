@@ -1,30 +1,34 @@
 import { useState, useMemo } from 'react';
-import { TrendingDown, Save, Pencil, Trash2, History, ArrowUpDown, Plus } from 'lucide-react';
-import { Card, Button, Badge, IconButton, EmptyState, SortModal, BulkSelectBar } from '../../components/ui';
+import { TrendingDown, Pencil, Trash2, Plus, Store, User, RotateCcw } from 'lucide-react';
+import { Card, Button, Badge, EmptyState, DetailModal, BulkSelectBar, FilterBar, SummaryPills } from '../../components/ui';
 import ExpenseFormSheet from './ExpenseFormSheet';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useExpenseData } from '../../hook/useExpenseData';
 import { useBulkSelect } from '../../hook/useBulkSelect';
 import { applySort } from '../../utils/sortUtils';
-import { toLocalDateString } from '../../utils/formatters';
+import { dayHeading, groupByDay, sumByDay } from '../../utils/listFilters';
+import { dayOf, filterByPeriod, filterExpenses, sourceStats, sourceOf, isDateSort, SORT_OPTIONS, DEFAULT_SORT } from './expenseFilter';
 
 /**
- * ExpenseView — Pengeluaran. Form, filter periode, urutkan, pilih-banyak,
- * dan Kelola Kategori di-port dari mamam-global, dengan BEDA yang disengaja:
+ * ExpenseView — Pengeluaran. Form, filter, urutkan, pilih-banyak, dan Kelola Kategori
+ * di-port dari mamam-global, dengan BEDA yang disengaja:
  *   - Kasbon & potongan karyawan dicatat lewat "Catat Cepat" di Beranda (jadi pengeluaran karyawan di sini,
  *     angkanya terhubung ke gaji, jadi tidak diedit dari layar ini; menghapusnya ikut menghapus potongannya)
  *   - Form-nya komponen bersama ExpenseFormSheet (dipakai juga tombol Pengeluaran di Beranda)
  *   - HARD DELETE (tanpa RecycleBin)
- *   - Edit/hapus terbuka untuk semua (belum ada login/admin di C)
  *   - Data langsung ke Supabase; kalau gagal, user diberi tahu jelas
+ *
+ * Tampilan sama dengan Riwayat: kartu FilterBar (cari + chip Periode / Kategori / Urutkan),
+ * ringkasan per sumber (Toko / Karyawan, ketuk untuk menyaring), lalu daftar ringkas per hari.
+ * Ketuk satu catatan = Detail (di sana ada Edit dan Hapus).
  *
  * Tanggal pengeluaran diperlakukan sebagai string "YYYY-MM-DD" apa adanya,
  * TIDAK di-parse jadi Date UTC, supaya tidak bergeser sehari di zona waktu
  * tertentu (bug klasik pada laporan tengah malam).
  */
 
-const dayOf = (v) => String(v).slice(0, 10);
+const PAGE = 100;
 // Detail disimpan sebagai teks, satu poin per baris. Catatan lama (satu baris) = satu poin.
 const noteLines = (note) => String(note || '').split(/\r?\n/).map(t => t.trim()).filter(Boolean);
 const showDate = (v) => {
@@ -37,15 +41,17 @@ const ExpenseView = () => {
   const { can } = useAuth();
   const canChange = can('pengeluaran.ubah');   // edit & hapus; mencatat baru boleh semua peran
   const expenseData = useExpenseData();
-  const { expenses, loading, error, reload, deleteExpense, bulkDeleteExpenses } = expenseData;
+  const { expenses, categories, employees, loading, error, reload, deleteExpense, bulkDeleteExpenses } = expenseData;
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);   // catatan yang sedang diedit; null = catatan baru
-  const [filterMode, setFilterMode] = useState('hari-ini');
-  const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate, setFilterEndDate] = useState('');
-  const [sortKey, setSortKey] = useState('date-desc');
-  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [period, setPeriod] = useState({ mode: 'hari-ini', start: '', end: '' });
+  const [category, setCategory] = useState('semua');
+  const [sourceFilter, setSourceFilter] = useState('semua');
+  const [sortKey, setSortKey] = useState(DEFAULT_SORT);
+  const [query, setQuery] = useState('');
+  const [limit, setLimit] = useState(PAGE);
+  const [detail, setDetail] = useState(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -56,53 +62,59 @@ const ExpenseView = () => {
     finally { setBusy(false); }
   };
 
-  const matchesDateFilter = (date) => {
-    const d = dayOf(date);
-    const today = toLocalDateString();
-    if (filterMode === 'semua') return true;
-    if (filterMode === 'hari-ini') return d === today;
-    if (filterMode === 'kemarin') {
-      const y = new Date(); y.setDate(y.getDate() - 1);
-      return d === toLocalDateString(y);
-    }
-    if (filterMode === 'bulan-ini') return d.slice(0, 7) === today.slice(0, 7);
-    if (filterMode === 'tanggal-terpilih') {
-      if (!filterStartDate) return true;
-      const end = filterEndDate || filterStartDate;   // tanpa tanggal akhir = satu hari
-      return d >= filterStartDate && d <= end;
-    }
-    return true;
+  const resetPaging = () => setLimit(PAGE);
+  const isDirty = period.mode !== 'hari-ini' || category !== 'semua' || sourceFilter !== 'semua' || sortKey !== DEFAULT_SORT || query.trim() !== '';
+  const resetAll = () => {
+    setPeriod({ mode: 'hari-ini', start: '', end: '' }); setCategory('semua'); setSourceFilter('semua');
+    setSortKey(DEFAULT_SORT); setQuery(''); resetPaging();
   };
 
-  const filtered = useMemo(() => expenses.filter(e => matchesDateFilter(e.date)),
-    [expenses, filterMode, filterStartDate, filterEndDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  const employeeNames = useMemo(() => new Map((employees || []).map(e => [e.id, e.name])), [employees]);
+  const employeeName = (e) => (e.employeeId ? employeeNames.get(e.employeeId) || '' : '');
 
-  const sortedExpenses = useMemo(() => applySort(filtered, sortKey, {
-    date: e => dayOf(e.date),
-    category: e => e.category || '',
-    amount: e => Number(e.amount) || 0,
-  }), [filtered, sortKey]);
+  // Kategori untuk filter: daftar kategori + kategori yang muncul di data (mis. Kasbon dari potongan).
+  const categoryOptions = useMemo(() => {
+    const names = [...(categories || [])];
+    for (const e of expenses) if (e.category && !names.includes(e.category)) names.push(e.category);
+    return names.map(n => ({ key: n, label: n }));
+  }, [categories, expenses]);
 
-  const activeTotal = useMemo(() => sortedExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0), [sortedExpenses]);
+  // Periode + kategori + pencarian (BELUM sumber) — dasar ringkasan per sumber.
+  const base = useMemo(() => {
+    const inRange = filterByPeriod(expenses, period.mode, { start: period.start, end: period.end });
+    return filterExpenses(inRange, { category, query, employeeName });
+  }, [expenses, period, category, query, employeeNames]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sortOptions = [
-    { key: 'date-desc', label: 'Terbaru Dulu' },
-    { key: 'date-asc', label: 'Terlama Dulu' },
-    { key: 'category-asc', label: 'Kategori (A-Z)' },
-    { key: 'category-desc', label: 'Kategori (Z-A)' },
-    { key: 'amount-desc', label: 'Nominal Terbesar' },
-  ];
+  const sources = useMemo(() => sourceStats(base), [base]);
+  const baseTotal = useMemo(() => base.reduce((s, e) => s + (Number(e.amount) || 0), 0), [base]);
+  // Sumber yang dipilih bisa hilang setelah filter lain berubah -> anggap Semua.
+  const activeSource = sources.some(s => s.key === sourceFilter) ? sourceFilter : 'semua';
+
+  const sortedExpenses = useMemo(() => {
+    const list = activeSource === 'semua' ? base : base.filter(e => sourceOf(e) === activeSource);
+    return applySort(list, sortKey, {
+      date: e => dayOf(e.date),
+      category: e => e.category || '',
+      amount: e => Number(e.amount) || 0,
+    });
+  }, [base, activeSource, sortKey]);
 
   const { selectedIds, allSelected, toggleOne, toggleAll, reset: resetSelection, count } = useBulkSelect(sortedExpenses);
+
+  const shown = sortedExpenses.slice(0, limit);
+  const byDay = isDateSort(sortKey);
+  const groups = byDay ? groupByDay(shown, e => dayOf(e.date)) : [{ day: null, items: shown }];
+  const dayTotals = useMemo(() => sumByDay(sortedExpenses, e => dayOf(e.date), e => e.amount), [sortedExpenses]);
+  const showHeads = byDay && groups.length > 1;
 
   const openNew = () => { setEditing(null); setIsFormOpen(true); };
   const closeForm = () => { setIsFormOpen(false); setEditing(null); };
 
-  const handleEditClick = (exp) => { setEditing(exp); setIsFormOpen(true); };
+  const handleEditClick = (exp) => { setDetail(null); setEditing(exp); setIsFormOpen(true); };
 
   const handleDelete = (exp) => {
     triggerConfirm('Yakin ingin menghapus catatan pengeluaran ini? Data akan hilang permanen.', () =>
-      run(async () => { await deleteExpense(exp.id); if (editing?.id === exp.id) closeForm(); }));
+      run(async () => { await deleteExpense(exp.id); setDetail(null); if (editing?.id === exp.id) closeForm(); }));
   };
 
   const handleBulkDelete = () => {
@@ -122,94 +134,109 @@ const ExpenseView = () => {
     );
   }
 
+  const renderRow = (exp) => {
+    const lines = noteLines(exp.note);
+    const selected = selectedIds.has(exp.id);
+    const Icon = exp.employeeId ? User : Store;
+    let sub = exp.supplier || lines[0] || 'Tanpa catatan';
+    if (exp.supplier && lines[0]) sub = `${exp.supplier} • ${lines[0]}${lines.length > 1 ? ` +${lines.length - 1}` : ''}`;
+    if (!byDay) sub = `${showDate(exp.date)} • ${sub}`;
+    return (
+      <div key={exp.id} data-testid="exp-row"
+        className={`flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border shadow-sm transition-all duration-300 ${selected ? 'border-red-400 ring-1 ring-red-400' : 'border-slate-100 dark:border-slate-800'}`}>
+        {isSelecting && (
+          <input type="checkbox" checked={selected} onChange={() => toggleOne(exp.id)} aria-label={`Pilih ${exp.category}`} className="w-4 h-4 rounded accent-[#dc2626] cursor-pointer shrink-0" />
+        )}
+        <button type="button" onClick={() => (isSelecting ? toggleOne(exp.id) : setDetail(exp))} className="flex-1 min-w-0 flex items-center gap-3 text-left active:scale-[0.99] transition-all duration-300">
+          <span className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+            <Icon className="w-5 h-5" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{exp.category}</span>
+            <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{sub}</span>
+          </span>
+          <span className="flex flex-col items-end gap-1 shrink-0 max-w-[45%]">
+            <span className="font-heading font-bold text-sm text-red-600 dark:text-red-400 truncate max-w-full">-{formatRupiah(exp.amount)}</span>
+            {(exp.employeeId || exp.paymentMethod === 'Non-Tunai' || exp.cashHolderName) && (
+              <span className="flex flex-wrap justify-end gap-1">
+                {exp.employeeId && <Badge variant="orange">Karyawan</Badge>}
+                {exp.paymentMethod === 'Non-Tunai' && <Badge variant="info">Bank</Badge>}
+                {exp.cashHolderName && <Badge variant="warning">💰 {exp.cashHolderName}</Badge>}
+              </span>
+            )}
+          </span>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       <div className="flex flex-col gap-4 w-full min-w-0 flex-1">
-        <Card padding="none" className="flex flex-col flex-1 min-h-[360px] w-full min-w-0">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap gap-2 justify-between items-center bg-slate-50 dark:bg-slate-950 rounded-t-2xl">
-            <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 shrink-0"><History className="w-4 h-4" /> Riwayat Pengeluaran</h3>
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              {canChange && (
+
+        <FilterBar
+          query={query} onQueryChange={(v) => { setQuery(v); resetPaging(); }} placeholder="Cari kategori, toko, catatan..."
+          period={period} onPeriodChange={(p) => { setPeriod(p); setSourceFilter('semua'); resetPaging(); }}
+          typeValue={category} onTypeChange={(v) => { setCategory(v); setSourceFilter('semua'); resetPaging(); }} typeOptions={categoryOptions}
+          typeAllLabel="Semua Kategori" typeChipLabel="Kategori" typeTitle="Kategori Pengeluaran"
+          sortValue={sortKey} sortDefault={DEFAULT_SORT} onSortChange={setSortKey} sortOptions={SORT_OPTIONS}
+        />
+
+        {/* Ringkasan per sumber: ketuk untuk menyaring (Semua = total periode ini) */}
+        <SummaryPills
+          tone="red" negative testIdPrefix="source"
+          items={sources.map(s => ({ key: s.key, label: `${s.key.toUpperCase()} · ${s.count}X`, total: s.total }))}
+          allTotal={baseTotal} value={activeSource}
+          onChange={(k) => { setSourceFilter(k); resetPaging(); }}
+        />
+
+        {isSelecting && sortedExpenses.length > 0 && (
+          <BulkSelectBar count={count} total={sortedExpenses.length} allSelected={allSelected} onToggleAll={toggleAll} onDeleteSelected={handleBulkDelete} />
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400"><span data-testid="exp-count">{sortedExpenses.length}</span> catatan</p>
+          <div className="flex items-center gap-1 flex-wrap justify-end">
+            {isDirty && (
+              <button onClick={resetAll} data-testid="exp-reset"
+                className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 transition-all duration-300 active:scale-95 shrink-0">
+                <RotateCcw className="w-3 h-3" /> Atur ulang
+              </button>
+            )}
+            {canChange && sortedExpenses.length > 0 && (
               <button onClick={() => { if (isSelecting) resetSelection(); setIsSelecting(v => !v); }}
-                className={`text-xs font-bold px-2.5 py-1.5 rounded-xl transition-all duration-300 active:scale-95 shrink-0 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400'}`}>
+                className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-300 active:scale-95 shrink-0 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400'}`}>
                 {isSelecting ? 'Batal' : 'Pilih'}
               </button>
-              )}
-              <select value={filterMode} onChange={e => setFilterMode(e.target.value)}
-                className="p-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-accent-500/30 transition-all duration-200 shrink-0">
-                <option value="hari-ini">Hari Ini</option>
-                <option value="kemarin">Kemarin</option>
-                <option value="bulan-ini">Bulan Ini</option>
-                <option value="semua">Semua</option>
-                <option value="tanggal-terpilih">Tanggal Terpilih</option>
-              </select>
-              {filterMode === 'tanggal-terpilih' && (
-                <div className="flex items-center gap-1 flex-wrap min-w-0">
-                  <input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} max={filterEndDate || undefined}
-                    className="p-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-accent-500/30 shrink-0 min-w-0 max-w-[130px]" />
-                  <span className="text-xs text-slate-400 shrink-0">-</span>
-                  <input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} min={filterStartDate || undefined}
-                    className="p-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-accent-500/30 shrink-0 min-w-0 max-w-[130px]" />
-                </div>
-              )}
-              <button type="button" onClick={() => setIsSortOpen(true)}
-                className="flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 transition-all duration-300 active:scale-95 shrink-0">
-                <ArrowUpDown className="w-3.5 h-3.5" /> Urutkan
-              </button>
-            </div>
+            )}
           </div>
+        </div>
 
-          <div className="p-3 bg-red-50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-500/20 flex justify-between items-center">
-            <span className="text-xs font-bold text-red-700 dark:text-red-300">Total Periode Ini:</span>
-            <span className="text-sm font-bold text-red-700 dark:text-red-300">{formatRupiah(activeTotal)}</span>
-          </div>
-
-          {isSelecting && sortedExpenses.length > 0 && (
-            <div className="px-4 pt-3">
-              <BulkSelectBar count={count} total={sortedExpenses.length} allSelected={allSelected} onToggleAll={toggleAll} onDeleteSelected={handleBulkDelete} />
-            </div>
-          )}
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-            {sortedExpenses.length === 0 ? (
-              <EmptyState icon={<TrendingDown className="w-12 h-12" />} title="Belum ada pengeluaran pada periode ini." className="h-full animate-in fade-in duration-300" />
-            ) : sortedExpenses.map(exp => (
-              <div key={exp.id} className={`flex justify-between items-center p-3.5 border rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-950 hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-sm transition-all duration-300 ${selectedIds.has(exp.id) ? 'border-red-400 ring-1 ring-red-400' : 'border-slate-100 dark:border-slate-800'}`}>
-                <div className="flex items-start gap-2 flex-1 pr-4">
-                  {isSelecting && (
-                    <input type="checkbox" checked={selectedIds.has(exp.id)} onChange={() => toggleOne(exp.id)} className="w-4 h-4 mt-0.5 rounded accent-[#dc2626] cursor-pointer shrink-0" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
-                      {exp.category}
-                      <Badge variant="neutral">{showDate(exp.date)}</Badge>
-                      {exp.paymentMethod === 'Non-Tunai' && <Badge variant="info">Bank</Badge>}
-                      {exp.cashHolderName && <Badge variant="warning">💰 {exp.cashHolderName}</Badge>}
-                      {exp.employeeId && <Badge variant="orange">Karyawan</Badge>}
-                    </p>
-                    {exp.supplier && <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1">🏪 {exp.supplier}</p>}
-                    {(() => {
-                      const lines = noteLines(exp.note);
-                      if (lines.length > 1) return <ul className="mt-1 list-disc pl-4 text-xs text-slate-500 dark:text-slate-400 space-y-0.5">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>;
-                      if (lines.length === 1) return <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{lines[0]}</p>;
-                      return exp.supplier ? null : <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tanpa catatan</p>;
-                    })()}
+        {sortedExpenses.length === 0 ? (
+          <Card padding="none">
+            <EmptyState
+              icon={<TrendingDown className="w-12 h-12" />}
+              title={isDirty ? 'Tidak ada pengeluaran yang cocok.' : 'Belum ada pengeluaran pada periode ini.'}
+              action={isDirty ? <Button variant="secondary" size="sm" onClick={resetAll}>Atur ulang filter</Button> : null}
+              className="animate-in fade-in duration-300"
+            />
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {groups.map((g, gi) => (
+              <div key={g.day || gi} className="space-y-2">
+                {showHeads && (
+                  <div className="flex items-baseline justify-between gap-3 px-1">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{dayHeading(g.day)}</p>
+                    <p className="font-heading font-bold text-xs text-red-600 dark:text-red-400">-{formatRupiah(dayTotals.get(g.day))}</p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <p className="font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-1.5 rounded-xl text-sm border border-red-100 dark:border-red-500/20">-{formatRupiah(exp.amount)}</p>
-                  {canChange && (
-                  <div className="flex gap-1">
-                    {/* Pengeluaran karyawan (dari potongan) angkanya terhubung ke gaji: diubah lewat Penggajian, bukan di sini. */}
-                    {!exp.employeeId && <IconButton variant="edit" onClick={() => handleEditClick(exp)} title="Edit Catatan"><Pencil className="w-3.5 h-3.5" /></IconButton>}
-                    <IconButton variant="delete" onClick={() => handleDelete(exp)} title="Hapus Catatan"><Trash2 className="w-3.5 h-3.5" /></IconButton>
-                  </div>
-                  )}
-                </div>
+                )}
+                {g.items.map(renderRow)}
               </div>
             ))}
+            {sortedExpenses.length > limit && <Button variant="secondary" size="full" onClick={() => setLimit(limit + PAGE)}>Tampilkan lebih banyak ({sortedExpenses.length - limit} lagi)</Button>}
           </div>
-        </Card>
+        )}
 
         <Button onClick={openNew} icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
           Tambah Pengeluaran
@@ -218,7 +245,28 @@ const ExpenseView = () => {
 
       <ExpenseFormSheet isOpen={isFormOpen} onClose={closeForm} editing={editing} data={expenseData} />
 
-      <SortModal isOpen={isSortOpen} onClose={() => setIsSortOpen(false)} value={sortKey} onChange={setSortKey} options={sortOptions} />
+      <DetailModal
+        isOpen={!!detail} onClose={() => setDetail(null)}
+        icon={detail?.employeeId ? <User className="w-4 h-4 text-accent-500 dark:text-accent-400" /> : <Store className="w-4 h-4 text-accent-500 dark:text-accent-400" />}
+        title={detail?.category}
+        subtitle={detail && showDate(detail.date)}
+        badges={detail ? [
+          { label: detail.employeeId ? 'Karyawan' : 'Toko', variant: detail.employeeId ? 'orange' : 'neutral' },
+          { label: detail.paymentMethod === 'Non-Tunai' ? 'Bank' : 'Tunai', variant: detail.paymentMethod === 'Non-Tunai' ? 'info' : 'success' },
+        ] : []}
+        sections={[{ rows: [
+          { label: 'Toko / Supplier', value: detail?.supplier },
+          { label: 'Karyawan', value: detail ? employeeName(detail) : '' },
+          { label: 'Pemegang Kas', value: detail?.cashHolderName },
+          { label: 'Catatan', value: detail ? noteLines(detail.note).join('\n') : '', type: 'multiline' },
+        ] }]}
+        highlight={{ label: 'Nominal', value: detail?.amount, tone: 'danger' }}
+        actions={detail && canChange ? [
+          // Pengeluaran karyawan (dari potongan) angkanya terhubung ke gaji: diubah lewat Penggajian, bukan di sini.
+          { label: 'Edit', icon: <Pencil className="w-4 h-4" />, variant: 'secondary', hide: !!detail.employeeId, onClick: () => handleEditClick(detail) },
+          { label: 'Hapus', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => handleDelete(detail) },
+        ] : []}
+      />
     </div>
   );
 };

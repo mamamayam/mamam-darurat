@@ -1,17 +1,19 @@
 import { useState, useMemo } from 'react';
-import { Filter, ArrowUpDown, Search, X, CreditCard, RefreshCw, Eye, Trash2, Receipt, ShoppingBag } from 'lucide-react';
-import { Card, EmptyState, DetailModal, Button, Input, Select, BulkSelectBar } from '../../components/ui';
+import { RefreshCw, Trash2, Receipt, ShoppingBag, Utensils, Truck, Bike, RotateCcw } from 'lucide-react';
+import { Card, EmptyState, DetailModal, Button, Badge, BulkSelectBar, FilterBar, SummaryPills } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useReportData } from '../../hook/useReportData';
 import { useBulkSelect } from '../../hook/useBulkSelect';
-import { periodRange } from '../reports/reportsMath';
+import { periodRange, localDateOf } from '../reports/reportsMath';
+import { dayHeading, groupByDay, sumByDay } from '../../utils/listFilters';
+import { filterSales, paymentStats, sortSales, methodOf, isTimeSort, SORT_OPTIONS, DEFAULT_SORT } from './riwayatFilter';
 
 /**
  * RiwayatView — Riwayat transaksi lunas, layar tersendiri (dulu tab di Laporan).
- * Tampilan mengikuti Riwayat di mamam-global: chip periode, filter tipe order +
- * urutan + cari, kartu "Omset per Metode Pembayaran" (ketuk untuk menyaring),
- * lalu kartu per order dengan Detail / Hapus.
+ * Kontrol: kartu FilterBar (cari + chip Periode / Tipe order / Urutkan, dua baris),
+ * ringkasan per metode bayar (ketuk untuk menyaring), lalu daftar transaksi ringkas
+ * per hari. Ketuk satu transaksi = Detail (di sana ada Hapus).
  *
  * BEDA dari A (sengaja):
  *  - Tombol "Struk" belum ada: ReceiptModal belum di-port ke C.
@@ -19,48 +21,25 @@ import { periodRange } from '../reports/reportsMath';
  *  - Online-first: data dibaca langsung dari Supabase; "Perbarui" = muat ulang.
  */
 const PAGE = 100;
-const PERIODS = [
-  { key: 'hari-ini', label: 'Hari Ini' },
-  { key: 'kemarin', label: 'Kemarin' },
-  { key: 'bulan-ini', label: 'Bulan Ini' },
-  { key: 'semua', label: 'Semua' },
-  { key: 'tanggal-terpilih', label: 'Tanggal Terpilih' },
+const TYPE_OPTIONS = [
+  { key: 'Takeaway', label: 'Takeaway', icon: <ShoppingBag className="w-4 h-4 opacity-50" /> },
+  { key: 'Dine-in', label: 'Dine-in', icon: <Utensils className="w-4 h-4 opacity-50" /> },
+  { key: 'Delivery', label: 'Delivery', icon: <Truck className="w-4 h-4 opacity-50" /> },
+  { key: 'Ojol', label: 'Ojol', icon: <Bike className="w-4 h-4 opacity-50" /> },
 ];
-const SORTS = [
-  { key: 'terbaru', label: 'Terbaru Dulu' },
-  { key: 'terlama', label: 'Terlama Dulu' },
-  { key: 'total-desc', label: 'Total Terbesar' },
-  { key: 'total-asc', label: 'Total Terkecil' },
-];
-const NO_SCROLLBAR = '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
+const TYPE_ICON = { Takeaway: ShoppingBag, 'Dine-in': Utensils, Delivery: Truck, Ojol: Bike };
 
-const saleTime = (s) => new Date(s.paid_at || s.created_at).getTime();
-const methodOf = (s) => s.payment_method || 'Lainnya';
-
-/** Tombol bulat berisi ikon; ketuk = buka daftar pilihan bawaan HP (select transparan di atas ikon). */
-function IconSelect({ icon: Icon, value, active, onChange, children, label }) {
-  return (
-    <div className={`relative shrink-0 w-11 h-11 rounded-full border transition-all duration-300 ${active ? 'border-accent-500 bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400'}`}>
-      <Icon className="w-5 h-5 absolute inset-0 m-auto pointer-events-none" />
-      <select
-        aria-label={label} title={label} value={value} onChange={onChange}
-        className="absolute inset-0 w-full h-full appearance-none opacity-0 cursor-pointer"
-      >
-        {children}
-      </select>
-    </div>
-  );
-}
+const saleDay = (s) => localDateOf(s.paid_at || s.created_at);
+const saleClock = (s) => new Date(s.paid_at || s.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
 export default function RiwayatView() {
   const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
   const { can } = useAuth();
   const canDelete = can('laporan.hapusTransaksi');
 
-  const [mode, setMode] = useState('hari-ini');
-  const [custom, setCustom] = useState({ start: '', end: '' });
+  const [period, setPeriod] = useState({ mode: 'hari-ini', start: '', end: '' });
   const [typeFilter, setTypeFilter] = useState('semua');
-  const [sortKey, setSortKey] = useState('terbaru');
+  const [sortKey, setSortKey] = useState(DEFAULT_SORT);
   const [query, setQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState('semua');
   const [limit, setLimit] = useState(PAGE);
@@ -68,36 +47,27 @@ export default function RiwayatView() {
   const [isSelecting, setIsSelecting] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const range = useMemo(() => periodRange(mode, custom), [mode, custom]);
+  const range = useMemo(() => periodRange(period.mode, { start: period.start, end: period.end }), [period]);
   const { sales, loading, error, updatedAt, reload, deleteTransaction, bulkDeleteTransactions } =
     useReportData({ ...range, withExpenses: false });
 
+  // Tipe order bawaan kasir + tipe lain yang kebetulan ada di data (mis. tipe lama).
+  const typeOptions = useMemo(() => {
+    const known = new Set(TYPE_OPTIONS.map(o => o.key));
+    const extra = [...new Set(sales.map(s => s.order_type).filter(t => t && !known.has(t)))].sort().map(t => ({ key: t, label: t }));
+    return [...TYPE_OPTIONS, ...extra];
+  }, [sales]);
+
   const resetPaging = () => setLimit(PAGE);
+  const isDirty = period.mode !== 'hari-ini' || typeFilter !== 'semua' || sortKey !== DEFAULT_SORT || query.trim() !== '' || methodFilter !== 'semua';
+  const resetAll = () => {
+    setPeriod({ mode: 'hari-ini', start: '', end: '' }); setTypeFilter('semua'); setSortKey(DEFAULT_SORT);
+    setQuery(''); setMethodFilter('semua'); resetPaging();
+  };
 
-  const orderTypes = useMemo(() => [...new Set(sales.map(s => s.order_type).filter(Boolean))].sort(), [sales]);
-
-  // Daftar setelah tipe order + pencarian (BELUM metode bayar) — dasar kartu omset.
-  const base = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return sales.filter(s => {
-      if (typeFilter !== 'semua' && s.order_type !== typeFilter) return false;
-      if (!q) return true;
-      return String(s.display_number).toLowerCase().includes(q)
-        || String(s.id).toLowerCase().includes(q)
-        || String(s.customer_name || '').toLowerCase().includes(q);
-    });
-  }, [sales, typeFilter, query]);
-
-  const methodStats = useMemo(() => {
-    const map = new Map();
-    base.forEach(s => {
-      const k = methodOf(s);
-      const cur = map.get(k) || { key: k, count: 0, total: 0 };
-      cur.count += 1; cur.total += Number(s.total) || 0;
-      map.set(k, cur);
-    });
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [base]);
+  // Daftar setelah tipe order + pencarian (BELUM metode bayar) — dasar ringkasan per metode.
+  const base = useMemo(() => filterSales(sales, { type: typeFilter, query }), [sales, typeFilter, query]);
+  const methodStats = useMemo(() => paymentStats(base), [base]);
   const grandTotal = useMemo(() => base.reduce((sum, s) => sum + (Number(s.total) || 0), 0), [base]);
 
   // Metode yang dipilih bisa hilang setelah filter lain berubah -> anggap Semua.
@@ -105,14 +75,7 @@ export default function RiwayatView() {
 
   const visible = useMemo(() => {
     const list = activeMethod === 'semua' ? base : base.filter(s => methodOf(s) === activeMethod);
-    const t = (s) => Number(s.total) || 0;
-    const sorters = {
-      terbaru: (a, b) => saleTime(b) - saleTime(a),
-      terlama: (a, b) => saleTime(a) - saleTime(b),
-      'total-desc': (a, b) => t(b) - t(a),
-      'total-asc': (a, b) => t(a) - t(b),
-    };
-    return [...list].sort(sorters[sortKey] || sorters.terbaru);
+    return sortSales(list, sortKey);
   }, [base, activeMethod, sortKey]);
 
   const { selectedIds, allSelected, toggleOne, toggleAll, reset, count } = useBulkSelect(visible);
@@ -137,44 +100,50 @@ export default function RiwayatView() {
   const toggleSelecting = () => { if (isSelecting) reset(); setIsSelecting(v => !v); };
   const updatedLabel = updatedAt ? updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Memuat...';
 
+  const shown = visible.slice(0, limit);
+  const byDay = isTimeSort(sortKey);
+  const groups = byDay ? groupByDay(shown, saleDay) : [{ day: null, items: shown }];
+  const dayTotals = useMemo(() => sumByDay(visible, saleDay, s => s.total), [visible]);
+  const showHeads = byDay && groups.length > 1;
+
+  const renderRow = (s) => {
+    const Icon = TYPE_ICON[s.order_type] || ShoppingBag;
+    const isOjol = s.payment_method === 'Ojol';
+    const selected = selectedIds.has(s.id);
+    return (
+      <div key={s.id} data-testid="hist-row"
+        className={`flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border shadow-sm transition-all duration-300 ${selected ? 'border-orange-500 ring-1 ring-orange-500' : 'border-slate-100 dark:border-slate-800'}`}>
+        {isSelecting && (
+          <input type="checkbox" checked={selected} onChange={() => toggleOne(s.id)} aria-label={`Pilih #${s.display_number}`} className="w-5 h-5 rounded accent-[#ea580c] cursor-pointer shrink-0" />
+        )}
+        <button type="button" onClick={() => (isSelecting ? toggleOne(s.id) : setDetail(s))} className="flex-1 min-w-0 flex items-center gap-3 text-left active:scale-[0.99] transition-all duration-300">
+          <span className="w-10 h-10 rounded-2xl bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 flex items-center justify-center shrink-0">
+            <Icon className="w-5 h-5" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{s.customer_name || 'Umum'}</span>
+            <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{saleClock(s)} • #{s.display_number} • {s.order_type}</span>
+          </span>
+          <span className="flex flex-col items-end gap-1 shrink-0 max-w-[45%]">
+            <span className="font-heading font-bold text-sm text-slate-800 dark:text-slate-100 truncate max-w-full">{formatRupiah(s.total)}</span>
+            <Badge variant={isOjol ? 'orange' : 'success'}>{methodOf(s)}{isOjol && s.ojol_platform ? ` (${s.ojol_platform})` : ''}</Badge>
+          </span>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-950 flex-1 flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       <div className="max-w-3xl w-full space-y-4 pb-10">
 
-        {/* Periode + tipe order / urutan (ikon) + cari */}
-        <Card className="space-y-3">
-          <Select aria-label="Periode" data-testid="period-select" value={mode} onChange={e => { setMode(e.target.value); setMethodFilter('semua'); resetPaging(); }}>
-            {PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
-          </Select>
-          {mode === 'tanggal-terpilih' && (
-            <div className="flex items-center gap-2">
-              <Input type="date" value={custom.start} max={custom.end || undefined} onChange={e => { setCustom({ ...custom, start: e.target.value }); resetPaging(); }} />
-              <span className="text-slate-400">–</span>
-              <Input type="date" value={custom.end} min={custom.start || undefined} onChange={e => { setCustom({ ...custom, end: e.target.value }); resetPaging(); }} />
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 min-w-0">
-              <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                value={query} onChange={e => { setQuery(e.target.value); resetPaging(); }} placeholder="Cari order, ID, nama..."
-                className="w-full h-11 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-10 text-sm font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 transition-all duration-300"
-              />
-              {query && (
-                <button onClick={() => { setQuery(''); resetPaging(); }} aria-label="Hapus pencarian" className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 active:scale-90 transition-all">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <IconSelect icon={Filter} label="Tipe order" active={typeFilter !== 'semua'} value={typeFilter} onChange={e => { setTypeFilter(e.target.value); resetPaging(); }}>
-              <option value="semua">Semua Tipe Order</option>
-              {orderTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </IconSelect>
-            <IconSelect icon={ArrowUpDown} label="Urutkan" active={sortKey !== 'terbaru'} value={sortKey} onChange={e => setSortKey(e.target.value)}>
-              {SORTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-            </IconSelect>
-          </div>
-        </Card>
+        <FilterBar
+          query={query} onQueryChange={(v) => { setQuery(v); resetPaging(); }} placeholder="Cari order, ID, nama..."
+          period={period} onPeriodChange={(p) => { setPeriod(p); setMethodFilter('semua'); resetPaging(); }}
+          typeValue={typeFilter} onTypeChange={(v) => { setTypeFilter(v); resetPaging(); }} typeOptions={typeOptions}
+          typeAllLabel="Semua Tipe Order" typeChipLabel="Semua Tipe" typeTitle="Tipe Order"
+          sortValue={sortKey} sortDefault={DEFAULT_SORT} onSortChange={setSortKey} sortOptions={SORT_OPTIONS}
+        />
 
         {error && (
           <Card className="text-center space-y-2">
@@ -184,32 +153,13 @@ export default function RiwayatView() {
           </Card>
         )}
 
-        {/* Omset per metode bayar — grid ringkas, muat satu kartu tanpa geser samping */}
-        {!error && (
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-heading font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 min-w-0">
-                <CreditCard className="w-4 h-4 text-slate-400 shrink-0" /> <span className="truncate">Omset per Metode Pembayaran</span>
-              </h3>
-              <div className="flex items-center gap-0.5 shrink-0 text-xs text-slate-400 dark:text-slate-500" title="Terakhir diperbarui">
-                <span data-testid="riwayat-updated">{updatedLabel}</span>
-                <button onClick={reload} aria-label="Perbarui" disabled={loading} className="p-1.5 rounded-full text-accent-600 dark:text-accent-400 active:scale-90 transition-all disabled:opacity-50">
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[{ key: 'semua', label: 'SEMUA', total: grandTotal, wide: true }, ...methodStats.map(m => ({ key: m.key, label: `${m.key.toUpperCase()} · ${m.count}X`, total: m.total }))].map(c => (
-                <button
-                  key={c.key} onClick={() => { setMethodFilter(c.key); resetPaging(); }} data-testid={`method-${c.key}`}
-                  className={`${c.wide ? 'col-span-2' : ''} min-w-0 text-left rounded-xl px-3 py-2 border transition-all duration-300 active:scale-95 ${activeMethod === c.key ? 'bg-slate-800 dark:bg-white border-slate-800 dark:border-white text-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'}`}
-                >
-                  <p className="text-xs font-bold tracking-wide opacity-80 truncate">{c.label}</p>
-                  <p className="font-heading font-bold text-sm mt-0.5 truncate">{formatRupiah(c.total)}</p>
-                </button>
-              ))}
-            </div>
-          </Card>
+        {/* Ringkasan per metode bayar: ketuk untuk menyaring (Semua = total periode ini) */}
+        {!error && !loading && (
+          <SummaryPills
+            items={methodStats.map(m => ({ key: m.key, label: `${m.key.toUpperCase()} · ${m.count}X`, total: m.total }))}
+            allTotal={grandTotal} value={activeMethod} testIdPrefix="method"
+            onChange={(k) => { setMethodFilter(k); resetPaging(); }}
+          />
         )}
 
         {loading && !error && <div className="text-center text-sm text-slate-400 dark:text-slate-500 py-8">Memuat riwayat...</div>}
@@ -219,58 +169,49 @@ export default function RiwayatView() {
             {isSelecting && visible.length > 0 && (
               <BulkSelectBar count={count} total={visible.length} allSelected={allSelected} onToggleAll={toggleAll} onDeleteSelected={handleBulkDelete} />
             )}
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <p className="text-xs text-slate-500 dark:text-slate-400"><span data-testid="hist-count">{visible.length}</span> transaksi</p>
-              {canDelete && visible.length > 0 && (
-                <button
-                  onClick={toggleSelecting} data-testid="riwayat-pilih"
-                  className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-300 active:scale-95 shrink-0 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400'}`}
-                >
-                  {isSelecting ? 'Batal' : 'Pilih Banyak'}
-                </button>
-              )}
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                {isDirty && (
+                  <button onClick={resetAll} data-testid="riwayat-reset"
+                    className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 transition-all duration-300 active:scale-95 shrink-0">
+                    <RotateCcw className="w-3 h-3" /> Atur ulang
+                  </button>
+                )}
+                {canDelete && visible.length > 0 && (
+                  <button
+                    onClick={toggleSelecting} data-testid="riwayat-pilih"
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-300 active:scale-95 shrink-0 ${isSelecting ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400'}`}
+                  >
+                    {isSelecting ? 'Batal' : 'Pilih Banyak'}
+                  </button>
+                )}
+                <div className="flex items-center gap-0.5 shrink-0 text-xs text-slate-400 dark:text-slate-500" title="Terakhir diperbarui">
+                  <span data-testid="riwayat-updated">{updatedLabel}</span>
+                  <button onClick={reload} aria-label="Perbarui" disabled={loading} className="p-1.5 rounded-full text-accent-600 dark:text-accent-400 active:scale-90 transition-all disabled:opacity-50">
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {visible.length === 0 ? (
-              <EmptyState icon={<ShoppingBag className="w-12 h-12" />} title="Tidak ada transaksi pada periode ini" />
+              <EmptyState
+                icon={<ShoppingBag className="w-12 h-12" />}
+                title={isDirty ? 'Tidak ada transaksi yang cocok' : 'Tidak ada transaksi pada periode ini'}
+                action={isDirty ? <Button variant="secondary" size="sm" onClick={resetAll}>Atur ulang filter</Button> : null}
+              />
             ) : (
               <div className="space-y-4">
-                {visible.slice(0, limit).map(s => (
-                  <div key={s.id} data-testid="hist-row"
-                    className={`bg-white dark:bg-slate-900 rounded-3xl border p-5 shadow-sm ${selectedIds.has(s.id) ? 'border-orange-500 ring-1 ring-orange-500' : 'border-slate-100 dark:border-slate-800'}`}>
-                    <div className="flex justify-between items-start gap-3 pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
-                      <div className="flex items-start gap-3 min-w-0">
-                        {isSelecting && (
-                          <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleOne(s.id)} className="w-5 h-5 mt-0.5 rounded accent-[#ea580c] cursor-pointer shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-heading font-bold text-lg text-slate-800 dark:text-slate-100 truncate">#{s.display_number}</p>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">{new Date(s.paid_at || s.created_at).toLocaleString('id-ID')}</p>
-                        </div>
+                {groups.map((g, gi) => (
+                  <div key={g.day || gi} className="space-y-2">
+                    {showHeads && (
+                      <div className="flex items-baseline justify-between gap-3 px-1">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{dayHeading(g.day)}</p>
+                        <p className="font-heading font-bold text-xs text-slate-500 dark:text-slate-400">{formatRupiah(dayTotals.get(g.day))}</p>
                       </div>
-                      <span className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border ${s.payment_method === 'Ojol' ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 border-accent-100 dark:border-accent-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'}`}>
-                        {methodOf(s)}{s.payment_method === 'Ojol' && s.ojol_platform ? ` (${s.ojol_platform})` : ''}
-                      </span>
-                    </div>
-
-                    <div className="py-4 space-y-1">
-                      <p className="font-bold text-slate-800 dark:text-slate-100">Pelanggan: {s.customer_name || 'Umum'}</p>
-                      <p className="text-slate-500 dark:text-slate-400">{(s.items || []).length} Item • {s.order_type}</p>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <span className="font-heading font-bold text-2xl text-slate-800 dark:text-slate-100 min-w-0 truncate">{formatRupiah(s.total)}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button variant="secondary" onClick={() => setDetail(s)} title="Detail" icon={<Eye className="w-4 h-4" />}>
-                          Detail
-                        </Button>
-                        {canDelete && (
-                          <button onClick={() => handleDelete(s)} title="Hapus" disabled={busy} className="p-2.5 rounded-2xl bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-100 dark:hover:bg-accent-500/20 active:scale-95 transition-all disabled:opacity-50">
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    )}
+                    {g.items.map(renderRow)}
                   </div>
                 ))}
                 {visible.length > limit && <Button variant="secondary" size="full" onClick={() => setLimit(limit + PAGE)}>Tampilkan lebih banyak ({visible.length - limit} lagi)</Button>}
