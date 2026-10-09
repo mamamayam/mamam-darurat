@@ -1,4 +1,4 @@
-import { SegmentedControl, Input, NominalInput } from '../../components/ui';
+import { PillTabs, Input, NominalInput } from '../../components/ui';
 import CategorySelect from '../../components/CategorySelect';
 
 /**
@@ -13,8 +13,8 @@ export default function AdjustmentFields({ form, onChange, categories, onManage,
   const firstCat = (type) => (categories[type] || [])[0] || '';
   return (
     <>
-      <SegmentedControl value={form.type} onChange={(v) => onChange({ ...form, type: v, category: firstCat(v) })}
-        options={[{ value: 'potongan', label: 'Potongan' }, { value: 'tambahan', label: 'Tambahan' }]} />
+      <PillTabs value={form.type} onChange={(v) => onChange({ ...form, type: v, category: firstCat(v) })}
+        options={[{ value: 'tambahan', label: 'Tambahan' }, { value: 'potongan', label: 'Potongan' }]} />
       <CategorySelect value={form.category} onChange={(v) => onChange({ ...form, category: v })} options={categories[form.type] || []} onManage={onManage} />
       <Input placeholder={labelPlaceholder} value={form.label} onChange={e => onChange({ ...form, label: e.target.value })} />
       <NominalInput title="Nominal" placeholder="Nominal" value={form.amount} onChange={e => onChange({ ...form, amount: e.target.value })} />

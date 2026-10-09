@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Modal, Button, Select } from '../../components/ui';
+import { Modal, Button, Select, PillTabs } from '../../components/ui';
 import CategoryModal from '../../components/CategoryModal';
 import AdjustmentFields from '../payroll/AdjustmentFields';
 import { usePayrollCategories } from '../../hook/usePayrollCategories';
@@ -63,13 +63,17 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
     }
   });
 
-  const hint = isAddition
-    ? (needsApproval
-      ? 'Menunggu persetujuan owner. Belum masuk hitungan gaji sampai disetujui.'
-      : 'Kamu owner, jadi langsung disetujui dan masuk hitungan gaji.')
-    : (paymentMethod === 'Tunai'
-      ? 'Langsung dicatat sebagai pengeluaran karyawan dan memotong gaji. Karena tunai, saldo Dompet ikut berkurang.'
-      : 'Langsung dicatat sebagai pengeluaran karyawan dan memotong gaji (non-tunai, tidak menyentuh Dompet).');
+  // Semua kemungkinan keterangan ditumpuk di satu sel grid (yang tidak aktif disembunyikan),
+  // jadi tinggi kotaknya selalu sama dan formulir tidak naik-turun saat ganti Tambahan/Potongan.
+  const hints = [
+    { key: 'approval', show: needsApproval, text: 'Menunggu persetujuan owner. Belum masuk hitungan gaji sampai disetujui.' },
+    { key: 'owner', show: isAddition && !needsApproval, text: 'Kamu owner, jadi langsung disetujui dan masuk hitungan gaji.' },
+    { key: 'tunai', show: !isAddition && paymentMethod === 'Tunai', text: 'Langsung dicatat sebagai pengeluaran karyawan dan memotong gaji. Karena tunai, saldo Dompet ikut berkurang.' },
+    { key: 'nontunai', show: !isAddition && paymentMethod !== 'Tunai', text: 'Langsung dicatat sebagai pengeluaran karyawan dan memotong gaji (non-tunai, tidak menyentuh Dompet).' },
+  ];
+  // Hanya yang mungkin muncul untuk peran ini yang ikut menentukan tinggi.
+  const hintsInPlay = hints.filter(h => (canApprove ? h.key !== 'approval' : h.key !== 'owner'));
+  const ghost = 'col-start-1 row-start-1';
 
   return (
     <>
@@ -82,20 +86,30 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
 
           <AdjustmentFields form={{ ...form, category }} onChange={setForm} categories={cats.categories} onManage={() => setCatModalOpen(true)} />
 
-          {!isAddition && (
-            <Select label="Sumber Dana" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-              {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-            </Select>
-          )}
+          {/* Slot tetap: Sumber Dana (Potongan) / Dicatat oleh (Tambahan dari staf) menempati sel yang
+              sama, jadi tinggi formulir sama untuk Tambahan maupun Potongan. */}
+          <div className="grid">
+            <div className={`${ghost} space-y-1.5 ${isAddition ? 'invisible pointer-events-none' : ''}`} aria-hidden={isAddition} inert={isAddition}>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Sumber Dana</p>
+              <PillTabs value={paymentMethod} onChange={setPaymentMethod}
+                options={PAYMENT_METHODS.map(m => ({ value: m, label: m }))} />
+            </div>
+            {!canApprove && (
+              <div className={`${ghost} ${needsApproval ? '' : 'invisible pointer-events-none'}`} aria-hidden={!needsApproval} inert={!needsApproval}>
+                <Select label="Dicatat oleh" value={requestedBy} onChange={e => setRequestedBy(e.target.value)}>
+                  <option value="">Pilih namamu</option>
+                  {quick.employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
+                </Select>
+              </div>
+            )}
+          </div>
 
-          {needsApproval && (
-            <Select label="Dicatat oleh" value={requestedBy} onChange={e => setRequestedBy(e.target.value)}>
-              <option value="">Pilih namamu</option>
-              {quick.employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
-            </Select>
-          )}
-
-          <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 rounded-xl p-3" data-testid="quick-hint">{hint}</p>
+          <div className="grid text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 rounded-xl p-3">
+            {hintsInPlay.map(h => (
+              <p key={h.key} className={`${ghost} ${h.show ? '' : 'invisible'}`} aria-hidden={!h.show}
+                data-testid={h.show ? 'quick-hint' : undefined}>{h.text}</p>
+            ))}
+          </div>
 
           <Button size="full" onClick={handleSubmit} disabled={busy}>
             {busy ? 'Menyimpan...' : needsApproval ? 'Ajukan ke Owner' : isAddition ? 'Simpan Tambahan' : 'Simpan Potongan'}
