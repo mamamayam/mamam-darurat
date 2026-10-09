@@ -1,0 +1,353 @@
+From 65b7225d9adf000a2a190deb614ff238cdc1121f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 10:43:54 +0700
+Subject: [PATCH] feat: urutan ikon menu slide-up bisa diatur sendiri dengan
+ drag and drop
+
+---
+ src/app/layout/BottomSheetMenu.jsx | 89 ++++++++++++++++++++++++------
+ src/app/layout/menuOrder.js        | 55 ++++++++++++++++++
+ src/app/layout/menuOrder.test.js   | 65 ++++++++++++++++++++++
+ src/app/layout/useGridReorder.js   | 61 ++++++++++++++++++++
+ 4 files changed, 253 insertions(+), 17 deletions(-)
+ create mode 100644 src/app/layout/menuOrder.js
+ create mode 100644 src/app/layout/menuOrder.test.js
+ create mode 100644 src/app/layout/useGridReorder.js
+
+diff --git a/src/app/layout/BottomSheetMenu.jsx b/src/app/layout/BottomSheetMenu.jsx
+index 4ae4d3f..87f7f31 100644
+--- a/src/app/layout/BottomSheetMenu.jsx
++++ b/src/app/layout/BottomSheetMenu.jsx
+@@ -1,6 +1,9 @@
+-import React from 'react';
+-import { LogOut } from 'lucide-react';
++import React, { useState, useEffect, useMemo } from 'react';
++import { createPortal } from 'react-dom';
++import { LogOut, Pencil } from 'lucide-react';
+ import Modal from '../../components/ui/Modal';
++import { orderMenus, moveId, readMenuOrder, saveMenuOrder, clearMenuOrder } from './menuOrder';
++import { useGridReorder } from './useGridReorder';
+ import { roleLabel } from '../../auth/permissions';
+ import { versionLabel } from '../../lib/appVersion';
+ 
+@@ -11,7 +14,29 @@ import { versionLabel } from '../../lib/appVersion';
+  * BEDA dari versi asli: card "Notifikasi" di atas grid DIHAPUS — C belum
+  * punya push notifications/NotificationBell (di luar scope gelombang 1).
+  * Kalau nanti perlu, tinggal port ulang dari test-app-baru.
++ *
++ * Urutan ikon bisa diatur sendiri: ketuk "Atur", geser ikon ke posisi yang diinginkan, lalu "Selesai".
++ * Urutan disimpan per peran di perangkat ini (lihat menuOrder.js); "Reset" mengembalikan urutan bawaan.
+  */
++
++function MenuTile({ item, isActive, ghost = false }) {
++  return (
++    <>
++      <div
++        className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform duration-200 ${ghost ? 'scale-110 shadow-xl' : 'group-active:scale-90'} ${
++          isActive
++            ? 'bg-gradient-to-br from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600'
++            : 'bg-slate-100 dark:bg-slate-800'
++        }`}
++      >
++        <item.icon className={`w-[22px] h-[22px] ${isActive ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`} />
++      </div>
++      <span className={`text-xs font-semibold text-center leading-tight ${isActive ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
++        {item.label}
++      </span>
++    </>
++  );
++}
+ export default function BottomSheetMenu({
+   isOpen,
+   onClose,
+@@ -21,36 +46,59 @@ export default function BottomSheetMenu({
+   role,
+   onLogout,
+ }) {
++  const [editing, setEditing] = useState(false);
++  const [savedIds, setSavedIds] = useState(() => readMenuOrder(role));
++  useEffect(() => { setSavedIds(readMenuOrder(role)); }, [role]);
++  useEffect(() => { if (!isOpen) setEditing(false); }, [isOpen]);
++  // simpan tiap urutan berubah (null = urutan bawaan, tidak ada yang disimpan)
++  useEffect(() => { if (savedIds) saveMenuOrder(role, savedIds); }, [savedIds]); // eslint-disable-line react-hooks/exhaustive-deps -- cuma saat urutan berubah, bukan saat role ganti
++
++  const ordered = useMemo(() => orderMenus(visibleMenus, savedIds), [visibleMenus, savedIds]);
++  const { drag, registerRef, startDrag } = useGridReorder({
++    onMove: (from, to) => setSavedIds((prev) => moveId(orderMenus(visibleMenus, prev).map((m) => m.id), from, to)),
++  });
++  const draggedItem = drag ? ordered.find((m) => m.id === drag.id) : null;
++
+   const handleSelect = (id) => {
++    if (editing) return;
+     navigate(id);
+     onClose();
+   };
++  const handleReset = () => { clearMenuOrder(role); setSavedIds(null); };
+ 
+   return (
+     <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight className="pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+       <div className="px-5 pt-4 pb-2">
++        <div className="flex items-center justify-between min-h-8 mb-3">
++          <p className="text-xs text-slate-400 dark:text-slate-500" data-testid="menu-atur-petunjuk">{editing ? 'Geser ikon ke posisi yang kamu mau' : ''}</p>
++          <div className="flex items-center gap-1">
++            {editing && (
++              <button type="button" onClick={handleReset} data-testid="menu-reset"
++                className="px-3 py-1.5 rounded-full text-xs font-bold text-slate-500 dark:text-slate-400 active:scale-95 transition-all">Reset</button>
++            )}
++            <button type="button" onClick={() => setEditing((v) => !v)} data-testid="menu-atur"
++              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-all ${editing ? 'bg-accent-600 text-white' : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800'}`}>
++              {!editing && <Pencil className="w-3 h-3" />}{editing ? 'Selesai' : 'Atur'}
++            </button>
++          </div>
++        </div>
++
+         {/* Grid menu 3 kolom */}
+-        <div className="grid grid-cols-3 gap-x-2 gap-y-5">
+-          {visibleMenus.map((item) => {
++        <div className="grid grid-cols-3 gap-x-2 gap-y-5" data-no-swipe={editing ? '' : undefined} data-testid="menu-grid">
++          {ordered.map((item) => {
+             const isActive = currentView === item.id;
++            const isDragged = drag?.id === item.id;
+             return (
+               <button
+                 key={item.id}
++                ref={registerRef(item.id)}
++                data-testid={`menu-${item.id}`}
+                 onClick={() => handleSelect(item.id)}
+-                className="flex flex-col items-center gap-2 group"
++                onPointerDown={editing ? startDrag(item.id) : undefined}
++                style={editing ? { touchAction: 'none' } : undefined}
++                className={`flex flex-col items-center gap-2 group rounded-2xl select-none ${editing ? 'cursor-grab py-1 ring-1 ring-dashed ring-accent-300 dark:ring-accent-500/40' : ''} ${isDragged ? 'opacity-30' : ''}`}
+               >
+-                <div
+-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform duration-200 group-active:scale-90 ${
+-                    isActive
+-                      ? 'bg-gradient-to-br from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600'
+-                      : 'bg-slate-100 dark:bg-slate-800'
+-                  }`}
+-                >
+-                  <item.icon className={`w-[22px] h-[22px] ${isActive ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`} />
+-                </div>
+-                <span className={`text-xs font-semibold text-center leading-tight ${isActive ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
+-                  {item.label}
+-                </span>
++                <MenuTile item={item} isActive={isActive} />
+               </button>
+             );
+           })}
+@@ -68,6 +116,13 @@ export default function BottomSheetMenu({
+           <p className="text-center text-[11px] text-slate-300 dark:text-slate-600" data-testid="app-version">{versionLabel()}</p>
+         </div>
+       </div>
++      {drag && draggedItem && createPortal(
++        <div className="fixed z-[9999] pointer-events-none flex flex-col items-center gap-2 opacity-95" data-testid="menu-ghost"
++          style={{ left: drag.x - drag.dx, top: drag.y - drag.dy, width: drag.w }}>
++          <MenuTile item={draggedItem} isActive={currentView === draggedItem.id} ghost />
++        </div>,
++        document.body
++      )}
+     </Modal>
+   );
+ }
+diff --git a/src/app/layout/menuOrder.js b/src/app/layout/menuOrder.js
+new file mode 100644
+index 0000000..5e5a5c4
+--- /dev/null
++++ b/src/app/layout/menuOrder.js
+@@ -0,0 +1,55 @@
++/**
++ * menuOrder — urutan ikon menu slide-up yang bisa diatur sendiri (drag & drop).
++ * FUNGSI MURNI (dites) + simpan/baca per peran di localStorage perangkat ini.
++ *
++ * Urutan disimpan sebagai daftar id. Menu baru yang belum ada di daftar tersimpan
++ * ditaruh di belakang (urutan bawaan), dan id yang sudah tidak ada diabaikan, jadi
++ * menambah/menghapus menu di kode tidak merusak urutan pilihan pengguna.
++ */
++export const MENU_ORDER_KEY = 'mamam-darurat-menu-order';
++
++/** Susun `items` ({ id, ... }) menurut `savedIds`; sisanya mengikuti urutan bawaan di belakang. */
++export function orderMenus(items, savedIds) {
++  const saved = Array.isArray(savedIds) ? savedIds : [];
++  const byId = new Map(items.map((it) => [it.id, it]));
++  const picked = [];
++  for (const id of saved) {
++    if (byId.has(id)) { picked.push(byId.get(id)); byId.delete(id); }   // `delete` juga membuang id ganda
++  }
++  return [...picked, ...byId.values()];
++}
++
++/** Pindahkan `fromId` ke posisi `toId` (yang lain bergeser). Id tak dikenal = tidak berubah. */
++export function moveId(ids, fromId, toId) {
++  const from = ids.indexOf(fromId), to = ids.indexOf(toId);
++  if (from < 0 || to < 0 || from === to) return ids;
++  const next = ids.slice();
++  next.splice(from, 1);
++  next.splice(to, 0, fromId);
++  return next;
++}
++
++/** Id elemen yang persegi panjangnya memuat titik (x, y); null kalau di luar semuanya. */
++export function itemAtPoint(rects, x, y) {
++  for (const [id, r] of Object.entries(rects)) {
++    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return id;
++  }
++  return null;
++}
++
++const keyFor = (role) => `${MENU_ORDER_KEY}:${role || 'umum'}`;
++
++export function readMenuOrder(role, storage = globalThis.localStorage) {
++  try {
++    const raw = JSON.parse(storage?.getItem(keyFor(role)) || 'null');
++    return Array.isArray(raw) ? raw.filter((x) => typeof x === 'string') : null;
++  } catch { return null; }
++}
++
++export function saveMenuOrder(role, ids, storage = globalThis.localStorage) {
++  try { storage?.setItem(keyFor(role), JSON.stringify(ids)); } catch { /* storage penuh / diblokir: abaikan */ }
++}
++
++export function clearMenuOrder(role, storage = globalThis.localStorage) {
++  try { storage?.removeItem(keyFor(role)); } catch { /* abaikan */ }
++}
+diff --git a/src/app/layout/menuOrder.test.js b/src/app/layout/menuOrder.test.js
+new file mode 100644
+index 0000000..aa906ff
+--- /dev/null
++++ b/src/app/layout/menuOrder.test.js
+@@ -0,0 +1,65 @@
++import { describe, it, expect } from 'vitest';
++import { orderMenus, moveId, itemAtPoint, readMenuOrder, saveMenuOrder, clearMenuOrder } from './menuOrder';
++
++const items = ['a', 'b', 'c', 'd'].map((id) => ({ id, label: id.toUpperCase() }));
++const ids = (list) => list.map((i) => i.id);
++const fakeStorage = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
++
++describe('orderMenus', () => {
++  it('tanpa urutan tersimpan = urutan bawaan', () => {
++    expect(ids(orderMenus(items, null))).toEqual(['a', 'b', 'c', 'd']);
++    expect(ids(orderMenus(items, []))).toEqual(['a', 'b', 'c', 'd']);
++  });
++  it('mengikuti urutan tersimpan', () => {
++    expect(ids(orderMenus(items, ['d', 'b', 'a', 'c']))).toEqual(['d', 'b', 'a', 'c']);
++  });
++  it('menu baru (belum tersimpan) ditaruh di belakang; id yang sudah tidak ada diabaikan; id ganda dibuang', () => {
++    expect(ids(orderMenus(items, ['c', 'x', 'a', 'c']))).toEqual(['c', 'a', 'b', 'd']);
++  });
++  it('menu yang disembunyikan izin (tidak ada di items) tidak muncul walau ada di daftar tersimpan', () => {
++    expect(ids(orderMenus(items.slice(0, 2), ['d', 'b', 'a']))).toEqual(['b', 'a']);
++  });
++});
++
++describe('moveId', () => {
++  it('pindah ke depan dan ke belakang, sisanya bergeser', () => {
++    expect(moveId(['a', 'b', 'c', 'd'], 'd', 'a')).toEqual(['d', 'a', 'b', 'c']);
++    expect(moveId(['a', 'b', 'c', 'd'], 'a', 'c')).toEqual(['b', 'c', 'a', 'd']);
++  });
++  it('id sama / tak dikenal = tidak berubah', () => {
++    const base = ['a', 'b', 'c'];
++    expect(moveId(base, 'a', 'a')).toBe(base);
++    expect(moveId(base, 'z', 'a')).toBe(base);
++    expect(moveId(base, 'a', 'z')).toBe(base);
++  });
++  it('tidak mengubah array asli', () => {
++    const base = ['a', 'b', 'c'];
++    moveId(base, 'c', 'a');
++    expect(base).toEqual(['a', 'b', 'c']);
++  });
++});
++
++describe('itemAtPoint', () => {
++  const rects = { a: { left: 0, right: 100, top: 0, bottom: 100 }, b: { left: 110, right: 210, top: 0, bottom: 100 } };
++  it('mengenali elemen di bawah titik, null kalau di celah / di luar', () => {
++    expect(itemAtPoint(rects, 50, 50)).toBe('a');
++    expect(itemAtPoint(rects, 150, 20)).toBe('b');
++    expect(itemAtPoint(rects, 105, 50)).toBeNull();
++    expect(itemAtPoint(rects, 500, 500)).toBeNull();
++  });
++});
++
++describe('simpan / baca per peran', () => {
++  it('terpisah per peran, bisa dihapus, dan tahan data rusak', () => {
++    const s = fakeStorage();
++    expect(readMenuOrder('owner', s)).toBeNull();
++    saveMenuOrder('owner', ['b', 'a'], s);
++    saveMenuOrder('staff', ['c'], s);
++    expect(readMenuOrder('owner', s)).toEqual(['b', 'a']);
++    expect(readMenuOrder('staff', s)).toEqual(['c']);
++    clearMenuOrder('owner', s);
++    expect(readMenuOrder('owner', s)).toBeNull();
++    s.setItem('mamam-darurat-menu-order:staff', '{rusak');
++    expect(readMenuOrder('staff', s)).toBeNull();
++  });
++});
+diff --git a/src/app/layout/useGridReorder.js b/src/app/layout/useGridReorder.js
+new file mode 100644
+index 0000000..9a30ca1
+--- /dev/null
++++ b/src/app/layout/useGridReorder.js
+@@ -0,0 +1,61 @@
++import { useState, useRef, useCallback, useEffect } from 'react';
++import { itemAtPoint } from './menuOrder';
++
++/**
++ * useGridReorder — drag & drop untuk grid (pointer: jari maupun mouse). Beda dengan
++ * useDragReorder (khusus daftar vertikal): di sini penentu tujuannya persegi panjang elemen
++ * yang sedang disentuh, jadi bekerja untuk grid 3 kolom ke segala arah.
++ *
++ * - startDrag(id) dipasang di onPointerDown elemen (elemen perlu touch-action: none).
++ * - Saat jari masuk ke elemen lain, onMove(dragId, targetId) dipanggil (urutan berubah langsung
++ *   seperti di layar utama HP). Saat dilepas, onDrop() dipanggil.
++ * - `drag` = { id, x, y, w, h, dx, dy } untuk menggambar "bayangan" yang mengikuti jari, atau null.
++ */
++export function useGridReorder({ onMove, onDrop }) {
++  const [drag, setDrag] = useState(null);
++  const refs = useRef({});
++  const dragIdRef = useRef(null);
++  const cbRef = useRef({ onMove, onDrop });
++  useEffect(() => { cbRef.current = { onMove, onDrop }; });
++
++  const registerRef = useCallback((id) => (el) => {
++    if (el) refs.current[id] = el; else delete refs.current[id];
++  }, []);
++
++  const startDrag = useCallback((id) => (e) => {
++    if (e.button > 0) return;                       // hanya klik kiri / sentuhan
++    const el = refs.current[id];
++    if (!el) return;
++    e.preventDefault();
++    const r = el.getBoundingClientRect();
++    dragIdRef.current = id;
++    setDrag({ id, x: e.clientX, y: e.clientY, w: r.width, h: r.height, dx: e.clientX - r.left, dy: e.clientY - r.top });
++  }, []);
++
++  const dragId = drag?.id ?? null;
++  useEffect(() => {
++    if (dragId === null) return undefined;
++    const onPointerMove = (e) => {
++      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
++      const rects = {};
++      for (const [id, el] of Object.entries(refs.current)) rects[id] = el.getBoundingClientRect();
++      const target = itemAtPoint(rects, e.clientX, e.clientY);
++      if (target && target !== dragIdRef.current) cbRef.current.onMove(dragIdRef.current, target);
++    };
++    const finish = () => {
++      dragIdRef.current = null;
++      setDrag(null);
++      cbRef.current.onDrop?.();
++    };
++    window.addEventListener('pointermove', onPointerMove);
++    window.addEventListener('pointerup', finish);
++    window.addEventListener('pointercancel', finish);
++    return () => {
++      window.removeEventListener('pointermove', onPointerMove);
++      window.removeEventListener('pointerup', finish);
++      window.removeEventListener('pointercancel', finish);
++    };
++  }, [dragId]);
++
++  return { drag, registerRef, startDrag };
++}
+-- 
+2.43.0
+

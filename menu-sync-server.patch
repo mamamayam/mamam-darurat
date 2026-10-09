@@ -1,0 +1,197 @@
+From a0cf7e96292f7940028ce05e445b7aafc18a8154 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 10:50:09 +0700
+Subject: [PATCH] feat: urutan ikon menu tersimpan di server (app_settings)
+ supaya ikut ke perangkat mana pun
+
+---
+ src/app/layout/BottomSheetMenu.jsx   | 45 ++++++++++++++++++++---
+ src/app/layout/menuOrderSync.js      | 33 +++++++++++++++++
+ src/app/layout/menuOrderSync.test.js | 53 ++++++++++++++++++++++++++++
+ 3 files changed, 127 insertions(+), 4 deletions(-)
+ create mode 100644 src/app/layout/menuOrderSync.js
+ create mode 100644 src/app/layout/menuOrderSync.test.js
+
+diff --git a/src/app/layout/BottomSheetMenu.jsx b/src/app/layout/BottomSheetMenu.jsx
+index 87f7f31..a7bc239 100644
+--- a/src/app/layout/BottomSheetMenu.jsx
++++ b/src/app/layout/BottomSheetMenu.jsx
+@@ -1,9 +1,11 @@
+-import React, { useState, useEffect, useMemo } from 'react';
++import React, { useState, useEffect, useMemo, useRef } from 'react';
+ import { createPortal } from 'react-dom';
+ import { LogOut, Pencil } from 'lucide-react';
+ import Modal from '../../components/ui/Modal';
+ import { orderMenus, moveId, readMenuOrder, saveMenuOrder, clearMenuOrder } from './menuOrder';
+ import { useGridReorder } from './useGridReorder';
++import { fetchMenuOrder, pushMenuOrder, deleteMenuOrder } from './menuOrderSync';
++import { supabase } from '../../lib/supabase';
+ import { roleLabel } from '../../auth/permissions';
+ import { versionLabel } from '../../lib/appVersion';
+ 
+@@ -16,7 +18,9 @@ import { versionLabel } from '../../lib/appVersion';
+  * Kalau nanti perlu, tinggal port ulang dari test-app-baru.
+  *
+  * Urutan ikon bisa diatur sendiri: ketuk "Atur", geser ikon ke posisi yang diinginkan, lalu "Selesai".
+- * Urutan disimpan per peran di perangkat ini (lihat menuOrder.js); "Reset" mengembalikan urutan bawaan.
++ * Urutan disimpan per peran: di perangkat ini (localStorage, langsung tampil) DAN di server (app_settings,
++ * lihat menuOrderSync.js) supaya ikut ke HP/browser mana pun. Server dibaca tiap menu dibuka; kalau offline,
++ * urutan lokal tetap dipakai dan dikirim saat tersambung. "Reset" mengembalikan urutan bawaan.
+  */
+ 
+ function MenuTile({ item, isActive, ghost = false }) {
+@@ -53,18 +57,51 @@ export default function BottomSheetMenu({
+   // simpan tiap urutan berubah (null = urutan bawaan, tidak ada yang disimpan)
+   useEffect(() => { if (savedIds) saveMenuOrder(role, savedIds); }, [savedIds]); // eslint-disable-line react-hooks/exhaustive-deps -- cuma saat urutan berubah, bukan saat role ganti
+ 
++  // ── Sinkron ke server (lintas perangkat) ──
++  const fetchedRef = useRef(false);     // sudah berhasil membaca server sejak menu dibuka (jangan kirim sebelum itu: bisa menimpa urutan baru dengan yang basi)
++  const syncedRef = useRef(undefined);  // JSON urutan yang diketahui ada di server ('null' = belum ada)
++  const dirtyRef = useRef(false);       // ada perubahan lokal yang belum terkirim (mis. diubah saat offline)
++  const editingRef = useRef(false);
++  const [syncTick, setSyncTick] = useState(0);
++  useEffect(() => { editingRef.current = editing; }, [editing]);
++
+   const ordered = useMemo(() => orderMenus(visibleMenus, savedIds), [visibleMenus, savedIds]);
+   const { drag, registerRef, startDrag } = useGridReorder({
+-    onMove: (from, to) => setSavedIds((prev) => moveId(orderMenus(visibleMenus, prev).map((m) => m.id), from, to)),
++    onMove: (from, to) => { dirtyRef.current = true; setSavedIds((prev) => moveId(orderMenus(visibleMenus, prev).map((m) => m.id), from, to)); },
+   });
+   const draggedItem = drag ? ordered.find((m) => m.id === drag.id) : null;
+ 
++  useEffect(() => {
++    if (!isOpen) { fetchedRef.current = false; return undefined; }
++    let cancelled = false;
++    fetchMenuOrder(supabase, role).then((remote) => {
++      if (cancelled || remote === undefined) return;   // offline/galat: pakai urutan lokal
++      syncedRef.current = remote ? JSON.stringify(remote) : 'null';
++      fetchedRef.current = true;
++      if (remote && !dirtyRef.current && !editingRef.current) setSavedIds(remote);   // server menang, kecuali ada perubahan lokal yang belum terkirim
++      else setSyncTick((t) => t + 1);                                              // kirim urutan lokal ke server
++    });
++    return () => { cancelled = true; };
++  }, [isOpen, role]);
++  useEffect(() => {
++    if (!savedIds || drag || !fetchedRef.current) return undefined;
++    const json = JSON.stringify(savedIds);
++    if (json === syncedRef.current) return undefined;
++    const t = setTimeout(async () => {
++      if (await pushMenuOrder(supabase, role, savedIds)) { syncedRef.current = json; dirtyRef.current = false; }
++    }, 500);
++    return () => clearTimeout(t);
++  }, [savedIds, drag, role, syncTick]);
++
+   const handleSelect = (id) => {
+     if (editing) return;
+     navigate(id);
+     onClose();
+   };
+-  const handleReset = () => { clearMenuOrder(role); setSavedIds(null); };
++  const handleReset = () => {
++    clearMenuOrder(role); setSavedIds(null); dirtyRef.current = false;
++    deleteMenuOrder(supabase, role).then((ok) => { if (ok) syncedRef.current = 'null'; });
++  };
+ 
+   return (
+     <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight className="pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+diff --git a/src/app/layout/menuOrderSync.js b/src/app/layout/menuOrderSync.js
+new file mode 100644
+index 0000000..edee463
+--- /dev/null
++++ b/src/app/layout/menuOrderSync.js
+@@ -0,0 +1,33 @@
++/**
++ * menuOrderSync — simpan urutan ikon menu ke server (tabel app_settings, satu baris per peran) supaya
++ * urutannya ikut ke HP/browser mana pun. Tidak butuh tabel/SQL baru: app_settings sudah ada (migrasi 008).
++ * Fungsi menerima klien Supabase supaya bisa dites. Semua kegagalan jaringan DIAM-DIAM diabaikan:
++ * urutan di perangkat ini (localStorage) tetap jalan, server menyusul di kesempatan berikutnya.
++ */
++export const menuOrderKey = (role) => `menu_order:${role || 'umum'}`;
++
++const cleanIds = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : null);
++
++/** Urutan di server: array id, null = belum pernah disimpan, undefined = tidak bisa dibaca (offline/galat). */
++export async function fetchMenuOrder(client, role) {
++  try {
++    const { data, error } = await client.from('app_settings').select('value').eq('key', menuOrderKey(role));
++    if (error) return undefined;
++    return cleanIds(data?.[0]?.value);
++  } catch { return undefined; }
++}
++
++export async function pushMenuOrder(client, role, ids) {
++  try {
++    const { error } = await client.from('app_settings')
++      .upsert({ key: menuOrderKey(role), value: ids, updated_at: new Date().toISOString() }, { onConflict: 'key' });
++    return !error;
++  } catch { return false; }
++}
++
++export async function deleteMenuOrder(client, role) {
++  try {
++    const { error } = await client.from('app_settings').delete().eq('key', menuOrderKey(role));
++    return !error;
++  } catch { return false; }
++}
+diff --git a/src/app/layout/menuOrderSync.test.js b/src/app/layout/menuOrderSync.test.js
+new file mode 100644
+index 0000000..c0790b5
+--- /dev/null
++++ b/src/app/layout/menuOrderSync.test.js
+@@ -0,0 +1,53 @@
++import { describe, it, expect, vi } from 'vitest';
++import { menuOrderKey, fetchMenuOrder, pushMenuOrder, deleteMenuOrder } from './menuOrderSync';
++
++// klien palsu: meniru rantai from().select().eq() / upsert() / delete().eq()
++const fakeClient = ({ rows = [], error = null, throws = false } = {}) => {
++  const calls = [];
++  const run = (v) => { if (throws) throw new Error('offline'); return v; };
++  return {
++    calls,
++    from: (table) => ({
++      select: () => ({ eq: (col, val) => { calls.push(['select', table, col, val]); return Promise.resolve(run({ data: rows, error })); } }),
++      upsert: (row, opts) => { calls.push(['upsert', table, row, opts]); return Promise.resolve(run({ error })); },
++      delete: () => ({ eq: (col, val) => { calls.push(['delete', table, col, val]); return Promise.resolve(run({ error })); } }),
++    }),
++  };
++};
++
++describe('menuOrderSync', () => {
++  it('satu kunci per peran', () => {
++    expect(menuOrderKey('owner')).toBe('menu_order:owner');
++    expect(menuOrderKey('staff')).toBe('menu_order:staff');
++    expect(menuOrderKey(null)).toBe('menu_order:umum');
++  });
++  it('fetch: array id dari server; null kalau belum ada; undefined kalau galat/offline', async () => {
++    expect(await fetchMenuOrder(fakeClient({ rows: [{ value: ['b', 'a'] }] }), 'owner')).toEqual(['b', 'a']);
++    expect(await fetchMenuOrder(fakeClient({ rows: [] }), 'owner')).toBeNull();
++    expect(await fetchMenuOrder(fakeClient({ rows: [{ value: 'rusak' }] }), 'owner')).toBeNull();
++    expect(await fetchMenuOrder(fakeClient({ error: { message: 'x' } }), 'owner')).toBeUndefined();
++    expect(await fetchMenuOrder(fakeClient({ throws: true }), 'owner')).toBeUndefined();
++  });
++  it('fetch membaca kunci peran yang benar dari app_settings', async () => {
++    const c = fakeClient({ rows: [] });
++    await fetchMenuOrder(c, 'staff');
++    expect(c.calls[0]).toEqual(['select', 'app_settings', 'key', 'menu_order:staff']);
++  });
++  it('push: upsert satu baris per peran (onConflict key); false kalau gagal, tidak melempar', async () => {
++    const c = fakeClient();
++    expect(await pushMenuOrder(c, 'owner', ['a', 'b'])).toBe(true);
++    const [, table, row, opts] = c.calls[0];
++    expect(table).toBe('app_settings');
++    expect(row.key).toBe('menu_order:owner');
++    expect(row.value).toEqual(['a', 'b']);
++    expect(opts).toEqual({ onConflict: 'key' });
++    expect(await pushMenuOrder(fakeClient({ error: { message: 'x' } }), 'owner', ['a'])).toBe(false);
++    expect(await pushMenuOrder(fakeClient({ throws: true }), 'owner', ['a'])).toBe(false);
++  });
++  it('delete: hapus baris peran itu saja', async () => {
++    const c = fakeClient();
++    expect(await deleteMenuOrder(c, 'owner')).toBe(true);
++    expect(c.calls[0]).toEqual(['delete', 'app_settings', 'key', 'menu_order:owner']);
++    expect(await deleteMenuOrder(fakeClient({ throws: true }), 'owner')).toBe(false);
++  });
++});
+-- 
+2.43.0
+
