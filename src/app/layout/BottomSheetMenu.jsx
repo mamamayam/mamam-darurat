@@ -106,8 +106,7 @@ export default function BottomSheetMenu({
   return (
     <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight className="pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <div className="px-5 pt-4 pb-2">
-        <div className="flex items-center justify-between min-h-8 mb-3">
-          <p className="text-xs text-slate-400 dark:text-slate-500" data-testid="menu-atur-petunjuk">{editing ? 'Geser ikon ke posisi yang kamu mau' : ''}</p>
+        <div className="flex items-center justify-end min-h-8 mb-3">
           <div className="flex items-center gap-1">
             {editing && (
               <button type="button" onClick={handleReset} data-testid="menu-reset"

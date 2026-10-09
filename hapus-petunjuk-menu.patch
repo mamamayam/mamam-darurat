@@ -1,0 +1,26 @@
+From 25c6e246e62ba4bb4252096d60e66152ccf50382 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 10:54:04 +0700
+Subject: [PATCH] fix: hapus tulisan petunjuk geser ikon di mode atur menu
+
+---
+ src/app/layout/BottomSheetMenu.jsx | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/src/app/layout/BottomSheetMenu.jsx b/src/app/layout/BottomSheetMenu.jsx
+index a7bc239..ab99630 100644
+--- a/src/app/layout/BottomSheetMenu.jsx
++++ b/src/app/layout/BottomSheetMenu.jsx
+@@ -106,8 +106,7 @@ export default function BottomSheetMenu({
+   return (
+     <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight className="pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+       <div className="px-5 pt-4 pb-2">
+-        <div className="flex items-center justify-between min-h-8 mb-3">
+-          <p className="text-xs text-slate-400 dark:text-slate-500" data-testid="menu-atur-petunjuk">{editing ? 'Geser ikon ke posisi yang kamu mau' : ''}</p>
++        <div className="flex items-center justify-end min-h-8 mb-3">
+           <div className="flex items-center gap-1">
+             {editing && (
+               <button type="button" onClick={handleReset} data-testid="menu-reset"
+-- 
+2.43.0
+
