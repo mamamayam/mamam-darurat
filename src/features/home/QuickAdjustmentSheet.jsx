@@ -63,16 +63,8 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
     }
   });
 
-  // Semua kemungkinan keterangan ditumpuk di satu sel grid (yang tidak aktif disembunyikan),
-  // jadi tinggi kotaknya selalu sama dan formulir tidak naik-turun saat ganti Tambahan/Potongan.
-  const hints = [
-    { key: 'approval', show: needsApproval, text: 'Menunggu persetujuan owner. Belum masuk hitungan gaji sampai disetujui.' },
-    { key: 'owner', show: isAddition && !needsApproval, text: 'Kamu owner, jadi langsung disetujui dan masuk hitungan gaji.' },
-    { key: 'tunai', show: !isAddition && paymentMethod === 'Tunai', text: 'Langsung dicatat sebagai pengeluaran karyawan dan memotong gaji. Karena tunai, saldo Dompet ikut berkurang.' },
-    { key: 'nontunai', show: !isAddition && paymentMethod !== 'Tunai', text: 'Langsung dicatat sebagai pengeluaran karyawan dan memotong gaji (non-tunai, tidak menyentuh Dompet).' },
-  ];
-  // Hanya yang mungkin muncul untuk peran ini yang ikut menentukan tinggi.
-  const hintsInPlay = hints.filter(h => (canApprove ? h.key !== 'approval' : h.key !== 'owner'));
+  // Dua slot ditumpuk di satu sel grid (yang tidak aktif disembunyikan), jadi tinggi formulir
+  // selalu sama dan tidak naik-turun saat ganti Tambahan/Potongan.
   const ghost = 'col-start-1 row-start-1';
 
   return (
@@ -102,13 +94,6 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
                 </Select>
               </div>
             )}
-          </div>
-
-          <div className="grid text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 rounded-xl p-3">
-            {hintsInPlay.map(h => (
-              <p key={h.key} className={`${ghost} ${h.show ? '' : 'invisible'}`} aria-hidden={!h.show}
-                data-testid={h.show ? 'quick-hint' : undefined}>{h.text}</p>
-            ))}
           </div>
 
           <Button size="full" onClick={handleSubmit} disabled={busy}>
