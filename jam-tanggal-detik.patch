@@ -1,0 +1,178 @@
+From dbc692e89f5207853c2f56796960f392e722b7fc Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 14:39:59 +0700
+Subject: [PATCH] fix: tanggal di atas, jam di bawah dengan detik di header
+
+- Header: tanggal singkat di baris atas, jam HH:mm:ss di baris bawah.
+- Jam berjalan per detik dari jam perangkat; detik berganti tepat di
+  pergantian detik dan langsung disegarkan saat app kembali dari background.
+- Format jam/tanggal dipisah ke clockFormat.js (murni) + tes.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CkdSicyX2Km12WTF7coBYW
+---
+ src/app/layout/Header.jsx          | 51 ++++++++++++++++++++----------
+ src/app/layout/clockFormat.js      | 21 ++++++++++++
+ src/app/layout/clockFormat.test.js | 38 ++++++++++++++++++++++
+ 3 files changed, 94 insertions(+), 16 deletions(-)
+ create mode 100644 src/app/layout/clockFormat.js
+ create mode 100644 src/app/layout/clockFormat.test.js
+
+diff --git a/src/app/layout/Header.jsx b/src/app/layout/Header.jsx
+index d598254..c49efea 100644
+--- a/src/app/layout/Header.jsx
++++ b/src/app/layout/Header.jsx
+@@ -1,5 +1,6 @@
+ import React, { useState, useEffect } from "react";
+ import { Clock } from "lucide-react";
++import { formatJam, formatTanggal, msKeDetikBerikutnya } from "./clockFormat";
+ 
+ // Ported dari test-app-baru (mamam-global). BEDA dari versi asli:
+ // - NotificationBell dihapus (C belum punya push notif — di luar scope
+@@ -12,27 +13,48 @@ import { Clock } from "lucide-react";
+ // currentShift tetap dipertahankan sebagai boolean/object sederhana yang
+ // disuplai App.jsx dari state shift lokal.
+ 
+-// Jam & tanggal di pojok kanan atas: tampil di semua ukuran layar (termasuk HP)
+-// dan jalan sendiri. Dicek tiap 15 detik supaya menit berganti tanpa terlambat lama.
+-function useNow(intervalMs = 15000) {
++// Jam & tanggal di pojok kanan atas: tampil di semua ukuran layar (termasuk HP).
++// Sumber waktu = jam perangkat. Detik berganti tepat di pergantian detik (bukan setInterval
++// yang bisa melenceng), dan langsung disegarkan lagi saat app kembali dibuka dari background.
++function useNow() {
+     const [now, setNow] = useState(() => new Date());
+     useEffect(() => {
+-        const timer = setInterval(() => setNow(new Date()), intervalMs);
+-        return () => clearInterval(timer);
+-    }, [intervalMs]);
++        let timer;
++        const tick = () => {
++            const sekarang = new Date();
++            setNow(sekarang);
++            timer = setTimeout(tick, msKeDetikBerikutnya(sekarang));
++        };
++        timer = setTimeout(tick, msKeDetikBerikutnya(new Date()));
++
++        const segarkan = () => {
++            if (document.visibilityState === 'visible') setNow(new Date());
++        };
++        document.addEventListener('visibilitychange', segarkan);
++
++        return () => {
++            clearTimeout(timer);
++            document.removeEventListener('visibilitychange', segarkan);
++        };
++    }, []);
+     return now;
+ }
+ 
++// Dipisah dari Header supaya hanya blok jam yang render ulang tiap detik.
++function HeaderClock() {
++    const now = useNow();
++    return (
++        <div className="flex flex-col items-end leading-tight text-slate-500 dark:text-slate-400 whitespace-nowrap" data-testid="header-jam-tanggal">
++            <span className="text-[11px] short:text-[10px] font-semibold">{formatTanggal(now)}</span>
++            <span className="font-heading text-sm short:text-xs font-bold text-slate-800 dark:text-slate-100 tabular-nums">{formatJam(now)}</span>
++        </div>
++    );
++}
++
+ export default function Header({
+     currentShift,
+     currentView,
+ }) {
+-    const now = useNow();
+-    const jam = now
+-        .toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
+-        .replace('.', ':');
+-    const tanggal = now.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+-
+     return (
+         <header className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-100/60 dark:border-slate-900 h-16 short:h-12 flex items-center justify-between px-4 short:px-3 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-none shrink-0">
+             <div className="flex items-center gap-3 short:gap-2">
+@@ -46,10 +68,7 @@ export default function Header({
+                         <Clock className="w-3.5 h-3.5" /> Dompet Aktif
+                     </span>
+                 )}
+-                <div className="flex flex-col items-end leading-tight text-slate-500 dark:text-slate-400 whitespace-nowrap" data-testid="header-jam-tanggal">
+-                    <span className="font-heading text-sm short:text-xs font-bold text-slate-800 dark:text-slate-100 tabular-nums">{jam}</span>
+-                    <span className="text-[11px] short:text-[10px] font-semibold">{tanggal}</span>
+-                </div>
++                <HeaderClock />
+             </div>
+         </header>
+     );
+diff --git a/src/app/layout/clockFormat.js b/src/app/layout/clockFormat.js
+new file mode 100644
+index 0000000..6f07154
+--- /dev/null
++++ b/src/app/layout/clockFormat.js
+@@ -0,0 +1,21 @@
++// Format jam & tanggal untuk Header. Murni (tanpa React) supaya bisa dites.
++// Sumber waktu = jam perangkat (zona waktu perangkat), lihat useNow di Header.jsx.
++
++const dua = (n) => String(n).padStart(2, '0');
++
++// "14:38:05" — dirakit manual dari getHours/getMinutes/getSeconds, bukan toLocaleTimeString,
++// karena locale id-ID memakai titik ("14.38.05") dan sebagian mesin menulis tengah malam "24.00.00".
++export function formatJam(date) {
++    return `${dua(date.getHours())}:${dua(date.getMinutes())}:${dua(date.getSeconds())}`;
++}
++
++// "Jum, 9 Okt"
++export function formatTanggal(date) {
++    return date.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
++}
++
++// Berapa ms lagi menuju pergantian detik berikutnya (1..1000), supaya angka detik
++// berganti tepat waktu dan tidak melenceng seiring berjalannya waktu.
++export function msKeDetikBerikutnya(date) {
++    return 1000 - date.getMilliseconds();
++}
+diff --git a/src/app/layout/clockFormat.test.js b/src/app/layout/clockFormat.test.js
+new file mode 100644
+index 0000000..aac5036
+--- /dev/null
++++ b/src/app/layout/clockFormat.test.js
+@@ -0,0 +1,38 @@
++import { describe, it, expect } from 'vitest';
++import { formatJam, formatTanggal, msKeDetikBerikutnya } from './clockFormat';
++
++describe('formatJam', () => {
++    it('menampilkan HH:mm:ss dengan nol di depan', () => {
++        expect(formatJam(new Date(2026, 9, 9, 7, 5, 3))).toBe('07:05:03');
++    });
++
++    it('tengah malam tampil 00:00:00, bukan 24:00:00', () => {
++        expect(formatJam(new Date(2026, 9, 9, 0, 0, 0))).toBe('00:00:00');
++    });
++
++    it('format 24 jam', () => {
++        expect(formatJam(new Date(2026, 9, 9, 14, 38, 59))).toBe('14:38:59');
++    });
++});
++
++describe('formatTanggal', () => {
++    it('memuat hari, tanggal, dan bulan singkat bahasa Indonesia', () => {
++        const teks = formatTanggal(new Date(2026, 9, 9, 14, 38, 5));
++        expect(teks).toMatch(/9/);
++        expect(teks).toMatch(/Okt/);
++    });
++});
++
++describe('msKeDetikBerikutnya', () => {
++    it('tepat di awal detik menunggu 1000 ms', () => {
++        expect(msKeDetikBerikutnya(new Date(2026, 9, 9, 14, 38, 5, 0))).toBe(1000);
++    });
++
++    it('di tengah detik menunggu sisanya', () => {
++        expect(msKeDetikBerikutnya(new Date(2026, 9, 9, 14, 38, 5, 250))).toBe(750);
++    });
++
++    it('di ujung detik menunggu 1 ms', () => {
++        expect(msKeDetikBerikutnya(new Date(2026, 9, 9, 14, 38, 5, 999))).toBe(1);
++    });
++});
+-- 
+2.43.0
+
