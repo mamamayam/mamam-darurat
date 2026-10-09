@@ -237,9 +237,10 @@ const ExpenseView = () => {
         )}
 
         {/* Menempel di atas navbar (sticky), jadi tidak perlu scroll ke bawah walau datanya ribuan.
-            mt-auto: kalau daftarnya pendek, tombol tetap di dasar layar. */}
-        <div className="sticky bottom-0 z-10 mt-auto -mx-4 md:-mx-6 px-4 md:px-6 pt-3 pb-4 md:pb-6 flex flex-col bg-gradient-to-t from-slate-50 via-slate-50 to-transparent dark:from-slate-950 dark:via-slate-950">
-          <Button onClick={openNew} icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
+            mt-auto: kalau daftarnya pendek, tombol tetap di dasar layar.
+            Tanpa latar: pembungkus tidak menangkap sentuhan (pointer-events-none), hanya tombolnya. */}
+        <div className="sticky bottom-0 z-10 mt-auto pt-3 pb-4 md:pb-6 flex flex-col pointer-events-none">
+          <Button onClick={openNew} icon={<Plus className="w-4 h-4" />} className="pointer-events-auto w-full sm:w-auto sm:self-end">
             Tambah Pengeluaran
           </Button>
         </div>
