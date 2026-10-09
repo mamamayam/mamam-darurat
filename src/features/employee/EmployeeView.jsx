@@ -107,7 +107,7 @@ export default function EmployeeView() {
                 <ArrowUpDown className="w-3.5 h-3.5" /> Urutkan
               </button>
               {canManage && (
-              <Button variant="dark" className="w-full md:w-auto" icon={<Plus className="w-4 h-4" />} onClick={() => { setForm(emptyForm()); setIsEditing(true); }}>
+              <Button className="w-full md:w-auto" icon={<Plus className="w-4 h-4" />} onClick={() => { setForm(emptyForm()); setIsEditing(true); }}>
                 Tambah Karyawan
               </Button>
               )}

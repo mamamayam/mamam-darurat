@@ -16,7 +16,7 @@ export default function BulkSelectBar({ count, total, allSelected, onToggleAll, 
             </label>
             <Button
                 size="sm"
-                variant="ghost-danger"
+                variant="danger"
                 disabled={count === 0}
                 onClick={onDeleteSelected}
                 className="flex items-center gap-1.5"

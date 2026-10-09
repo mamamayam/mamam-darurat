@@ -20,7 +20,6 @@ import { filterFeed } from './quickEntryMath';
  * Nominal Tambah/Potongan disamarkan untuk yang tidak boleh melihat upah (izin 'karyawan.upah').
  */
 
-const TILE = 'flex items-center justify-center gap-2 py-3.5 rounded-2xl border font-bold text-sm active:scale-[0.98] transition-all duration-300';
 const GROUP = 'text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2';
 const CARD = 'bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800';
 const MASK = 'Rp •••••';
@@ -67,22 +66,20 @@ export default function QuickEntrySection({ onChanged }) {
     <section className="mb-4" aria-label="Catat Cepat" data-testid="catat-cepat">
       <h3 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 mb-3">Catat Cepat</h3>
 
+      {/* Standar tombol (lihat Button.jsx): Pengeluaran = aksi utama (primary), Tambah/Potongan = pendukung (secondary). */}
       <p className={GROUP}>Operasional toko</p>
-      <button type="button" onClick={() => setSheet('pengeluaran')} data-testid="tile-pengeluaran"
-        className={`${TILE} w-full mb-4 bg-accent-50 dark:bg-accent-500/10 text-accent-700 dark:text-accent-400 border-accent-100 dark:border-accent-500/20`}>
-        <ShoppingBag className="w-4 h-4" /> Pengeluaran
-      </button>
+      <Button size="full" className="mb-4" icon={<ShoppingBag className="w-4 h-4" />} onClick={() => setSheet('pengeluaran')} data-testid="tile-pengeluaran">
+        Pengeluaran
+      </Button>
 
       <p className={GROUP}>Karyawan</p>
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <button type="button" onClick={() => setSheet('tambahan')} data-testid="tile-tambah"
-          className={`${TILE} bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20`}>
-          <Plus className="w-4 h-4" /> Tambah
-        </button>
-        <button type="button" onClick={() => setSheet('potongan')} data-testid="tile-potongan"
-          className={`${TILE} bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-100 dark:border-red-500/20`}>
-          <Minus className="w-4 h-4" /> Potongan
-        </button>
+        <Button variant="secondary" size="full" icon={<Plus className="w-4 h-4" />} onClick={() => setSheet('tambahan')} data-testid="tile-tambah">
+          Tambah
+        </Button>
+        <Button variant="secondary" size="full" icon={<Minus className="w-4 h-4" />} onClick={() => setSheet('potongan')} data-testid="tile-potongan">
+          Potongan
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -138,8 +135,8 @@ export default function QuickEntrySection({ onChanged }) {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 mt-2.5">
-                    <Button variant="ghost-danger" size="sm" disabled={busy} onClick={() => { setRejectingId(r.id); setRejectReason(''); }} icon={<X className="w-4 h-4" />}>Tolak</Button>
-                    <Button variant="success" size="sm" disabled={busy} onClick={() => approve(r)} icon={<Check className="w-4 h-4" />}>Setujui</Button>
+                    <Button variant="secondary" size="sm" disabled={busy} onClick={() => { setRejectingId(r.id); setRejectReason(''); }} icon={<X className="w-4 h-4" />}>Tolak</Button>
+                    <Button size="sm" disabled={busy} onClick={() => approve(r)} icon={<Check className="w-4 h-4" />}>Setujui</Button>
                   </div>
                 )}
               </div>

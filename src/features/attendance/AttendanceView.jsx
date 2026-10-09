@@ -119,7 +119,7 @@ export default function AttendanceView() {
                         : 'Ada jam masuk tapi tidak ada jam pulang.'}
                       {!canEdit && ' Minta owner untuk mengoreksi.'}
                     </p>
-                    {canEdit && <Button size="xs" variant="danger" className="shrink-0" onClick={() => setEditRow(r)} data-testid={`selesaikan-${r.employee.name}`}>Selesaikan</Button>}
+                    {canEdit && <Button size="xs" className="shrink-0" onClick={() => setEditRow(r)} data-testid={`selesaikan-${r.employee.name}`}>Selesaikan</Button>}
                   </div>
                 )}
                 {r.autoLibur && <p className="text-xs text-slate-400 mt-1.5">libur otomatis (tidak ada absen)</p>}

@@ -1,45 +1,45 @@
 /**
- * Button — komponen tombol global.
+ * Button — komponen tombol global. Cara BAKU membuat tombol aksi di seluruh app
+ * (jangan menulis <button> dengan warna/gradient sendiri). Pilihan (chip/toggle),
+ * stepper, dan ikon tutup yang bukan tombol aksi boleh tetap <button> biasa.
+ *
+ * SKALA PRIORITAS — semua layar mengikuti ini, tidak ada warna lain:
+ *   primary    → aksi UTAMA di area itu: Simpan, Tambah X, Bayar, Setujui, Selesaikan.
+ *                Oranye gradient (warna tema). Satu area, satu primary.
+ *   secondary  → aksi PENDUKUNG: Batal, Tutup, Detail, Tolak, Pasang, tombol kecil di
+ *                samping input. Netral (abu).
+ *   danger     → HANYA aksi merusak: Hapus, Kirim Penolakan. Merah gradient.
+ *                Jangan dipakai untuk "Tambah" atau "Selesaikan" cuma karena ingin menarik mata.
+ *
+ * Varian lain (success, dark, ghost, ghost-danger, ghost-success) sudah dihapus. Tes penjaga:
+ * buttonStandard.test.js (gagal kalau ada komponen Button dengan prop variant di luar tiga di atas).
  *
  * Props:
- *   variant   'primary' | 'secondary' | 'danger' | 'success' | 'dark' | 'ghost' | 'ghost-danger' | 'ghost-success'
- *             default: 'primary'
- *   size      'xs' | 'sm' | 'md' | 'lg' | 'full'
- *             default: 'md'
+ *   variant   'primary' | 'secondary' | 'danger'      default: 'primary'
+ *   size      'xs' | 'sm' | 'md' | 'lg' | 'full'      default: 'md'
  *   disabled  boolean
  *   loading   boolean  — tampilkan spinner, disable klik
  *   icon      ReactNode — icon di kiri label
  *   iconRight ReactNode — icon di kanan label
  *   onClick, type, className, children, ...rest
  *
- * Variants:
- *   primary        → orange-600 / orange-500 dark — CTA utama
- *   secondary      → slate-100 / slate-800 dark   — aksi netral / batal
- *   danger         → red-500 / red-600 dark        — hapus / aksi destruktif
- *   success        → green-600 / green-500 dark    — aksi penambahan / konfirmasi positif
- *   dark           → slate-800 / slate-700 dark    — aksi sekunder yang ditonjolkan (mis. "Tambah X", "Kelola Y")
- *   ghost          → orange-50/10 dengan border    — secondary CTA, outline feel
- *   ghost-danger   → red-50/10 dengan border       — delete yang lebih subtle
- *   ghost-success  → green-50/10 dengan border     — aksi penambahan yang lebih subtle
- *
- * Size:
- *   xs   → px-3 py-1.5 text-xs  — badge/chip action
- *   sm   → px-3 py-2   text-xs      — inline action
- *   md   → px-4 py-2.5 text-sm      — default
- *   lg   → px-8 py-3.5 text-sm      — modal CTA
- *   full → w-full py-3.5 text-sm    — full width (modal / form submit)
+ * Size (bentuk sama semua: rounded-2xl):
+ *   xs   → px-3 py-1.5 text-xs  — aksi kecil di dalam baris
+ *   sm   → px-3 py-2   text-xs  — aksi inline / di samping input
+ *   md   → px-4 py-2.5 text-sm  — default
+ *   lg   → px-8 py-3.5 text-sm  — CTA modal
+ *   full → w-full py-3.5 text-sm — lebar penuh (modal / form submit / tile)
  *
  * Contoh:
  *   <Button>Simpan</Button>
  *   <Button variant="secondary" onClick={onClose}>Batal</Button>
  *   <Button variant="danger" size="sm" icon={<Trash2 className="w-3.5 h-3.5" />}>Hapus</Button>
- *   <Button variant="success" icon={<Plus className="w-4 h-4" />}>Tambah Penghasilan</Button>
- *   <Button variant="dark" icon={<Plus className="w-4 h-4" />}>Tambah Karyawan</Button>
+ *   <Button icon={<Plus className="w-4 h-4" />}>Tambah Karyawan</Button>
  *   <Button size="full" loading={isSaving}>Simpan Perubahan</Button>
  */
 
 const VARIANTS = {
-  // Gradient accent — senada tombol aktif Sidebar/BottomNav/FAB
+  // Gradient accent — senada tombol aktif Sidebar/BottomNav/FAB/PillTabs
   primary: `
     bg-gradient-to-r from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600 text-white
     hover:shadow-[0_6px_20px_rgba(var(--color-accent-500),0.35)] hover:-translate-y-0.5
@@ -53,32 +53,6 @@ const VARIANTS = {
     bg-gradient-to-r from-red-600 to-red-500 dark:from-red-500 dark:to-red-600 text-white
     hover:shadow-[0_6px_20px_rgba(239,68,68,0.35)] hover:-translate-y-0.5
     shadow-[0_4px_14px_rgba(239,68,68,0.25)]
-  `,
-  success: `
-    bg-gradient-to-r from-emerald-600 to-emerald-500 dark:from-emerald-500 dark:to-emerald-600 text-white
-    hover:shadow-[0_6px_20px_rgba(16,185,129,0.35)] hover:-translate-y-0.5
-    shadow-[0_4px_14px_rgba(16,185,129,0.25)]
-  `,
-  dark: `
-    bg-slate-900 dark:bg-white text-white dark:text-slate-900
-    hover:shadow-[0_6px_20px_rgba(0,0,0,0.15)] hover:-translate-y-0.5
-    shadow-[0_4px_14px_rgba(0,0,0,0.1)]
-  `,
-  // Ganti semua 'orange' menjadi 'accent'
-  ghost: `
-    bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400
-    border border-accent-200 dark:border-accent-500/30
-    hover:bg-accent-100 dark:hover:bg-accent-500/15
-  `,
-  'ghost-danger': `
-    bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400
-    border border-red-200 dark:border-red-500/30
-    hover:bg-red-100 dark:hover:bg-red-500/15
-  `,
-  'ghost-success': `
-    bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
-    border border-emerald-200 dark:border-emerald-500/30
-    hover:bg-emerald-100 dark:hover:bg-emerald-500/15
   `,
 };
 

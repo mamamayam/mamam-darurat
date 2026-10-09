@@ -8,6 +8,7 @@ import { checkout } from './useCheckout';
 import useBackLayer from '../../hook/useBackLayer';
 import NominalInput from '../../components/ui/NominalInput';
 import Overlay from '../../components/ui/Overlay';
+import Button from '../../components/ui/Button';
 
 /**
  * PaymentModal — di-port dari mamam-global. Bagian bayar-tunai/QRIS/
@@ -251,9 +252,9 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                         sheetHint={(n) => `Sisa ${formatRupiah(Math.max(split.remaining - n, 0))}`}
                         className="w-full text-left pl-9 pr-3 py-2.5 text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-800 dark:focus:border-slate-100 bg-white dark:bg-slate-900 transition-colors" value={amountPaid} onChange={(e) => setPaymentModal({ ...paymentModal, amountPaid: e.target.value })} placeholder={String(split.remaining)} />
                     </div>
-                    <button onClick={handleAddSplitPayment} className="px-4 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors">Tambah</button>
+                    <Button variant="secondary" onClick={handleAddSplitPayment}>Tambah</Button>
                   </div>
-                  <button onClick={() => setPaymentModal({ ...paymentModal, amountPaid: String(split.remaining) })} className="w-full py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Uang Pas Sisa</button>
+                  <Button variant="secondary" size="xs" className="w-full" onClick={() => setPaymentModal({ ...paymentModal, amountPaid: String(split.remaining) })}>Uang Pas Sisa</Button>
                 </div>
               )}
             </>
@@ -262,15 +263,15 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
 
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
           {!isSplitMode ? (
-            <button onClick={handleProcessPayment} disabled={busy || (method === 'Tunai' && !isReadyToPay)}
-              className="w-full py-4 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold text-lg shadow-lg hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-xl hover:-translate-y-0.5 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:shadow-none disabled:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2">
-              {busy ? 'Memproses...' : 'Selesaikan Transaksi'} <Receipt className="w-5 h-5" />
-            </button>
+            <Button size="full" onClick={handleProcessPayment} disabled={busy || (method === 'Tunai' && !isReadyToPay)}
+              iconRight={<Receipt className="w-5 h-5" />}>
+              {busy ? 'Memproses...' : 'Selesaikan Transaksi'}
+            </Button>
           ) : (
-            <button onClick={handleProcessPayment} disabled={busy || !split.isFullyPaid}
-              className="w-full py-4 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold text-lg shadow-lg hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-xl hover:-translate-y-0.5 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:shadow-none disabled:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2">
-              {busy ? 'Memproses...' : 'Selesaikan Transaksi'} <Receipt className="w-5 h-5" />
-            </button>
+            <Button size="full" onClick={handleProcessPayment} disabled={busy || !split.isFullyPaid}
+              iconRight={<Receipt className="w-5 h-5" />}>
+              {busy ? 'Memproses...' : 'Selesaikan Transaksi'}
+            </Button>
           )}
         </div>
       </>

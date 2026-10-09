@@ -8,6 +8,7 @@ import useBackLayer from '../../hook/useBackLayer';
 import Overlay from '../../components/ui/Overlay';
 import CustomerPickerModal from './CustomerPicker';
 import NominalInput from '../../components/ui/NominalInput';
+import Button from '../../components/ui/Button';
 
 /**
  * CartDrawer — di-port dari mamam-global, DIPANGKAS sesuai scope
@@ -249,7 +250,7 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
                     <div className="flex items-center gap-1.5">
                       <input type="text" placeholder="VOUCHER" value={voucherInput} onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
                         className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none uppercase" />
-                      <button onClick={handleApplyVoucher} className="px-2.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg transition-colors shrink-0">Pasang</button>
+                      <Button variant="secondary" size="sm" onClick={handleApplyVoucher} className="shrink-0">Pasang</Button>
                     </div>
                     {appliedVoucher && <span className="text-xs text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5 animate-in fade-in">Aktif: -{appliedVoucher.discount_type === 'percent' ? `${appliedVoucher.discount_value}%` : formatRupiah(appliedVoucher.discount_value)}</span>}
                   </div>
@@ -285,11 +286,12 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
               {orderType === 'Delivery' && <div className="flex justify-between text-accent-600 dark:text-accent-400"><span>Ongkir</span><span className="font-semibold">{formatRupiah(totals.deliveryFee)}</span></div>}
               <div className="flex justify-between text-lg font-bold text-slate-800 dark:text-slate-100 border-t border-slate-100 dark:border-slate-800 pt-2 mt-2"><span>Total Tagihan</span><span className="text-accent-600 dark:text-accent-400">{formatRupiah(totals.total)}</span></div>
             </div>
-            <button
-              onClick={() => setPaymentModal({ isOpen: true, isSplitMode: false, splitPayments: [], method: orderType === 'Ojol' ? 'Ojol' : 'Tunai', amountPaid: '', ojolPlatform: '', orderNumber: '' })}
-              className="w-full py-3.5 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold shadow-lg hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
-              Bayar <ChevronRight className="w-4 h-4" />
-            </button>
+            <Button
+              size="full"
+              iconRight={<ChevronRight className="w-4 h-4" />}
+              onClick={() => setPaymentModal({ isOpen: true, isSplitMode: false, splitPayments: [], method: orderType === 'Ojol' ? 'Ojol' : 'Tunai', amountPaid: '', ojolPlatform: '', orderNumber: '' })}>
+              Bayar
+            </Button>
           </div>
         )}
       </>

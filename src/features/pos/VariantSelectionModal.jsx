@@ -3,6 +3,7 @@ import { X, CheckCircle2, Minus, Plus } from 'lucide-react';
 import { usePosStore } from '../../store/usePosStore';
 import useBackLayer from '../../hook/useBackLayer';
 import Overlay from '../../components/ui/Overlay';
+import Button from '../../components/ui/Button';
 
 /**
  * VariantSelectionModal — di-port hampir 100% dari mamam-global. Murni
@@ -164,10 +165,9 @@ export default function VariantSelectionModal({ variantGroups, formatRupiah }) {
         </div>
 
         <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
-          <button onClick={handleSave} disabled={!isSelectionValid}
-            className="w-full py-3.5 rounded-xl bg-accent-600 dark:bg-accent-500 text-white font-bold disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed hover:bg-accent-700 dark:hover:bg-accent-600 hover:shadow-lg transition-all duration-300">
+          <Button size="full" onClick={handleSave} disabled={!isSelectionValid}>
             {editingCartItemId ? 'Simpan Perubahan Varian' : (isSelectionValid ? (qty > 1 ? `Tambah ${qty} ke Keranjang` : 'Tambah ke Keranjang') : 'Lengkapi Pilihan Wajib')}
-          </button>
+          </Button>
         </div>
       </>
     </Overlay>

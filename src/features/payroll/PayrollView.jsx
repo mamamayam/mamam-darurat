@@ -201,7 +201,7 @@ function OwnerPayroll() {
                 {closeBlockers.map((b, i) => <p key={i} className="text-xs text-slate-500 dark:text-slate-400">• {b}</p>)}
               </Card>
             ) : (
-              <Button size="full" variant="dark" icon={<Lock className="w-4 h-4" />} onClick={handleClose} disabled={busy}>Tutup Periode &amp; Bekukan Angka</Button>
+              <Button size="full" icon={<Lock className="w-4 h-4" />} onClick={handleClose} disabled={busy}>Tutup Periode &amp; Bekukan Angka</Button>
             ))}
           </>
         )}
@@ -231,7 +231,7 @@ function OwnerPayroll() {
                   {selected.needsClarification.map(d => (
                     <div key={d.date} className="flex items-center justify-between gap-2 text-xs">
                       <span className="text-slate-700 dark:text-slate-200 min-w-0"><b>{fmtDay(d.date)}</b> bolong jam {d.stuckBolongTime}, belum ada masuk-lagi{hasPulang(selected.employee.id, d.date) ? ' tapi sudah ada jam pulang' : ''}</span>
-                      {!isLocked && <Button size="xs" variant="danger" className="shrink-0" onClick={() => setEditDate(d.date)} data-testid="selesaikan">Selesaikan</Button>}
+                      {!isLocked && <Button size="xs" className="shrink-0" onClick={() => setEditDate(d.date)} data-testid="selesaikan">Selesaikan</Button>}
                     </div>
                   ))}
                   <p className="text-xs text-slate-500 dark:text-slate-400">Bolong tanpa masuk-lagi otomatis jadi jam pulang setelah jam 21:00. Kalau sudah ada jam pulang padahal bolong belum kembali, harus diputuskan lewat Selesaikan.</p>

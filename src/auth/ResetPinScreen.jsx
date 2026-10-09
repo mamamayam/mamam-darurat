@@ -34,7 +34,7 @@ export default function ResetPinScreen() {
       <PinPad key={first ? 'konfirmasi' : 'baru'} onComplete={onComplete} disabled={busy} />
 
       <p role="alert" className="h-5 text-sm font-semibold text-red-500 text-center" data-testid="reset-message">{message}</p>
-      <Button variant="ghost" onClick={cancelRecovery} disabled={busy}>Batal</Button>
+      <Button variant="secondary" onClick={cancelRecovery} disabled={busy}>Batal</Button>
     </div>
   );
 }

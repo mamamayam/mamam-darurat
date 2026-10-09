@@ -97,7 +97,7 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
 
           <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 rounded-xl p-3" data-testid="quick-hint">{hint}</p>
 
-          <Button size="full" variant={isAddition ? 'success' : 'danger'} onClick={handleSubmit} disabled={busy}>
+          <Button size="full" onClick={handleSubmit} disabled={busy}>
             {busy ? 'Menyimpan...' : needsApproval ? 'Ajukan ke Owner' : isAddition ? 'Simpan Tambahan' : 'Simpan Potongan'}
           </Button>
         </div>

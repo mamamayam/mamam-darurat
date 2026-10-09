@@ -227,7 +227,7 @@ export default function App() {
         <div className="p-5">
           <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">{confirmModal.message}</p>
           <div className="flex gap-2 justify-end">
-            <Button variant="ghost" onClick={closeConfirm}>Batal</Button>
+            <Button variant="secondary" onClick={closeConfirm}>Batal</Button>
             <Button onClick={() => { confirmModal.onConfirm?.(); closeConfirm(); }}>Ya, Lanjutkan</Button>
           </div>
         </div>

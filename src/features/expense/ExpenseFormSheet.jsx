@@ -108,7 +108,7 @@ export default function ExpenseFormSheet({ isOpen, onClose, editing = null, data
 
           <BulletListInput label="Detail" value={detailItems} onChange={setDetailItems} placeholder="Opsional, mis. Ayam 5 kg" />
 
-          <Button onClick={handleSave} disabled={busy} size="full" variant={editing ? 'primary' : 'dark'} className="mt-2">
+          <Button onClick={handleSave} disabled={busy} size="full" className="mt-2">
             {busy ? 'Menyimpan...' : editing ? 'Perbarui Data' : 'Simpan Data'}
           </Button>
         </div>

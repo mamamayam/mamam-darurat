@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Calculator } from 'lucide-react';
 import NominalDock from './NominalDock';
 import NominalCalculator from './NominalCalculator';
+import Button from './Button';
 import {
   appendKey, backspaceDigits, toggleSign, parseNominal, toDigits, formatNominal,
 } from './nominalMath';
@@ -125,13 +126,9 @@ export default function NominalKeypadSheet({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full h-12 short:h-10 mt-3 rounded-2xl bg-accent-600 dark:bg-accent-500 text-white font-bold active:bg-accent-700 dark:active:bg-accent-600 touch-manipulation transition-colors"
-          >
+          <Button size="full" onClick={onClose} className="mt-3 short:py-2.5 touch-manipulation">
             Selesai
-          </button>
+          </Button>
          </div>
         </div>
       </NominalDock>

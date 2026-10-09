@@ -3,6 +3,7 @@ import { X, Search, UserPlus, User } from 'lucide-react';
 import { usePosStore } from '../../store/usePosStore';
 import useBackLayer from '../../hook/useBackLayer';
 import Overlay from '../../components/ui/Overlay';
+import Button from '../../components/ui/Button';
 
 /**
  * CustomerPickerModal — di-port dari mamam-global dengan alasan desain
@@ -138,9 +139,9 @@ export default function CustomerPickerModal({ isOpen, onClose, customers, saveCu
             <div className="flex gap-2">
               <input type="text" placeholder="No. WhatsApp (opsional)" value={newPhone} onChange={(e) => setNewPhone(e.target.value)}
                 className="flex-1 text-xs p-2.5 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-white dark:bg-slate-900 outline-none focus:border-blue-500 transition-colors" />
-              <button onClick={handleAddNew} disabled={busy} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shrink-0">
+              <Button variant="secondary" size="sm" onClick={handleAddNew} disabled={busy} className="shrink-0">
                 {busy ? '...' : 'Tambah'}
-              </button>
+              </Button>
             </div>
           </div>
         )}

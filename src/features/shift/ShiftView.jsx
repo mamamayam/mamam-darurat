@@ -78,7 +78,7 @@ function ClosedReport({ shift, formatRupiah, onClose }) {
       </div>
 
       <div className="mt-6 w-full max-w-sm">
-        <Button variant="ghost" size="full" onClick={onClose}>Tutup</Button>
+        <Button variant="secondary" size="full" onClick={onClose}>Tutup</Button>
       </div>
     </div>
   );

@@ -93,7 +93,7 @@ export default function AttendanceEditSheet({ isOpen, onClose, employee, date, i
 
         <div className="flex flex-col gap-2">
           <Button variant="primary" size="full" onClick={handleSave} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Koreksi'}</Button>
-          {hasOverride && <Button variant="ghost-danger" size="full" onClick={handleRestore} disabled={busy}>Kembalikan ke data absensi</Button>}
+          {hasOverride && <Button variant="secondary" size="full" onClick={handleRestore} disabled={busy}>Kembalikan ke data absensi</Button>}
         </div>
       </div>
     </Modal>

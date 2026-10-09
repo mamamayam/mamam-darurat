@@ -211,7 +211,7 @@ const ExpenseView = () => {
           </div>
         </Card>
 
-        <Button onClick={openNew} variant="danger" icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
+        <Button onClick={openNew} icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
           Tambah Pengeluaran
         </Button>
       </div>

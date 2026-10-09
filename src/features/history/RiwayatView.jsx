@@ -261,9 +261,9 @@ export default function RiwayatView() {
                     <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                       <span className="font-heading font-bold text-2xl text-slate-800 dark:text-slate-100 min-w-0 truncate">{formatRupiah(s.total)}</span>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setDetail(s)} title="Detail" className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all">
-                          <Eye className="w-4 h-4" /> Detail
-                        </button>
+                        <Button variant="secondary" onClick={() => setDetail(s)} title="Detail" icon={<Eye className="w-4 h-4" />}>
+                          Detail
+                        </Button>
                         {canDelete && (
                           <button onClick={() => handleDelete(s)} title="Hapus" disabled={busy} className="p-2.5 rounded-2xl bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-100 dark:hover:bg-accent-500/20 active:scale-95 transition-all disabled:opacity-50">
                             <Trash2 className="w-5 h-5" />

@@ -109,7 +109,7 @@ function ForgotPinSheet({ isOpen, onClose, locked }) {
           </>
         )}
 
-        <Button size="full" variant="ghost" onClick={onClose}>Tutup</Button>
+        <Button size="full" variant="secondary" onClick={onClose}>Tutup</Button>
       </div>
     </Modal>
   );

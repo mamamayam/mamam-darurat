@@ -75,7 +75,7 @@ function PinEditSheet({ person, onClose, onSave, onClear }) {
           hint="PIN terlihat di layar ini supaya bisa kamu sampaikan ke karyawan. Setelah disimpan, PIN tidak bisa dilihat lagi (hanya bisa diganti)." />
         <Button variant="secondary" size="full" icon={<Shuffle className="w-4 h-4" />} onClick={() => setPin(generatePin())} data-testid="pin-acak">Buat PIN acak</Button>
         <Button size="full" onClick={save} disabled={!ok || busy} data-testid="pin-simpan">{busy ? 'Menyimpan...' : 'Simpan PIN'}</Button>
-        {person.hasPin && <Button size="full" variant="ghost-danger" onClick={onClear}>Hapus PIN</Button>}
+        {person.hasPin && <Button size="full" variant="danger" onClick={onClear}>Hapus PIN</Button>}
       </div>
     </Modal>
   );

@@ -78,18 +78,12 @@ const CustomerView = () => {
               className="w-full text-sm pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 outline-none focus:ring-2 focus:ring-accent-500/20 transition-colors text-slate-800 dark:text-slate-100"
             />
           </div>
-          <button
-            onClick={() => { if (isSelecting) reset(); setIsSelecting(v => !v); }}
-            className={`text-xs font-bold px-3 py-2.5 rounded-xl border transition-colors shrink-0 ${isSelecting ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/30' : 'bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-accent-600 dark:hover:text-accent-400'}`}
-          >
+          <Button variant="secondary" onClick={() => { if (isSelecting) reset(); setIsSelecting(v => !v); }} className="shrink-0">
             {isSelecting ? 'Batal' : 'Pilih'}
-          </button>
-          <button
-            onClick={() => setEditing({ id: '', name: '', phone: '' })} title="Tambah Pelanggan"
-            className="px-3 py-2.5 text-white rounded-xl text-sm font-bold shadow-md hover:-translate-y-0.5 duration-300 transition-colors flex items-center justify-center gap-1 shrink-0 bg-accent-600 dark:bg-accent-500 hover:bg-accent-700 dark:hover:bg-accent-600"
-          >
-            <Plus className="w-4 h-4" /> Tambah
-          </button>
+          </Button>
+          <Button onClick={() => setEditing({ id: '', name: '', phone: '' })} title="Tambah Pelanggan" icon={<Plus className="w-4 h-4" />} className="shrink-0">
+            Tambah
+          </Button>
         </div>
 
         <div className="flex-1 p-4 overflow-y-auto space-y-2 bg-slate-50 dark:bg-slate-950/30 custom-scrollbar">
