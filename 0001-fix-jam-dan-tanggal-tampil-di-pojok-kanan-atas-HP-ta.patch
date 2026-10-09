@@ -1,0 +1,119 @@
+From b9429cb6e9c74d0a8492bcb22425d850ad0277ec Mon Sep 17 00:00:00 2001
+From: Claude <claude@anthropic.com>
+Date: Fri, 9 Oct 2026 07:18:28 +0000
+Subject: [PATCH] fix: jam dan tanggal tampil di pojok kanan atas HP, tanggal
+ Catat Cepat dihapus
+
+- Header: jam (HH:mm) + tanggal singkat tampil di semua ukuran layar (sebelumnya
+  tanggal hidden di bawah lg dan jam tidak ada), jam berjalan sendiri.
+- Catat Cepat: hapus tanggal di samping judul.
+- App: buang prop today yang tidak terpakai.
+---
+ src/app/App.jsx                         |  6 ------
+ src/app/layout/Header.jsx               | 26 +++++++++++++++++++++----
+ src/features/home/QuickEntrySection.jsx |  6 +-----
+ 3 files changed, 23 insertions(+), 15 deletions(-)
+
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index d0b7704..37a2347 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -177,11 +177,6 @@ export default function App() {
+     logout();
+   }, [logout]);
+ 
+-  const today = useMemo(() => {
+-    const now = new Date();
+-    return now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+-  }, []);
+-
+   // TODO(gelombang berikutnya): currentShift ini harus berasal dari query
+   // Supabase (`shifts` yang `closed_at IS NULL`), disuplai oleh ShiftView
+   // lewat context/hook bersama — sekarang masih placeholder false supaya
+@@ -201,7 +196,6 @@ export default function App() {
+       <Header
+         currentShift={currentShift}
+         currentView={currentView}
+-        today={today}
+       />
+ 
+       <ConnectionBanner />
+diff --git a/src/app/layout/Header.jsx b/src/app/layout/Header.jsx
+index 702499f..d598254 100644
+--- a/src/app/layout/Header.jsx
++++ b/src/app/layout/Header.jsx
+@@ -1,4 +1,4 @@
+-import React from "react";
++import React, { useState, useEffect } from "react";
+ import { Clock } from "lucide-react";
+ 
+ // Ported dari test-app-baru (mamam-global). BEDA dari versi asli:
+@@ -11,11 +11,28 @@ import { Clock } from "lucide-react";
+ //   BottomSheetMenu) — jadi wajar terhapus di C, bukan fitur yang hilang.
+ // currentShift tetap dipertahankan sebagai boolean/object sederhana yang
+ // disuplai App.jsx dari state shift lokal.
++
++// Jam & tanggal di pojok kanan atas: tampil di semua ukuran layar (termasuk HP)
++// dan jalan sendiri. Dicek tiap 15 detik supaya menit berganti tanpa terlambat lama.
++function useNow(intervalMs = 15000) {
++    const [now, setNow] = useState(() => new Date());
++    useEffect(() => {
++        const timer = setInterval(() => setNow(new Date()), intervalMs);
++        return () => clearInterval(timer);
++    }, [intervalMs]);
++    return now;
++}
++
+ export default function Header({
+     currentShift,
+     currentView,
+-    today,
+ }) {
++    const now = useNow();
++    const jam = now
++        .toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
++        .replace('.', ':');
++    const tanggal = now.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
++
+     return (
+         <header className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-100/60 dark:border-slate-900 h-16 short:h-12 flex items-center justify-between px-4 short:px-3 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-none shrink-0">
+             <div className="flex items-center gap-3 short:gap-2">
+@@ -29,8 +46,9 @@ export default function Header({
+                         <Clock className="w-3.5 h-3.5" /> Dompet Aktif
+                     </span>
+                 )}
+-                <div className="hidden lg:flex short:!hidden items-center bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-4 py-2 rounded-full text-xs font-bold border border-slate-100 dark:border-slate-800 whitespace-nowrap">
+-                    {today}
++                <div className="flex flex-col items-end leading-tight text-slate-500 dark:text-slate-400 whitespace-nowrap" data-testid="header-jam-tanggal">
++                    <span className="font-heading text-sm short:text-xs font-bold text-slate-800 dark:text-slate-100 tabular-nums">{jam}</span>
++                    <span className="text-[11px] short:text-[10px] font-semibold">{tanggal}</span>
+                 </div>
+             </div>
+         </header>
+diff --git a/src/features/home/QuickEntrySection.jsx b/src/features/home/QuickEntrySection.jsx
+index 5cd39b5..f4bf92f 100644
+--- a/src/features/home/QuickEntrySection.jsx
++++ b/src/features/home/QuickEntrySection.jsx
+@@ -57,7 +57,6 @@ export default function QuickEntrySection({ onChanged }) {
+   };
+ 
+   const feed = useMemo(() => filterFeed(quick.feed, tab), [quick.feed, tab]);
+-  const dateLabel = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' });
+   const money = (n, masked) => (masked ? MASK : formatRupiah(n));
+ 
+   const approve = (r) => run(() => quick.decide(r.id, true));
+@@ -66,10 +65,7 @@ export default function QuickEntrySection({ onChanged }) {
+ 
+   return (
+     <section className="mb-4" aria-label="Catat Cepat" data-testid="catat-cepat">
+-      <div className="flex items-baseline justify-between mb-3">
+-        <h3 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100">Catat Cepat</h3>
+-        <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">{dateLabel}</span>
+-      </div>
++      <h3 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 mb-3">Catat Cepat</h3>
+ 
+       <p className={GROUP}>Operasional toko</p>
+       <button type="button" onClick={() => setSheet('pengeluaran')} data-testid="tile-pengeluaran"
+-- 
+2.43.0
+
