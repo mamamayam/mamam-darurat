@@ -198,8 +198,9 @@ export default function RiwayatView() {
             {visible.length === 0 ? (
               <EmptyState
                 icon={<ShoppingBag className="w-12 h-12" />}
-                title={isDirty ? 'Tidak ada transaksi yang cocok' : 'Tidak ada transaksi pada periode ini'}
+                title={isDirty ? 'Tidak ada transaksi yang cocok.' : 'Belum ada transaksi pada periode ini.'}
                 action={isDirty ? <Button variant="secondary" size="sm" onClick={resetAll}>Atur ulang filter</Button> : null}
+                className="animate-in fade-in duration-300"
               />
             ) : (
               <div className="space-y-4">

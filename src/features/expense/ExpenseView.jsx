@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { TrendingDown, Pencil, Trash2, Plus, Store, User, RotateCcw } from 'lucide-react';
-import { Card, Button, Badge, EmptyState, DetailModal, BulkSelectBar, FilterBar, SummaryPills } from '../../components/ui';
+import { Button, Badge, EmptyState, DetailModal, BulkSelectBar, FilterBar, SummaryPills } from '../../components/ui';
 import ExpenseFormSheet from './ExpenseFormSheet';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -213,14 +213,12 @@ const ExpenseView = () => {
         </div>
 
         {sortedExpenses.length === 0 ? (
-          <Card padding="none">
-            <EmptyState
-              icon={<TrendingDown className="w-12 h-12" />}
-              title={isDirty ? 'Tidak ada pengeluaran yang cocok.' : 'Belum ada pengeluaran pada periode ini.'}
-              action={isDirty ? <Button variant="secondary" size="sm" onClick={resetAll}>Atur ulang filter</Button> : null}
-              className="animate-in fade-in duration-300"
-            />
-          </Card>
+          <EmptyState
+            icon={<TrendingDown className="w-12 h-12" />}
+            title={isDirty ? 'Tidak ada pengeluaran yang cocok.' : 'Belum ada pengeluaran pada periode ini.'}
+            action={isDirty ? <Button variant="secondary" size="sm" onClick={resetAll}>Atur ulang filter</Button> : null}
+            className="animate-in fade-in duration-300"
+          />
         ) : (
           <div className="space-y-4">
             {groups.map((g, gi) => (
@@ -238,9 +236,13 @@ const ExpenseView = () => {
           </div>
         )}
 
-        <Button onClick={openNew} icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
-          Tambah Pengeluaran
-        </Button>
+        {/* Menempel di atas navbar (sticky), jadi tidak perlu scroll ke bawah walau datanya ribuan.
+            mt-auto: kalau daftarnya pendek, tombol tetap di dasar layar. */}
+        <div className="sticky bottom-0 z-10 mt-auto -mx-4 md:-mx-6 px-4 md:px-6 pt-3 pb-4 md:pb-6 flex flex-col bg-gradient-to-t from-slate-50 via-slate-50 to-transparent dark:from-slate-950 dark:via-slate-950">
+          <Button onClick={openNew} icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto sm:self-end">
+            Tambah Pengeluaran
+          </Button>
+        </div>
       </div>
 
       <ExpenseFormSheet isOpen={isFormOpen} onClose={closeForm} editing={editing} data={expenseData} />
