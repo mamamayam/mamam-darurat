@@ -98,7 +98,7 @@ export default function ExpenseFormSheet({ isOpen, onClose, editing = null, data
             <div>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Dibayar Pakai Uang Siapa?</label>
               <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
-                <option value="kasir">Kasir / Toko</option>
+                <option value="kasir">Dompet</option>
                 {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
               </Select>
             </div>

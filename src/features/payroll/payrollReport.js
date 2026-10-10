@@ -117,8 +117,8 @@ export function buildPayrollReport(payroll, { formatRupiah, withOpening = true, 
   const hutang = opening > 0 ? opening : 0;         // karyawan berutang -> mengurangi gaji
 
   const income = [
-    { key: 'upah', label: `Upah (${fmtHM(a.totalWorkedMinutes)})`, amount: a.wagePay },
-    { key: 'lembur', label: `Lembur (${a.totalOvertimeMinutes} mnt → ${a.overtimeBlocks30Min} blok × ${formatRupiah(a.overtimeRate)})`, amount: a.overtimePay },
+    { key: 'upah', label: `Upah (${fmtHM(a.totalWorkedMinutes)} / ${a.hadirDays} hari kerja)`, amount: a.wagePay },
+    { key: 'lembur', label: `Lembur (${a.overtimeBlocks30Min} blok)`, amount: a.overtimePay },
     { key: 'bonus', label: `Bonus Full Time (${a.fullTimeDays} hari)`, amount: a.fullTimeBonusPay },
     { key: 'tambahan', label: 'Tambahan', amount: payroll.additionsTotal },
     ...(kurangBayar ? [{ key: 'saldo', label: 'Sisa Bulan Lalu (Kurang Bayar)', amount: kurangBayar }] : []),

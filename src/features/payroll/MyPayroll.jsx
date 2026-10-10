@@ -205,8 +205,8 @@ function MySalary({ employee, minutes, onLock }) {
               {!periodClosed && <p className="text-xs text-slate-400">Periode berjalan: angka bisa berubah sampai owner menutup periode.</p>}
 
               <Card className="space-y-1.5 text-sm" data-testid="my-ringkasan">
-                <Row k={`Upah (${fmtHM(a.totalWorkedMinutes)})`} v={a.wagePay} f={formatRupiah} />
-                <Row k={`Lembur (${a.totalOvertimeMinutes} mnt)`} v={a.overtimePay} f={formatRupiah} />
+                <Row k={`Upah (${fmtHM(a.totalWorkedMinutes)} / ${a.hadirDays} hari kerja)`} v={a.wagePay} f={formatRupiah} />
+                <Row k={`Lembur (${a.overtimeBlocks30Min} blok)`} v={a.overtimePay} f={formatRupiah} />
                 <Row k={`Bonus Full Time (${a.fullTimeDays} hari)`} v={a.fullTimeBonusPay} f={formatRupiah} />
                 <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
                 <Row k="Potongan" v={-p.deductionsTotal} f={formatRupiah} />

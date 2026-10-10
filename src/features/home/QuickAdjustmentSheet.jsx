@@ -102,7 +102,7 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
           <div className="grid">
             <div className={`${ghost} space-y-1.5 ${hideSource ? 'invisible pointer-events-none' : ''}`} aria-hidden={hideSource} inert={hideSource}>
               <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Sumber Dana</p>
-              <PillTabs value={paymentMethod} onChange={setPaymentMethod}
+              <PillTabs size="sm" value={paymentMethod} onChange={setPaymentMethod}
                 options={PAYMENT_METHODS.map(m => ({ value: m, label: m }))} />
             </div>
             {!canApprove && (

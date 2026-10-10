@@ -58,8 +58,9 @@ describe('PayrollReport (render awal)', () => {
     expect(html).toContain('data-testid="edit-potongan"');
     expect(html).toContain('data-testid="saldo-toko"');
     expect(html).toContain('data-testid="saldo-karyawan"');
-    expect(html).toContain('menambah gaji');
-    expect(html).toContain('mengurangi gaji');
+    expect(html).toContain('+ Plus');                  // toko berutang (menambah gaji)
+    expect(html).toContain('− Minus');                 // karyawan berutang (mengurangi gaji)
+    expect(html).not.toContain('menambah gaji');       // kartu besar lama diganti pil kecil
     expect(html).not.toContain('Positif =');            // teks penjelasan lama sudah dihapus
   });
 

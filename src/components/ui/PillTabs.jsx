@@ -13,7 +13,7 @@ import { pillIndex, pillIndicatorStyle } from './pillTabsMath';
  * setelah indikator menutupinya dan tidak sempat "hilang" di atas latar putih saat bergeser.
  *
  * Props:
- *   options   Array<{ value, label }>
+ *   options   Array<{ value, label, testId? }>
  *   value     value yang sedang aktif
  *   onChange  (value) => void
  *   size      'sm' | 'md'   (default: 'md')   sm → py-2 text-xs   md → py-2.5 text-sm
@@ -61,6 +61,7 @@ export default function PillTabs({
             type="button"
             role="tab"
             aria-selected={isActive}
+            data-testid={opt.testId}
             onClick={() => onChange(opt.value)}
             className={`
               relative z-10 rounded-full font-semibold transition-colors duration-200 motion-reduce:transition-none

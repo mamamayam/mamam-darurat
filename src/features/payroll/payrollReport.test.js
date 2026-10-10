@@ -121,8 +121,8 @@ describe('buildPayrollReport — ringkasan', () => {
     expect(r.totalDeductions).toBe(25000);
     expect(r.totalIncome - r.totalDeductions).toBe(r.net);
     expect(r.opening).toEqual({ kind: null, amount: 0 });
-    expect(r.income[0].label).toBe('Upah (9j 00m)');
-    expect(r.income[1].label).toBe('Lembur (0 mnt → 0 blok × Rp 5000)');
+    expect(r.income[0].label).toBe('Upah (9j 00m / 0 hari kerja)');
+    expect(r.income[1].label).toBe('Lembur (0 blok)');
   });
 
   it('TOKO berutang (kurang bayar, tersimpan negatif): masuk Pendapatan, menambah gaji', () => {

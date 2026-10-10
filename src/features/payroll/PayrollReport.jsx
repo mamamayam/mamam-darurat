@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, Pencil, Trash2, Share2, Lock } from 'lucide-react';
-import { Badge, Button, NominalInput } from '../../components/ui';
+import { Badge, Button, NominalInput, PillTabs } from '../../components/ui';
 import { fmtDay, fmtHM, STATUS_LABEL, STATUS_VARIANT } from './payrollReport';
 
 /**
@@ -15,9 +15,10 @@ import { fmtDay, fmtHM, STATUS_LABEL, STATUS_VARIANT } from './payrollReport';
  */
 
 const COLS = 'grid grid-cols-[1fr_5.25rem_5.25rem] gap-1.5';
+// Plus = toko berutang (menambah gaji); Minus = karyawan berutang (mengurangi gaji).
 const KINDS = [
-  { value: 'toko', label: 'Toko berutang', hint: 'menambah gaji' },
-  { value: 'karyawan', label: 'Karyawan berutang', hint: 'mengurangi gaji' },
+  { value: 'toko', label: '+ Plus', testId: 'saldo-toko' },
+  { value: 'karyawan', label: '− Minus', testId: 'saldo-karyawan' },
 ];
 
 function Section({ title, value, valueClass = '', open, onToggle, testId, children }) {
@@ -79,18 +80,7 @@ export default function PayrollReport({
             open={open.sal} onToggle={() => toggle('sal')} testId="sec-saldo">
             {canEditOpening ? (
               <div className="space-y-2.5 pt-1">
-                <div className="grid grid-cols-2 gap-2">
-                  {KINDS.map((k) => {
-                    const on = openingForm.kind === k.value;
-                    return (
-                      <button key={k.value} type="button" aria-pressed={on} data-testid={`saldo-${k.value}`}
-                        onClick={() => onOpeningChange({ ...openingForm, kind: k.value })}
-                        className={`rounded-xl border-2 px-2 py-2 text-xs font-bold leading-tight transition-colors ${on ? 'border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-400' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'}`}>
-                        {k.label}<span className="block font-normal text-slate-400">{k.hint}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <PillTabs size="sm" value={openingForm.kind} onChange={(kind) => onOpeningChange({ ...openingForm, kind })} options={KINDS} />
                 <div className="flex gap-2">
                   <div className="flex-1"><NominalInput title="Saldo Awal Bulan" placeholder="0" value={openingForm.amount} onChange={(e) => onOpeningChange({ ...openingForm, amount: e.target.value })} /></div>
                   <Button variant="secondary" onClick={onSaveOpening} disabled={busy}>Simpan</Button>
