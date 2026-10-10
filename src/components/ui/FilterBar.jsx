@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, X, Calendar, Filter, ArrowUpDown, Check } from 'lucide-react';
+import { Search, X, Calendar, Filter, ArrowUpDown, Check, Smartphone } from 'lucide-react';
 import Card from './Card';
 import Modal from './Modal';
 import Button from './Button';
@@ -22,6 +22,8 @@ import { toLocalDateString } from '../../utils/formatters';
  *   typeChipLabel string teks chip saat "semua"           (mis. 'Semua Tipe')
  *   typeTitle    string  judul sheet
  *   sortValue, sortDefault, onSortChange, sortOptions [{ key, label, short? }]
+ *   deviceValue, onDeviceChange, deviceOptions  (opsional, khusus owner) tombol bulat Perangkat di samping pencarian;
+ *                tidak dirender kalau deviceOptions tidak diberikan. deviceValue 'semua' | key.
  */
 
 const OPT_BASE = 'w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300';
@@ -96,8 +98,9 @@ export default function FilterBar({
   period, onPeriodChange,
   typeValue, onTypeChange, typeOptions = [], typeAllLabel, typeChipLabel, typeTitle,
   sortValue, sortDefault, onSortChange, sortOptions = [],
+  deviceValue = 'semua', onDeviceChange, deviceOptions,
 }) {
-  const [open, setOpen] = useState(null); // 'period' | 'type' | 'sort' | null
+  const [open, setOpen] = useState(null); // 'period' | 'type' | 'sort' | 'device' | null
   const close = () => setOpen(null);
 
   const typeLabel = typeValue === 'semua' ? typeChipLabel : (typeOptions.find((o) => o.key === typeValue)?.label || typeValue);
@@ -106,10 +109,16 @@ export default function FilterBar({
     ...o, icon: o.icon || <Filter className="w-4 h-4 opacity-50" />,
   }))];
 
+  const showDevice = Array.isArray(deviceOptions) && typeof onDeviceChange === 'function';
+  const deviceSheetOptions = showDevice
+    ? [{ key: 'semua', label: 'Semua Perangkat', icon: <Smartphone className="w-4 h-4 opacity-50" /> }, ...deviceOptions.map((o) => ({ ...o, icon: o.icon || <Smartphone className="w-4 h-4 opacity-50" /> }))]
+    : [];
+
   return (
     <>
       <Card className="space-y-3">
-        <div className="relative">
+        <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
           <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="search" value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder={placeholder}
@@ -121,6 +130,13 @@ export default function FilterBar({
             </button>
           )}
         </div>
+        {showDevice && (
+          <button type="button" onClick={() => setOpen('device')} aria-label="Perangkat" title="Perangkat" data-testid="filter-device"
+            className={`h-11 w-11 shrink-0 rounded-full border flex items-center justify-center transition-all duration-300 active:scale-95 ${deviceValue !== 'semua' ? CHIP_ON : CHIP_OFF}`}>
+            <Smartphone className="w-5 h-5" />
+          </button>
+        )}
+        </div>
         <div className="grid grid-cols-3 gap-2">
           <Chip icon={Calendar} label={periodLabel(period.mode, period)} active={period.mode !== 'hari-ini'} onClick={() => setOpen('period')} ariaLabel="Periode" />
           <Chip icon={Filter} label={typeLabel} active={typeValue !== 'semua'} onClick={() => setOpen('type')} ariaLabel={typeTitle} />
@@ -131,6 +147,7 @@ export default function FilterBar({
       <PeriodSheet isOpen={open === 'period'} onClose={close} period={period} onChange={onPeriodChange} />
       <SortModal isOpen={open === 'type'} onClose={close} title={typeTitle} value={typeValue} onChange={onTypeChange} options={typeSheetOptions} />
       <SortModal isOpen={open === 'sort'} onClose={close} value={sortValue} onChange={onSortChange} options={sortOptions} />
+      {showDevice && <SortModal isOpen={open === 'device'} onClose={close} title="Perangkat" value={deviceValue} onChange={onDeviceChange} options={deviceSheetOptions} />}
     </>
   );
 }

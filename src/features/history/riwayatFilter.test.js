@@ -41,4 +41,18 @@ describe('riwayatFilter', () => {
     expect(isTimeSort('terbaru')).toBe(true);
     expect(isTimeSort('total-desc')).toBe(false);
   });
+
+  it('filterSales: filter perangkat dan pencarian nama perangkat', () => {
+    const D = [
+      { id: 'a1', display_number: 1, device_id: 'dev-1', device_name: 'HP Kasir Depan' },
+      { id: 'b2', display_number: 2, device_id: 'dev-2', device_name: 'HP Budi' },
+      { id: 'c3', display_number: 3, device_id: null, device_name: null },
+    ];
+    expect(filterSales(D, { device: 'dev-1' }).map((s) => s.id)).toEqual(['a1']);
+    expect(filterSales(D, { device: 'tanpa' }).map((s) => s.id)).toEqual(['c3']);
+    expect(filterSales(D, { device: 'semua' }).length).toBe(3);
+    expect(filterSales(D, { query: 'kasir depan' }).map((s) => s.id)).toEqual(['a1']);
+    expect(filterSales(D, { device: 'dev-2', query: 'budi' }).map((s) => s.id)).toEqual(['b2']);
+    expect(filterSales(D, { device: 'dev-2', query: 'kasir' })).toEqual([]);
+  });
 });

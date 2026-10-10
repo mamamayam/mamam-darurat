@@ -250,6 +250,7 @@ const ExpenseView = () => {
           { label: 'Toko / Supplier', value: detail?.supplier },
           { label: 'Karyawan', value: detail ? employeeName(detail) : '' },
           { label: 'Pemegang Kas', value: detail?.cashHolderName },
+          { label: 'Dicatat dari', value: detail?.deviceName },
           { label: 'Catatan', value: detail ? noteLines(detail.note).join('\n') : '', type: 'multiline' },
         ] }]}
         highlight={{ label: 'Nominal', value: detail?.amount, tone: 'danger' }}

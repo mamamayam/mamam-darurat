@@ -17,15 +17,20 @@ export const DEFAULT_SORT = 'terbaru';
 /** Urutan yang mengikuti waktu -> daftar boleh dikelompokkan per hari. */
 export const isTimeSort = (key) => key === 'terbaru' || key === 'terlama';
 
-/** Tipe order + pencarian (belum metode bayar). Cari: nomor order, ID, nama pelanggan. */
-export function filterSales(sales, { type = 'semua', query = '' } = {}) {
+/**
+ * Tipe order + perangkat + pencarian (belum metode bayar). Cari: nomor order, ID, nama pelanggan, nama perangkat.
+ * device: 'semua' | id perangkat | 'tanpa' (transaksi lama sebelum ada pelacakan perangkat).
+ */
+export function filterSales(sales, { type = 'semua', query = '', device = 'semua' } = {}) {
   const q = String(query).trim().toLowerCase();
   return sales.filter((s) => {
     if (type !== 'semua' && s.order_type !== type) return false;
+    if (device === 'tanpa' ? s.device_id : device !== 'semua' && s.device_id !== device) return false;
     if (!q) return true;
     return String(s.display_number).toLowerCase().includes(q)
       || String(s.id).toLowerCase().includes(q)
-      || String(s.customer_name || '').toLowerCase().includes(q);
+      || String(s.customer_name || '').toLowerCase().includes(q)
+      || String(s.device_name || '').toLowerCase().includes(q);
   });
 }
 

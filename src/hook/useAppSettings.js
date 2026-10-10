@@ -10,6 +10,7 @@ export const SETTING_DEFAULTS = {
   session_hours: 12,               // lama sesi login (jam)
   employee_pin_enabled: true,      // staf boleh melihat gaji karyawan lewat PIN karyawan
   employee_pin_view_minutes: 3,    // tutup otomatis setelah tidak ada aktivitas
+  device_enforce: false,           // database menolak catatan dari HP yang belum terdaftar (migrasi 011)
 };
 
 export const SESSION_HOURS_CHOICES = [

@@ -76,6 +76,13 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
   (badge Karyawan) dan dihitung di Laporan dan Dompet.
 - Staf tidak melihat nominal Tambah/Potongan (izin `karyawan.upah`), hanya nominal toko.
 
+**Perangkat terdaftar** (migrasi `011_perangkat.sql`; `src/hook/deviceLogic.js`, `useDevice.js`, `useDevices.js`, `src/lib/deviceId.js`, `src/features/settings/DeviceSettings.jsx`):
+- Login hanya membawa peran, jadi "siapa yang mencatat" dilacak lewat **HP**: tiap HP punya UUID acak di localStorage (bukan ID perangkat keras; hapus data browser = HP baru). HP baru otomatis masuk tabel `devices` dengan status `menunggu` dan kode pendek (`XXXX-XXXX`); owner memberi **nama saja** di Pengaturan > Perangkat (= terdaftar). Tidak ada kolom "karyawan" atau "dipakai gantian" di sini, sengaja.
+- **HP staf yang belum terdaftar (atau dicabut) terkunci** di layar kunci (`DeviceLockScreen`) sampai owner mendaftarkan. Owner tidak pernah dikunci supaya bisa mendaftarkan HP. Server tidak terjangkau: HP yang tadinya terdaftar tetap jalan (status disimpan di localStorage), selebihnya terkunci. Migrasi 011 belum dijalankan: fitur dilewati, tidak ada yang dikunci.
+- `transactions` dan `expenses` punya `device_id` + `device_name` (salinan nama saat dicatat, diisi trigger `stamp_perangkat`; tanpa FK). Klien mengirim `device_id` lewat `deviceStamp()` / `deviceRpcArg()` (RPC `catat_potongan` menerima `p_device_id`) hanya setelah tabel `devices` terbukti ada.
+- **Kunci di server** = `app_settings.device_enforce` (bawaan `false`): kalau `true`, trigger menolak insert dari HP yang belum terdaftar. Jangan dinyalakan sebelum semua HP (termasuk HP owner) diberi nama. Ini jejak audit, bukan keamanan data (RLS tetap longgar).
+- Riwayat (owner): tombol bulat Perangkat di samping pencarian (`FilterBar` props `deviceOptions`/`deviceValue`/`onDeviceChange`; tiga chip tidak berubah), pencarian ikut mencocokkan nama perangkat, Detail menampilkan "Dicatat dari". Pengeluaran: hanya Detail.
+
 **Laporan Gaji** (`src/features/payroll/PayrollReport.jsx`; periode **Mingguan dan Bulanan** memakai tampilan yang SAMA, tanpa tab Ringkas/Detail): Gaji Bersih di atas, lalu bagian yang dibuka satu per satu:
 **Total Pendapatan**, **Pengurangan** (Kasbon, Potongan), **Saldo Awal Bulan** (khusus bulanan), dan **Rincian Harian**. Judul bagian hanya nama + nilai (tanpa teks abu-abu rincian).
 - **Rincian Harian** = tabel *Keterangan | Pemasukan (+) | Pengeluaran (-)* per tanggal, dengan jam masuk s/d pulang (dibaca dari log absensi; periode tertutup tidak membaca absensi, jadi jam tidak tampil).

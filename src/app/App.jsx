@@ -9,6 +9,9 @@ import { AppContext } from '../context/AppContext';
 import { formatRupiah } from '../utils/formatters';
 import { useAuth } from '../auth/AuthContext';
 import LoginScreen from '../auth/LoginScreen';
+import DeviceLockScreen from '../auth/DeviceLockScreen';
+import { useDeviceStatus } from '../hook/useDevice';
+import { deviceLock, STATUS as DEVICE_STATUS } from '../hook/deviceLogic';
 import ResetPinScreen from '../auth/ResetPinScreen';
 import ConnectionBanner from '../components/ConnectionBanner';
 import { VIEW_PERMISSION } from '../auth/permissions';
@@ -56,6 +59,8 @@ import {
  */
 export default function App() {
   const { role, logout, can: allowed, ready, recovery } = useAuth();
+  // Perangkat terdaftar: HP staf yang belum didaftarkan owner terkunci (lihat docs di AGENTS.md).
+  const device = useDeviceStatus(Boolean(role) && ready);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Owner: badge merah di ikon Beranda kalau ada pengajuan Tambahan karyawan yang menunggu keputusan.
@@ -189,6 +194,10 @@ export default function App() {
   if (recovery) return <ResetPinScreen />;
   // Belum masuk: tampilkan layar PIN saja (tidak ada data yang dimuat).
   if (!role) return <LoginScreen />;
+  // HP staf belum terdaftar / dicabut: layar kunci. Owner tidak pernah dikunci supaya bisa mendaftarkan HP.
+  const lock = deviceLock(role, device.status);
+  if (lock === DEVICE_STATUS.LOADING) return <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950" data-testid="device-loading" />;
+  if (lock) return <DeviceLockScreen status={lock} code={device.code} onRetry={device.refresh} onLogout={logout} />;
 
   return (
     <AppContext.Provider value={appContextValue}>

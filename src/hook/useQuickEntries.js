@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { deviceRpcArg } from '../lib/deviceId';
 import { toLocalDateString } from '../utils/formatters';
 import {
   newAdditionRow, deductionRpcArgs, summarizeTodayExpenses, buildFeed, pendingRequests, startOfLocalDayISO,
@@ -104,7 +105,7 @@ export function useQuickEntries({ canApprove, onChanged }) {
 
   /** Potongan: langsung dicatat + jadi pengeluaran karyawan (tunai = mengurangi Dompet). */
   const submitDeduction = async (form) => {
-    const { error: e } = await supabase.rpc('catat_potongan', deductionRpcArgs(form));
+    const { error: e } = await supabase.rpc('catat_potongan', { ...deductionRpcArgs(form), ...deviceRpcArg() });
     if (e) fail(e, 'Gagal menyimpan potongan');
     await reload();
     onChangedRef.current?.();   // potongan = pengeluaran karyawan: kartu di Beranda ikut berubah

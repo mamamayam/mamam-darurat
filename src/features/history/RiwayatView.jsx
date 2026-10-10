@@ -7,6 +7,7 @@ import { useReportData } from '../../hook/useReportData';
 import { useBulkSelect } from '../../hook/useBulkSelect';
 import { periodRange, localDateOf } from '../reports/reportsMath';
 import { dayHeading, groupByDay, sumByDay } from '../../utils/listFilters';
+import { deviceOptionsFromRows } from '../../hook/deviceLogic';
 import { filterSales, paymentStats, sortSales, methodOf, isTimeSort, SORT_OPTIONS, DEFAULT_SORT } from './riwayatFilter';
 
 /**
@@ -42,6 +43,7 @@ export default function RiwayatView() {
   const [sortKey, setSortKey] = useState(DEFAULT_SORT);
   const [query, setQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState('semua');
+  const [deviceFilter, setDeviceFilter] = useState('semua');
   const [limit, setLimit] = useState(PAGE);
   const [detail, setDetail] = useState(null);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -58,11 +60,15 @@ export default function RiwayatView() {
     return [...TYPE_OPTIONS, ...extra];
   }, [sales]);
 
+  // Pilihan perangkat dari transaksi yang sedang tampil (periode ini); pilihan yang hilang setelah ganti periode dianggap Semua.
+  const deviceOptions = useMemo(() => deviceOptionsFromRows(sales), [sales]);
+  const activeDevice = deviceFilter === 'semua' || deviceOptions.some(o => o.key === deviceFilter) ? deviceFilter : 'semua';
+
   const resetPaging = () => setLimit(PAGE);
-  const isDirty = period.mode !== 'hari-ini' || typeFilter !== 'semua' || sortKey !== DEFAULT_SORT || query.trim() !== '' || methodFilter !== 'semua';
+  const isDirty = period.mode !== 'hari-ini' || typeFilter !== 'semua' || sortKey !== DEFAULT_SORT || query.trim() !== '' || methodFilter !== 'semua' || activeDevice !== 'semua';
 
   // Daftar setelah tipe order + pencarian (BELUM metode bayar) — dasar ringkasan per metode.
-  const base = useMemo(() => filterSales(sales, { type: typeFilter, query }), [sales, typeFilter, query]);
+  const base = useMemo(() => filterSales(sales, { type: typeFilter, query, device: activeDevice }), [sales, typeFilter, query, activeDevice]);
   const methodStats = useMemo(() => paymentStats(base), [base]);
   const grandTotal = useMemo(() => base.reduce((sum, s) => sum + (Number(s.total) || 0), 0), [base]);
 
@@ -134,11 +140,12 @@ export default function RiwayatView() {
       <div className="max-w-3xl w-full space-y-4 pb-10">
 
         <FilterBar
-          query={query} onQueryChange={(v) => { setQuery(v); resetPaging(); }} placeholder="Cari order, ID, nama..."
+          query={query} onQueryChange={(v) => { setQuery(v); resetPaging(); }} placeholder="Cari order, nama, perangkat..."
           period={period} onPeriodChange={(p) => { setPeriod(p); setMethodFilter('semua'); resetPaging(); }}
           typeValue={typeFilter} onTypeChange={(v) => { setTypeFilter(v); resetPaging(); }} typeOptions={typeOptions}
           typeAllLabel="Semua Tipe Order" typeChipLabel="Semua Tipe" typeTitle="Tipe Order"
           sortValue={sortKey} sortDefault={DEFAULT_SORT} onSortChange={setSortKey} sortOptions={SORT_OPTIONS}
+          deviceValue={activeDevice} onDeviceChange={(v) => { setDeviceFilter(v); setMethodFilter('semua'); resetPaging(); }} deviceOptions={deviceOptions}
         />
 
         {error && (
@@ -217,7 +224,7 @@ export default function RiwayatView() {
         title={detail && `#${detail.display_number}`}
         subtitle={detail && new Date(detail.paid_at || detail.created_at).toLocaleString('id-ID')}
         badges={detail ? [{ label: detail.payment_method === 'Ojol' ? `Ojol (${detail.ojol_platform || ''})` : detail.payment_method, variant: detail.payment_method === 'Ojol' ? 'orange' : 'success' }, { label: detail.order_type, variant: 'neutral' }] : []}
-        sections={[{ rows: [{ label: 'Pelanggan', value: detail?.customer_name || 'Umum' }, ...(detail?.ojol_order_number ? [{ label: 'No. Order Ojol', value: detail.ojol_order_number }] : [])] }]}
+        sections={[{ rows: [{ label: 'Pelanggan', value: detail?.customer_name || 'Umum' }, ...(detail?.ojol_order_number ? [{ label: 'No. Order Ojol', value: detail.ojol_order_number }] : []), ...(detail?.device_name ? [{ label: 'Dicatat dari', value: detail.device_name }] : [])] }]}
         items={detail?.items?.map(it => ({ name: it.name, note: [it.variant_name, it.note].filter(Boolean).join(' • '), qty: it.qty, price: it.price }))}
         summaryRows={[
           { label: 'Subtotal', value: detail?.subtotal, type: 'currency' },

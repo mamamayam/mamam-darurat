@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { deviceStamp } from '../../lib/deviceId';
 import { computeOrderTotals, cashChange, splitStatus, displayNumberFromId } from './posMath';
 
 /**
@@ -82,6 +83,7 @@ export async function checkout({
     amount_paid, change_amount, split_payments_json,
     cash_holder_employee_id: courier?.id || null, cash_holder_name: courier?.name || null,
     paid_at: now,
+    ...deviceStamp(),
   }).select('id').single();
   if (txErr) fail(txErr, 'Gagal menyimpan transaksi');
 

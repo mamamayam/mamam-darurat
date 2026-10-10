@@ -3,8 +3,9 @@ import { Card } from '../../components/ui';
 import { useAppSettings } from '../../hook/useAppSettings';
 import LoginSettings from './LoginSettings';
 import EmployeePinSettings from './EmployeePinSettings';
+import DeviceSettings from './DeviceSettings';
 
-/** Pengaturan (khusus owner): login, PIN, dan akses gaji karyawan lewat PIN. */
+/** Pengaturan (khusus owner): login, PIN, akses gaji karyawan lewat PIN, dan perangkat terdaftar. */
 export default function SettingsView() {
   const { settings, loading, error, save } = useAppSettings();
 
@@ -19,6 +20,7 @@ export default function SettingsView() {
         )}
         <LoginSettings settings={settings} loading={loading} saveSetting={save} />
         <EmployeePinSettings settings={settings} saveSetting={save} />
+        <DeviceSettings settings={settings} saveSetting={save} />
       </div>
     </div>
   );

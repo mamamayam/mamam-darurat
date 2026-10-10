@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { deviceStamp } from '../lib/deviceId';
 
 /**
  * useExpenseData — layer data Pengeluaran, ONLINE-FIRST.
@@ -53,6 +54,7 @@ export function useExpenseData({ withExpenses = true } = {}) {
       id: e.id, amount: e.amount, category: e.category, note: e.detail, supplier: e.store_or_supplier_name,
       date: e.transaction_date, paymentMethod: e.payment_method,
       cashHolderEmployeeId: e.cash_holder_employee_id, cashHolderName: e.cash_holder_name,
+      deviceId: e.device_id, deviceName: e.device_name,
       employeeId: e.employee_id || null,   // terisi = pengeluaran karyawan dari potongan (Catat Cepat), diubah lewat Penggajian
     })));
     setError(null);
@@ -81,7 +83,7 @@ export function useExpenseData({ withExpenses = true } = {}) {
       const { error: e } = await supabase.from('expenses').update(row).eq('id', id);
       if (e) fail(e, 'Gagal menyimpan pengeluaran');
     } else {
-      const { error: e } = await supabase.from('expenses').insert(row);
+      const { error: e } = await supabase.from('expenses').insert({ ...row, ...deviceStamp() });
       if (e) fail(e, 'Gagal mencatat pengeluaran');
     }
     await reload();
