@@ -120,7 +120,7 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
     };
     if (closing) {
       const rows = closingLines
-        .map(l => ({ employee: { id: l.employee_id || l.id, name: l.employee_name, role: l.role, status: 'tutup', externalId: l.employee_external_id }, payroll: l.payroll_json, needsClarification: [] }))
+        .map(l => ({ employee: { id: l.employee_id || l.id, name: l.employee_name, role: l.role, status: 'tutup', externalId: l.employee_external_id }, payroll: l.payroll_json, rates: l.rates_json || null, needsClarification: [] }))
         .sort((a, b) => a.employee.name.localeCompare(b.employee.name));
       return { results: rows, totals: sumTotals(rows) };
     }
@@ -135,7 +135,7 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
       const active = payroll.attendance.dayRows.length > 0 || payroll.additions.length > 0 || payroll.deductions.length > 0 || payroll.openingBalance !== 0;
       if (e.status === 'resign' && !active) continue;      // resign tanpa aktivitas di periode ini: disembunyikan
       const needsClarification = payroll.attendance.dayRows.filter(r => r.status === 'perluKlarifikasi');
-      rows.push({ employee: { id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.externalId }, payroll, needsClarification });
+      rows.push({ employee: { id: e.id, name: e.name, role: e.role, status: e.status, externalId: e.externalId }, payroll, rates: toEngineEmployee(e), needsClarification });
     }
     return { results: rows, totals: sumTotals(rows) };
   }, [closing, closingLines, attendance, prepared, employees, additions, deductions, openingBalances, start, end, monthKey, today]);

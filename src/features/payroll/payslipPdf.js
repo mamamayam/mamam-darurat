@@ -1,16 +1,20 @@
-import { fmtDay, STATUS_LABEL, dayDetail, itemTitle } from './payrollReport';
+import { fmtHM } from './payrollReport';
 import { formatRupiah as defaultRupiah } from '../../utils/formatters';
 
 /**
- * payslipPdf — pembuat PDF slip gaji (mingguan & bulanan) TANPA library tambahan (PDF 1.4 tulis tangan,
- * font bawaan Helvetica). Teks asli (bisa dipilih/dicari), ukuran kecil, A4, otomatis
- * pindah halaman. FUNGSI MURNI: mengembalikan Uint8Array (dites).
+ * payslipPdf — pembuat PDF slip gaji TANPA library tambahan (PDF 1.4 tulis tangan, font bawaan Helvetica).
+ * Teks asli (bisa dipilih/dicari), ukuran kecil, A4, otomatis pindah halaman. FUNGSI MURNI: mengembalikan
+ * Uint8Array (dites).
+ *
+ * Susunan: judul, info karyawan 2 kolom, (opsional) tabel harian Tanggal & Jam | Keterangan | Pemasukan (+) |
+ * Pengeluaran (-), lalu ringkasan Pendapatan -> Total Pendapatan -> Potongan -> Total Potongan -> GAJI BERSIH,
+ * dan kolom tanda tangan. Angka diambil dari `report` (buildPayrollReport), sama dengan layar.
  *
  * Hanya karakter Latin-1 yang dicetak; karakter lain diganti yang mirip (→ jadi >) atau "?".
  */
 
-const PAGE_W = 595, PAGE_H = 842, M = 44, RIGHT = PAGE_W - M, LINE = 17;
-const INK = [0.08, 0.1, 0.17], GRAY = [0.45, 0.48, 0.56], ACCENT = [0.91, 0.35, 0.05], RED = [0.82, 0.2, 0.29], GREEN = [0.06, 0.54, 0.29];
+const PAGE_W = 595, PAGE_H = 842, M = 40, RIGHT = PAGE_W - M, CW = RIGHT - M, LINE = 16, RH = 13.5;
+const INK = [0.08, 0.1, 0.17], GRAY = [0.45, 0.48, 0.56], ACCENT = [0.91, 0.35, 0.05], RED = [0.82, 0.2, 0.29], GRID = [0.72, 0.75, 0.8], BAND = [0.92, 0.93, 0.95];
 
 // Lebar karakter Helvetica (1000 unit/em) untuk ASCII 32..126. Tebal: HURUF dilebarkan ×1.06 (perkiraan);
 // angka dan tanda baca sama dengan biasa (di Helvetica-Bold memang sama), jadi nominal tebal tetap rata kanan.
@@ -49,56 +53,116 @@ const esc = (s) => clean(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace
 const num = (n) => (Math.round(n * 100) / 100).toString();
 const rgb = (c) => `${c.map(num).join(' ')} rg`;
 
-export function buildPayslipPdf({ business = 'Mamam Ayam', employeeName, periodLabel, report, withDays = false, formatRupiah = defaultRupiah }) {
-  const pages = [[]];
-  let y = PAGE_H - M;
-  const page = () => pages[pages.length - 1];
-  const need = (h) => { if (y - h < M + 24) { pages.push([]); y = PAGE_H - M; } };
+const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
-  const text = (s, x, size, { bold = false, color = INK, align = 'left' } = {}) => {
+export function buildPayslipPdf({ business = 'Mamam Ayam', employeeName, role, periodLabel, rates, report, withDays = false, formatRupiah = defaultRupiah }) {
+  const pages = [[]];
+  let y = PAGE_H - M;   // tepi ATAS elemen berikutnya
+  const page = () => pages[pages.length - 1];
+  const newPage = () => { pages.push([]); y = PAGE_H - M; };
+  const need = (h) => { if (y - h < M + 28) newPage(); };
+
+  const T = (s, x, base, size, { bold = false, color = INK, align = 'left' } = {}) => {
     const t = clean(s);
-    const px = align === 'right' ? x - textWidth(t, size, bold) : x;
-    page().push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${rgb(color)} ${num(px)} ${num(y)} Td (${esc(t)}) Tj ET`);
+    const w = textWidth(t, size, bold);
+    const px = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+    page().push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${rgb(color)} ${num(px)} ${num(base)} Td (${esc(t)}) Tj ET`);
   };
-  const rule = (weight = 0.5) => { page().push(`${weight} w 0.85 0.87 0.91 RG ${M} ${num(y)} m ${RIGHT} ${num(y)} l S`); };
-  const row = (left, right, { bold = false, color = INK, rightColor = color, size = 10, indent = 0 } = {}) => {
-    need(LINE);
-    const rightW = textWidth(right, size, bold);
-    text(fit(left, size, RIGHT - M - indent - rightW - 14, bold), M + indent, size, { bold, color });
-    if (right) text(right, RIGHT, size, { bold, color: rightColor, align: 'right' });
+  const stroke = (x1, y1, x2, y2, w = 0.5, c = GRID) => page().push(`${w} w ${c.map(num).join(' ')} RG ${num(x1)} ${num(y1)} m ${num(x2)} ${num(y2)} l S`);
+  const fill = (x, yb, w, h, c) => page().push(`${c.map(num).join(' ')} rg ${num(x)} ${num(yb)} ${num(w)} ${num(h)} re f`);
+  const money = (n) => (n ? formatRupiah(n) : '-');
+
+  // Judul
+  T('SLIP GAJI KARYAWAN', PAGE_W / 2, y - 14, 15, { bold: true, align: 'center' }); y -= 20;
+  T(business.toUpperCase(), PAGE_W / 2, y - 10, 10, { align: 'center' }); y -= 24;
+
+  // Info karyawan: 2 kolom (kiri identitas & periode, kanan tarif)
+  const rp = (n) => (n == null ? '-' : formatRupiah(n));
+  const left = [
+    ['Periode', periodLabel], ['Nama', employeeName], ['Posisi', role ? cap(role) : '-'],
+    ['Hari Kerja Masuk', report.periodDays ? `${report.hadirDays}/${report.periodDays} Hari` : `${report.hadirDays} Hari`],
+  ];
+  const right = [
+    ['Total Jam Kerja', `${(report.workedMinutes / 60).toFixed(1).replace('.', ',')} Jam`], ['Upah per Jam', rp(rates?.wagePerHour)],
+    ['Lembur per 30 Menit', rp(report.overtimeRate)], ['Bonus Full Time', rp(rates?.bonusFullTime)],
+  ];
+  const colR = M + CW / 2 + 10;
+  left.forEach((l, i) => {
+    T(l[0], M, y - 10, 9.5, { color: GRAY }); T(fit(l[1], 9.5, colR - M - 92 - 8, true), M + 92, y - 10, 9.5, { bold: true });
+    T(right[i][0], colR, y - 10, 9.5, { color: GRAY }); T(fit(right[i][1], 9.5, RIGHT - colR - 104, true), colR + 104, y - 10, 9.5, { bold: true });
+    y -= 14.5;
+  });
+  y -= 8;
+
+  // Tabel harian
+  if (withDays) {
+    need(60);
+    T('Rincian Pemasukan & Pengeluaran Harian', M, y - 9, 10, { bold: true }); y -= 16;
+    const X = [M, M + 100, M + 335, M + 425, RIGHT];
+    const header = () => {
+      fill(M, y - 16, CW, 16, BAND);
+      T('Tanggal & Jam', X[0] + 4, y - 11.5, 8.5, { bold: true }); T('Keterangan', X[1] + 4, y - 11.5, 8.5, { bold: true });
+      T('Pemasukan (+)', X[3] - 4, y - 11.5, 8.5, { bold: true, align: 'right' }); T('Pengeluaran (-)', X[4] - 4, y - 11.5, 8.5, { bold: true, align: 'right' });
+      y -= 16;
+    };
+    header();
+    for (const d of report.days) {
+      const n = Math.max(d.lines.length, 2);   // minimal 2 baris: tanggal + jam
+      const h = n * RH;
+      if (y - h < M + 28) { newPage(); header(); }
+      const top = y;
+      for (let r = 0; r < n; r++) {
+        const l = d.lines[r];
+        const base = top - (r + 1) * RH + 4.2;
+        if (r === 0) T(d.date, X[0] + 4, base, 8.5);
+        if (r === 1) T(d.timeRange || (d.row ? '--:-- s/d --:--' : ''), X[0] + 4, base, 8, { color: GRAY });
+        if (l) {
+          T(fit(l.label, 8.5, X[2] - X[1] - 8, false), X[1] + 4, base, 8.5);
+          T(money(l.plus), X[3] - 4, base, 8.5, { align: 'right', color: l.plus ? INK : GRAY });
+          T(money(l.minus), X[4] - 4, base, 8.5, { align: 'right', color: l.minus ? INK : GRAY });
+        }
+        if (r < n - 1) stroke(X[1], top - (r + 1) * RH, X[4], top - (r + 1) * RH, 0.4);
+      }
+      stroke(M, top - h, RIGHT, top - h, 0.6);
+      X.forEach((x) => stroke(x, top, x, top - h, 0.6));
+      y -= h;
+    }
+    y -= 10;
+  }
+
+  // Ringkasan: Pendapatan -> Total Pendapatan -> Potongan -> Total Potongan -> Gaji Bersih
+  const sRow = (label, value, { bold = false, color = INK, vcolor = color, size = 10, rule = false } = {}) => {
+    need(LINE + (rule ? 6 : 0));
+    if (rule) { stroke(M, y, RIGHT, y, 0.8, GRID); y -= 4; }
+    T(fit(label, size, CW - 130, bold), M, y - 11, size, { bold, color });
+    T(value, RIGHT, y - 11, size, { bold, color: vcolor, align: 'right' });
     y -= LINE;
   };
-  const section = (title) => { need(LINE * 2); y -= 6; text(title.toUpperCase(), M, 8, { bold: true, color: GRAY }); y -= LINE - 2; };
+  const sec = (title) => { need(LINE * 2); y -= 4; T(title, M, y - 8, 8, { bold: true, color: GRAY }); y -= LINE - 3; };
+  const incomeLabel = {
+    upah: `Upah Dasar (${fmtHM(report.workedMinutes)})`, lembur: `Uang Lembur (${report.overtimeMinutes} mnt)`, tambahan: 'Tambahan (+)',
+  };
 
-  // Kepala
-  text(`Slip Gaji · ${business}`, M, 16, { bold: true }); y -= 20;
-  text(`${employeeName} · ${periodLabel}`, M, 10, { color: GRAY }); y -= 14;
-  rule(1); y -= 10;
+  sec('PENDAPATAN');
+  report.income.filter((r, i) => r.amount !== 0 || i === 0).forEach((r) => sRow(incomeLabel[r.key] || r.label, formatRupiah(r.amount)));
+  sRow('Total Pendapatan', formatRupiah(report.totalIncome), { bold: true, rule: true });
 
-  const shown = (r) => r.amount !== 0 || r.key === 'upah';
-  section('Pendapatan');
-  report.income.filter(shown).forEach((r) => row(r.label, formatRupiah(r.amount)));
-  row('Total Pendapatan', formatRupiah(report.totalIncome), { bold: true });
-
-  section('Pengurangan');
+  sec('POTONGAN');
   const cuts = report.cuts.filter((r) => r.amount !== 0);
-  if (cuts.length === 0) row('Tidak ada pengurangan', formatRupiah(0), { color: GRAY });
-  cuts.forEach((r) => row(r.label, formatRupiah(-r.amount)));
+  if (cuts.length === 0) sRow('Tidak ada potongan', formatRupiah(0), { color: GRAY });
+  cuts.forEach((r) => sRow(r.label, formatRupiah(-r.amount)));
+  sRow('Total Potongan', formatRupiah(-report.totalDeductions), { bold: true, rule: true });
 
-  y -= 4; need(LINE * 2); rule(1); y -= 16;
-  row('Gaji Bersih', formatRupiah(report.net), { bold: true, size: 13, rightColor: report.net < 0 ? RED : ACCENT });
+  y -= 6; need(40); stroke(M, y, RIGHT, y, 1.2, INK); y -= 6;
+  sRow('GAJI BERSIH', formatRupiah(report.net), { bold: true, size: 13, vcolor: report.net < 0 ? RED : ACCENT });
 
-  if (withDays) {
-    section('Rincian Harian');
-    for (const d of report.days) {
-      const status = d.row ? STATUS_LABEL[d.row.status] || '' : '';
-      row(`${fmtDay(d.date)}${status ? ` · ${status}` : ''}`, dayDetail(d.row), { bold: true, size: 9.5 });
-      for (const it of d.items) {
-        const plus = it.kind === 'tambahan';
-        row(itemTitle(it), `${plus ? '+' : '-'}${formatRupiah(it.amount)}`, { size: 9, indent: 12, color: GRAY, rightColor: plus ? GREEN : RED });
-      }
-    }
-  }
+  // Tanda tangan
+  need(112); y -= 22;
+  const cx = [M + CW * 0.25, M + CW * 0.75];
+  T('Penerima,', cx[0], y - 9, 10, { align: 'center' }); T('Mengetahui,', cx[1], y - 9, 10, { align: 'center' });
+  y -= 64;
+  T(fit(`(${employeeName})`, 10, CW / 2 - 20, false), cx[0], y - 9, 10, { align: 'center' }); T('( HRD / Manajemen )', cx[1], y - 9, 10, { align: 'center' });
+  y -= LINE;
 
   // Kaki halaman (tahu total halaman setelah semua tersusun)
   pages.forEach((p, i) => {

@@ -210,7 +210,7 @@ function MySalary({ employee, minutes, onLock }) {
                 <Row k={`Bonus Full Time (${a.fullTimeDays} hari)`} v={a.fullTimeBonusPay} f={formatRupiah} />
                 <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
                 <Row k="Potongan" v={-p.deductionsTotal} f={formatRupiah} />
-                {period.monthKey && <Row k="Saldo awal" v={-p.openingBalance} f={formatRupiah} />}
+                {period.monthKey && p.openingBalance !== 0 && <Row k={p.openingBalance < 0 ? 'Sisa bulan lalu (kurang bayar)' : 'Hutang bulan lalu'} v={-p.openingBalance} f={formatRupiah} />}
                 <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span data-testid="my-net" className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
               </Card>
 

@@ -76,7 +76,14 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
   (badge Karyawan) dan dihitung di Laporan dan Dompet.
 - Staf tidak melihat nominal Tambah/Potongan (izin `karyawan.upah`), hanya nominal toko.
 
-**Laporan Gaji** (`src/features/payroll/PayrollReport.jsx`, periode **Mingguan dan Bulanan** memakai tampilan yang SAMA): Gaji Bersih di atas, lalu tiga bagian yang bisa dibuka satu per satu, TANPA tab Ringkas/Detail:
-**Total Pendapatan**, **Pengurangan** (Kasbon, Potongan; khusus bulanan juga Saldo awal + form Saldo Awal Bulan, tanpa teks penjelasan), dan **Rincian Harian** (absensi per tanggal; Tambahan, Potongan, dan Kasbon tampil di tanggalnya).
+**Laporan Gaji** (`src/features/payroll/PayrollReport.jsx`; periode **Mingguan dan Bulanan** memakai tampilan yang SAMA, tanpa tab Ringkas/Detail): Gaji Bersih di atas, lalu bagian yang dibuka satu per satu:
+**Total Pendapatan**, **Pengurangan** (Kasbon, Potongan), **Saldo Awal Bulan** (khusus bulanan), dan **Rincian Harian**. Judul bagian hanya nama + nilai (tanpa teks abu-abu rincian).
+- **Rincian Harian** = tabel *Keterangan | Pemasukan (+) | Pengeluaran (-)* per tanggal, dengan jam masuk s/d pulang (dibaca dari log absensi; periode tertutup tidak membaca absensi, jadi jam tidak tampil).
+  Tiap hari hadir: Upah Jam Kerja, Uang Lembur, Bonus Full Time; Kasbon/Potongan/Tambahan tampil di tanggalnya (Potongan: ubah/hapus; Tambahan: hapus).
+  Upah dan lembur per hari hanyalah **pembagian dari total periode** (aturan B tidak berubah, pembulatan tetap per periode): jumlah harian SELALU sama dengan total (`allocateProportional`, `allocateBlocks` di `payrollReport.js`).
+- **Saldo awal bulan** disimpan bertanda di `payroll_opening_balances.amount`: positif = karyawan berutang ke toko (mengurangi gaji), negatif = toko berutang / kurang bayar (menambah gaji). Formulir memakai **jenis eksplisit**
+  (Toko berutang / Karyawan berutang) + nominal positif, tanpa tanda minus (`openingToForm` / `openingFromForm`); nominal tanpa jenis ditolak. Toko berutang tampil sebagai "Sisa Bulan Lalu (Kurang Bayar)" di **Pendapatan**;
+  karyawan berutang tampil sebagai "Hutang Bulan Lalu (Karyawan)" di **Potongan**. Rumus engine tidak berubah: Gaji Bersih = Total Pendapatan - Total Potongan.
 - Susunan data ada di `payrollReport.js` (dites) dan dipakai tampilan DAN slip PDF, jadi angkanya selalu sama; tidak ada hitungan gaji baru di sana.
-- **Bagikan PDF**: `payslipPdf.js` membuat PDF di perangkat (tanpa library tambahan), dibagikan lewat menu share HP (`src/lib/shareFile.js`; tanpa menu share = diunduh). Pilihan: sertakan rincian harian.
+- **Bagikan PDF**: `payslipPdf.js` membuat slip di perangkat (tanpa library tambahan; format: judul, info 2 kolom, tabel harian opsional, Pendapatan > Total Pendapatan > Potongan > Total Potongan > Gaji Bersih, tanda tangan),
+  dibagikan lewat menu share HP (`src/lib/shareFile.js`; tanpa menu share = diunduh). "Hari Kerja Masuk" ditulis `hadir/jumlah hari periode` (mis. 25/31). Tarif dan posisi diambil dari karyawan (periode tertutup: tarif beku di `rates_json`).

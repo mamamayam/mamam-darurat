@@ -44,6 +44,13 @@ Ini aturan B yang disengaja, bukan bug di port. Kalau mau diubah, ubah di B DAN 
 2. **Masuk 08:31–08:59**: menit sebelum 09:00 tidak dibayar.
 3. **Sisa menit lembur yang tidak genap 30** di akhir periode tidak dibayar (dibulatkan ke bawah).
 
+## Saldo awal bulan (hanya periode bulanan)
+
+Disimpan bertanda: **positif = karyawan berutang ke toko** (mengurangi gaji), **negatif = toko berutang / kurang bayar** (menambah gaji).
+Rumus engine tidak berubah: `Bersih = Total Pendapatan - Potongan - Saldo awal`. Yang diatur di tampilan: toko berutang dicetak sebagai
+"Sisa Bulan Lalu (Kurang Bayar)" di Pendapatan, karyawan berutang sebagai "Hutang Bulan Lalu (Karyawan)" di Potongan, dan formulir meminta
+JENIS lebih dulu (tanpa tanda minus). Lihat `payrollReport.js`.
+
 ## Kalau aturan diubah nanti
 
 1. Ubah dulu di B: `lib/features/hrd/domain/payroll_engine.dart` dan `test/hrd_payroll_engine_test.dart`.

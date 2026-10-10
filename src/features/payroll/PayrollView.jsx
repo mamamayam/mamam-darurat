@@ -14,7 +14,7 @@ import MyPayroll from './MyPayroll';
 import PayrollReport from './PayrollReport';
 import PayslipShareSheet from './PayslipShareSheet';
 import QuickAdjustmentSheet from '../home/QuickAdjustmentSheet';
-import { buildPayrollReport, fmtDay, fmtHM } from './payrollReport';
+import { buildPayrollReport, buildClocks, daysInPeriod, openingToForm, openingFromForm, fmtDay, fmtHM } from './payrollReport';
 import { buildPayslipPdf } from './payslipPdf';
 import { shareOrDownloadFile } from '../../lib/shareFile';
 
@@ -58,7 +58,7 @@ function OwnerPayroll() {
 
   const [selectedId, setSelectedId] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [openingInput, setOpeningInput] = useState('');
+  const [openingForm, setOpeningForm] = useState({ kind: null, amount: '' });   // saldo awal: jenis (toko/karyawan berutang) + nominal positif
   const [editDate, setEditDate] = useState(null);   // tanggal yang sedang dikoreksi (karyawan = selected)
   const [editDeduction, setEditDeduction] = useState(null);   // potongan yang sedang diubah (form Potongan Catat Cepat, mode ubah)
   const [shareOpen, setShareOpen] = useState(false);          // pilihan bagikan slip gaji PDF (periode bulanan)
@@ -103,7 +103,7 @@ function OwnerPayroll() {
   };
   const openDetail = (r) => {
     setSelectedId(r.employee.id);
-    setOpeningInput(String(r.payroll.openingBalance || ''));
+    setOpeningForm(openingToForm(r.payroll.openingBalance));
   };
 
   const handleDeleteItem = (kind, item) => {
@@ -111,8 +111,12 @@ function OwnerPayroll() {
       run(() => (kind === 'tambahan' ? data.deleteAddition(item.id) : data.deleteDeduction(item.id))));
   };
 
-  // Susunan laporan satu karyawan; Saldo awal hanya ada di periode bulanan.
-  const reportOf = (r) => buildPayrollReport(r.payroll, { formatRupiah, withOpening: !!period.monthKey });
+  // Susunan laporan satu karyawan; Saldo awal hanya ada di periode bulanan. Jam masuk/pulang dibaca dari log absensi
+  // (periode tertutup tidak membaca absensi lagi, jadi jam tidak tampil).
+  const reportOf = (r) => buildPayrollReport(r.payroll, {
+    formatRupiah, withOpening: !!period.monthKey, periodDays: daysInPeriod(period),
+    clocks: buildClocks(data.prepared?.logs || [], r.employee.id),
+  });
 
   // Ubah potongan: membuka form Potongan yang sama dengan Catat Cepat (Beranda), terisi data potongan.
   const handleEditDeduction = (it) => run(async () => {
@@ -127,7 +131,7 @@ function OwnerPayroll() {
   const handleSharePdf = async ({ withDays }) => {
     try {
       const report = reportOf(selected);
-      const bytes = buildPayslipPdf({ employeeName: selected.employee.name, periodLabel: label, report, withDays, formatRupiah });
+      const bytes = buildPayslipPdf({ employeeName: selected.employee.name, role: selected.employee.role, periodLabel: label, rates: selected.rates, report, withDays, formatRupiah });
       const safeName = selected.employee.name.replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '') || 'karyawan';
       const result = await shareOrDownloadFile(bytes, `Slip-Gaji-${safeName}-${period.monthKey || period.start}.pdf`, { title: `Slip Gaji ${selected.employee.name} ${label}` });
       if (result === 'downloaded') triggerAlert('PDF tersimpan di perangkat ini (menu share tidak tersedia).');
@@ -139,7 +143,7 @@ function OwnerPayroll() {
   };
 
   const handleSaveOpening = () => run(async () => {
-    await data.setOpeningBalance(selected.employee.id, openingInput === '' ? 0 : Number(openingInput));
+    await data.setOpeningBalance(selected.employee.id, openingFromForm(openingForm));   // toko berutang = negatif, karyawan berutang = positif
     triggerAlert('Saldo awal disimpan.');
   });
 
@@ -255,7 +259,7 @@ function OwnerPayroll() {
               )}
               dayFlags={(date) => dayFlags(selected.employee.id, date)}
               onEditDay={setEditDate} onEditDeduction={handleEditDeduction} onDeleteItem={handleDeleteItem}
-              canEditOpening={!!period.monthKey && !isLocked} openingInput={openingInput} onOpeningChange={setOpeningInput} onSaveOpening={handleSaveOpening}
+              canEditOpening={!!period.monthKey && !isLocked} openingForm={openingForm} onOpeningChange={setOpeningForm} onSaveOpening={handleSaveOpening}
               busy={busy} onShare={() => setShareOpen(true)}
             />
           </div>
