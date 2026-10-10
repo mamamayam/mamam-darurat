@@ -17,11 +17,16 @@ import { PAYMENT_METHODS } from './quickEntryMath';
  *  - Tambah: owner langsung disetujui; staf = pengajuan, menunggu persetujuan owner.
  *  - Potongan: langsung dicatat, sekaligus jadi pengeluaran karyawan; tunai mengurangi Dompet.
  *
+ * Mode UBAH (prop `editing`, dipakai Penggajian untuk mengubah Potongan): form yang SAMA, terisi data
+ * potongan, karyawan dikunci, jenis dikunci (Potongan). `editing = { item, onSave(id, form) }`;
+ * `item` = { id, employeeId, employeeName, category, label, amount, date, paymentMethod }.
+ * `paymentMethod` null = potongan lama tanpa pengeluaran terhubung (Sumber Dana disembunyikan).
+ *
  * Sheet memakai Modal bersama: tombol Back HP menutupnya dan bisa di-swipe turun.
  */
 const emptyForm = (type) => ({ type, label: '', amount: '', date: toLocalDateString(), category: '' });   // category '' = pilihan pertama
 
-export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, canApprove }) {
+export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, canApprove, editing = null }) {
   const { triggerAlert, triggerConfirm } = useAppContext();
   const cats = usePayrollCategories();
   const firstCat = (type) => (cats.categories[type] || [])[0] || '';
@@ -36,9 +41,15 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
   // Tiap dibuka: form bersih sesuai tile yang ditekan. "Dicatat oleh" mengingat pilihan terakhir.
   useEffect(() => {
     if (!isOpen) return;
+    if (editing) {
+      const it = editing.item;
+      setForm({ type: 'potongan', label: it.label === it.category ? '' : it.label, amount: String(it.amount), date: it.date, category: it.category });
+      setEmployeeId(it.employeeId); setPaymentMethod(it.paymentMethod || 'Tunai'); setRequestedBy('');
+      return;
+    }
     setForm(emptyForm(kind)); setEmployeeId(''); setPaymentMethod('Tunai');
     setRequestedBy(quick.lastRequester.current || '');
-  }, [isOpen, kind]); // eslint-disable-line react-hooks/exhaustive-deps -- reset hanya saat dibuka
+  }, [isOpen, kind, editing?.item.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reset hanya saat dibuka
 
   const run = async (fn) => {
     if (busy) return;
@@ -50,9 +61,16 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
   const category = form.category || firstCat(form.type);
   const isAddition = form.type === 'tambahan';
   const needsApproval = isAddition && !canApprove;
+  // Sumber Dana tidak relevan untuk Tambahan, dan untuk potongan lama yang tidak punya pengeluaran terhubung.
+  const hideSource = isAddition || (!!editing && !editing.item.paymentMethod);
 
   const handleSubmit = () => run(async () => {
     const f = { employeeId, category, label: form.label, amount: form.amount, date: form.date, requestedBy, paymentMethod };
+    if (editing) {
+      await editing.onSave(editing.item.id, f);
+      onClose();
+      return;
+    }
     if (isAddition) {
       const status = await quick.submitAddition(f);
       onClose();
@@ -69,19 +87,20 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight title={isAddition ? 'Catat Tambahan' : 'Catat Potongan'}>
+      <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight title={editing ? 'Ubah Potongan' : isAddition ? 'Catat Tambahan' : 'Catat Potongan'}>
         <div className="p-5 pt-2 space-y-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          <Select label="Karyawan" value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
-            <option value="">Pilih karyawan</option>
-            {quick.employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+          <Select label="Karyawan" value={employeeId} onChange={e => setEmployeeId(e.target.value)} disabled={!!editing}>
+            {editing
+              ? <option value={editing.item.employeeId}>{editing.item.employeeName}</option>
+              : <><option value="">Pilih karyawan</option>{quick.employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}</>}
           </Select>
 
-          <AdjustmentFields form={{ ...form, category }} onChange={setForm} categories={cats.categories} onManage={() => setCatModalOpen(true)} />
+          <AdjustmentFields form={{ ...form, category }} onChange={setForm} categories={cats.categories} onManage={() => setCatModalOpen(true)} lockType={!!editing} />
 
           {/* Slot tetap: Sumber Dana (Potongan) / Dicatat oleh (Tambahan dari staf) menempati sel yang
               sama, jadi tinggi formulir sama untuk Tambahan maupun Potongan. */}
           <div className="grid">
-            <div className={`${ghost} space-y-1.5 ${isAddition ? 'invisible pointer-events-none' : ''}`} aria-hidden={isAddition} inert={isAddition}>
+            <div className={`${ghost} space-y-1.5 ${hideSource ? 'invisible pointer-events-none' : ''}`} aria-hidden={hideSource} inert={hideSource}>
               <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Sumber Dana</p>
               <PillTabs value={paymentMethod} onChange={setPaymentMethod}
                 options={PAYMENT_METHODS.map(m => ({ value: m, label: m }))} />
@@ -97,7 +116,7 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
           </div>
 
           <Button size="full" onClick={handleSubmit} disabled={busy}>
-            {busy ? 'Menyimpan...' : needsApproval ? 'Ajukan ke Owner' : isAddition ? 'Simpan Tambahan' : 'Simpan Potongan'}
+            {busy ? 'Menyimpan...' : editing ? 'Simpan Perubahan' : needsApproval ? 'Ajukan ke Owner' : isAddition ? 'Simpan Tambahan' : 'Simpan Potongan'}
           </Button>
         </div>
       </Modal>

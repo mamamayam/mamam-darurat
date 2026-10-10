@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Trash2, Wallet, RefreshCw, Lock, Pencil } from 'lucide-react';
-import { Card, Button, NominalInput, Badge, Modal, EmptyState, PillTabs } from '../../components/ui';
+import { Wallet, RefreshCw, Lock } from 'lucide-react';
+import { Card, Button, Badge, Modal, EmptyState, PillTabs } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { usePayrollData } from '../../hook/usePayrollData';
 import PeriodNav from '../../components/PeriodNav';
@@ -11,25 +11,24 @@ import AttendanceEditSheet from '../attendance/AttendanceEditSheet';
 import { summarizeDay } from '../attendance/dayRules';
 import { useAuth } from '../../auth/AuthContext';
 import MyPayroll from './MyPayroll';
+import PayrollReport from './PayrollReport';
+import PayslipShareSheet from './PayslipShareSheet';
+import QuickAdjustmentSheet from '../home/QuickAdjustmentSheet';
+import { buildPayrollReport, fmtDay, fmtHM } from './payrollReport';
+import { buildPayslipPdf } from './payslipPdf';
+import { shareOrDownloadFile } from '../../lib/shareFile';
 
 /**
  * PayrollView — Penggajian. Semua angka dihitung payrollEngine (aturan sama
  * dengan mamam-kasir) dari absensi yang DIBACA dari sistem absensi. Layar ini
- * menampilkan gaji, rincian tambahan/potongan (hanya baca + hapus), dan mencatat saldo awal.
- * Tambahan & Potongan dicatat HANYA lewat Catat Cepat di Beranda (satu tempat, tanpa formulir ganda).
+ * menampilkan gaji, rincian tambahan/potongan (hapus; Potongan juga bisa DIUBAH), dan mencatat saldo awal.
+ * Tambahan & Potongan dicatat HANYA lewat Catat Cepat di Beranda (satu tempat, tanpa formulir ganda);
+ * mengubah Potongan membuka form Potongan yang sama itu dalam mode ubah (QuickAdjustmentSheet `editing`).
+ * Detail gaji (mingguan DAN bulanan) memakai PayrollReport: bagian yang bisa dibuka + slip PDF.
  */
 
-const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const MON_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-const fmtDay = (iso) => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
 const fmtDayYear = (iso) => `${fmtDay(iso)} ${iso.slice(0, 4)}`;
-const fmtHM = (min) => `${Math.floor(min / 60)}j ${String(min % 60).padStart(2, '0')}m`;
-
-const STATUS_LABEL = { hadir: 'Hadir', libur: 'Libur', belumAbsen: 'Belum absen', belumPulang: 'Belum pulang', perluKlarifikasi: 'Perlu klarifikasi' };
-const STATUS_VARIANT = { hadir: 'success', libur: 'neutral', belumAbsen: 'neutral', belumPulang: 'warning', perluKlarifikasi: 'danger' };
-
-// Potongan berkategori "Kasbon" dipisah jadi baris sendiri di rincian gaji.
-const isKasbon = (d) => String(d.category || '').trim().toLowerCase() === 'kasbon';
 
 const shiftMonth = (key, delta) => {
   const d = new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1 + delta, 1));
@@ -61,6 +60,8 @@ function OwnerPayroll() {
   const [busy, setBusy] = useState(false);
   const [openingInput, setOpeningInput] = useState('');
   const [editDate, setEditDate] = useState(null);   // tanggal yang sedang dikoreksi (karyawan = selected)
+  const [editDeduction, setEditDeduction] = useState(null);   // potongan yang sedang diubah (form Potongan Catat Cepat, mode ubah)
+  const [shareOpen, setShareOpen] = useState(false);          // pilihan bagikan slip gaji PDF (periode bulanan)
 
   const run = async (fn) => {
     if (busy) return;
@@ -108,6 +109,33 @@ function OwnerPayroll() {
   const handleDeleteItem = (kind, item) => {
     triggerConfirm(`Hapus "${item.label}" (${formatRupiah(item.amount)})?`, () =>
       run(() => (kind === 'tambahan' ? data.deleteAddition(item.id) : data.deleteDeduction(item.id))));
+  };
+
+  // Susunan laporan satu karyawan; Saldo awal hanya ada di periode bulanan.
+  const reportOf = (r) => buildPayrollReport(r.payroll, { formatRupiah, withOpening: !!period.monthKey });
+
+  // Ubah potongan: membuka form Potongan yang sama dengan Catat Cepat (Beranda), terisi data potongan.
+  const handleEditDeduction = (it) => run(async () => {
+    const paymentMethod = await data.getDeductionPayment(it.id);   // null = potongan lama tanpa pengeluaran terhubung
+    setEditDeduction({
+      item: { id: it.id, employeeId: it.employeeId, employeeName: selected.employee.name, category: it.category, label: it.label, amount: it.amount, date: it.date, paymentMethod },
+      onSave: data.updateDeduction,
+    });
+  });
+
+  // Slip gaji PDF dibuat di perangkat, lalu dibagikan lewat menu share (atau diunduh kalau tidak ada menu share).
+  const handleSharePdf = async ({ withDays }) => {
+    try {
+      const report = reportOf(selected);
+      const bytes = buildPayslipPdf({ employeeName: selected.employee.name, periodLabel: label, report, withDays, formatRupiah });
+      const safeName = selected.employee.name.replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '') || 'karyawan';
+      const result = await shareOrDownloadFile(bytes, `Slip-Gaji-${safeName}-${period.monthKey || period.start}.pdf`, { title: `Slip Gaji ${selected.employee.name} ${label}` });
+      if (result === 'downloaded') triggerAlert('PDF tersimpan di perangkat ini (menu share tidak tersedia).');
+      return result;
+    } catch (e) {
+      triggerAlert(e.message || 'Gagal membuat PDF.');
+      return 'error';
+    }
   };
 
   const handleSaveOpening = () => run(async () => {
@@ -207,25 +235,13 @@ function OwnerPayroll() {
         )}
       </div>
 
-      <Modal isOpen={!!selected} onClose={() => setSelectedId(null)} sheet size="lg" maxHeight title={selected ? selected.employee.name : ''}>
-        {selected && (() => {
-          const p = selected.payroll, a = p.attendance;
-          const kasbonTotal = p.deductions.filter(isKasbon).reduce((sum, d) => sum + d.amount, 0);
-          return (
-            <div className="p-5 space-y-5 text-sm">
-              <div className="space-y-1.5">
-                <Row k={`Upah (${fmtHM(a.totalWorkedMinutes)})`} v={a.wagePay} f={formatRupiah} />
-                <Row k={`Lembur (${a.totalOvertimeMinutes} mnt → ${a.overtimeBlocks30Min} blok × ${formatRupiah(a.overtimeRate)})`} v={a.overtimePay} f={formatRupiah} />
-                <Row k={`Bonus Full Time (${a.fullTimeDays} hari)`} v={a.fullTimeBonusPay} f={formatRupiah} />
-                <Row k="Tambahan" v={p.additionsTotal} f={formatRupiah} />
-                <div className="flex justify-between font-bold pt-2 border-t border-slate-200 dark:border-slate-700" data-testid="total-pendapatan"><span>Total Pendapatan</span><span>{formatRupiah(p.totalPenghasilan ?? (a.wagePay + a.overtimePay + a.fullTimeBonusPay + p.additionsTotal))}</span></div>
-                <Row k="Kasbon" v={-kasbonTotal} f={formatRupiah} />
-                <Row k="Potongan" v={-(p.deductionsTotal - kasbonTotal)} f={formatRupiah} />
-                {period.monthKey && <Row k="Saldo awal" v={-p.openingBalance} f={formatRupiah} />}
-                <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200 dark:border-slate-700"><span>Gaji Bersih</span><span className={p.netPay < 0 ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}>{formatRupiah(p.netPay)}</span></div>
-              </div>
-
-              {selected.needsClarification.length > 0 && (
+      <Modal isOpen={!!selected} onClose={() => { setSelectedId(null); setShareOpen(false); setEditDeduction(null); }} sheet size="lg" maxHeight title={selected ? selected.employee.name : ''}>
+        {selected && (
+          <div className="p-5 text-sm">
+            <PayrollReport
+              report={reportOf(selected)}
+              isLocked={isLocked} formatRupiah={formatRupiah}
+              notice={selected.needsClarification.length > 0 && (
                 <div className="rounded-xl bg-red-50 dark:bg-red-500/10 p-3 space-y-2" data-testid="klarifikasi-box">
                   <p className="text-xs font-bold text-red-600 dark:text-red-400">Perlu klarifikasi — hari ini belum dibayar sampai diputuskan:</p>
                   {selected.needsClarification.map(d => (
@@ -237,55 +253,13 @@ function OwnerPayroll() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">Bolong tanpa masuk-lagi otomatis jadi jam pulang setelah jam 21:00. Kalau sudah ada jam pulang padahal bolong belum kembali, harus diputuskan lewat Selesaikan.</p>
                 </div>
               )}
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Rincian Harian</p>
-                {a.dayRows.length === 0 ? <p className="text-xs text-slate-400">Tidak ada absensi pada periode ini.</p> : (
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {a.dayRows.map(d => (
-                      <div key={d.date} className="py-2 flex justify-between items-center gap-2 text-xs" data-testid="day-row">
-                        <div className="min-w-0"><span className="font-bold text-slate-700 dark:text-slate-200">{fmtDay(d.date)}</span> <Badge size="sm" variant={STATUS_VARIANT[d.status]}>{STATUS_LABEL[d.status]}</Badge>
-                          {d.effectiveFromBolong && <span className="text-xs text-amber-600 ml-1">bolong dianggap pulang</span>}
-                          {dayFlags(selected.employee.id, d.date).auto && <span className="text-xs text-slate-400 ml-1">otomatis</span>}
-                          {dayFlags(selected.employee.id, d.date).edited && <span className="text-xs text-sky-600 ml-1">diedit</span>}</div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                        {d.status === 'hadir' && <div className="text-right text-slate-500 dark:text-slate-400 shrink-0">{fmtHM(d.workedMinutes)}{d.overtimeMinutes > 0 && ` · lembur ${d.overtimeMinutes}m`}{d.bolongMinutes > 0 && ` · bolong ${d.bolongMinutes}m`}{d.fullTimeBonus && ' · FT'}</div>}
-                        {!isLocked && <button type="button" aria-label={`Edit absen ${fmtDay(d.date)}`} data-testid="edit-day" onClick={() => setEditDate(d.date)} className="p-1 text-slate-400 hover:text-accent-600"><Pencil className="w-3.5 h-3.5" /></button>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Tambahan & Potongan</p>
-                {p.additions.length + p.deductions.length === 0 && <p className="text-xs text-slate-400">Belum ada tambahan atau potongan pada periode ini.</p>}
-                {[...p.additions.map(x => ['tambahan', x]), ...p.deductions.map(x => ['potongan', x])].map(([kind, it]) => (
-                  <div key={kind + it.id} className="flex justify-between items-center gap-2 bg-slate-50 dark:bg-slate-950 rounded-xl p-2.5 text-xs" data-testid="adj-row">
-                    <div className="min-w-0"><Badge size="sm" variant={kind === 'tambahan' ? 'success' : 'danger'}>{it.category}</Badge> <span className="font-semibold">{it.label}</span> <span className="text-slate-400">{fmtDay(it.date)}</span></div>
-                    <div className="flex items-center gap-1.5 shrink-0"><span className={`font-bold ${kind === 'tambahan' ? 'text-emerald-600' : 'text-red-500'}`}>{kind === 'tambahan' ? '+' : '-'}{formatRupiah(it.amount)}</span>
-                      {!isLocked && <button aria-label="Hapus" onClick={() => handleDeleteItem(kind, it)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>}</div>
-                  </div>
-                ))}
-                {isLocked && (
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 shrink-0" /> Periode ditutup, jadi tambahan dan potongan tidak bisa diubah.</p>
-                )}
-              </div>
-
-              {period.monthKey && !isLocked && (
-                <div className="space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bulan</p>
-                  <p className="text-xs text-slate-400">Positif = karyawan berutang ke toko (mengurangi gaji). Negatif = toko berutang (menambah gaji). Kosong/0 = tidak ada.</p>
-                  <div className="flex gap-2">
-                    <div className="flex-1"><NominalInput title="Saldo Awal Bulan" allowNegative placeholder="0" value={openingInput} onChange={e => setOpeningInput(e.target.value)} /></div>
-                    <Button variant="secondary" onClick={handleSaveOpening} disabled={busy}>Simpan</Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+              dayFlags={(date) => dayFlags(selected.employee.id, date)}
+              onEditDay={setEditDate} onEditDeduction={handleEditDeduction} onDeleteItem={handleDeleteItem}
+              canEditOpening={!!period.monthKey && !isLocked} openingInput={openingInput} onOpeningChange={setOpeningInput} onSaveOpening={handleSaveOpening}
+              busy={busy} onShare={() => setShareOpen(true)}
+            />
+          </div>
+        )}
       </Modal>
 
       {selected && editDate && (
@@ -295,10 +269,13 @@ function OwnerPayroll() {
           hasOverride={data.overrideKeys.has(`${selected.employee.id}|${editDate}`)} onSaved={data.reload}
         />
       )}
+
+      {selected && editDeduction && (
+        <QuickAdjustmentSheet isOpen kind="potongan" canApprove editing={editDeduction} onClose={() => setEditDeduction(null)} />
+      )}
+
+      <PayslipShareSheet isOpen={!!selected && shareOpen} onClose={() => setShareOpen(false)} onShare={handleSharePdf}
+        employeeName={selected?.employee.name} periodLabel={label} />
     </div>
   );
-}
-
-function Row({ k, v, f }) {
-  return <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400">{k}</span><span className="font-bold text-slate-800 dark:text-slate-100 shrink-0">{f(v)}</span></div>;
 }

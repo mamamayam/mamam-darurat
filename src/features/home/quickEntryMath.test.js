@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  validateAdjustment, adjustmentLabel, newAdditionRow, deductionRpcArgs, summarizeTodayExpenses,
+  validateAdjustment, adjustmentLabel, newAdditionRow, deductionRpcArgs, deductionUpdateArgs, summarizeTodayExpenses,
   mapAdditionRow, mapDeductionRow, mapExpenseRow, buildFeed, filterFeed, pendingRequests, formatClock, startOfLocalDayISO,
 } from './quickEntryMath.js';
 
@@ -125,5 +125,23 @@ describe('pendingRequests / pemetaan / waktu', () => {
     expect(formatClock(new Date(2026, 9, 8, 7, 5).toISOString())).toBe('07:05');
     expect(new Date(startOfLocalDayISO('2026-10-08')).getHours()).toBe(0);
     expect(new Date(startOfLocalDayISO('2026-10-08')).getDate()).toBe(8);
+  });
+});
+
+describe('deductionUpdateArgs — ubah potongan (form yang sama dengan Catat Cepat)', () => {
+  it('memetakan form ke argumen RPC ubah_potongan', () => {
+    expect(deductionUpdateArgs('d1', form({ category: 'Denda', label: ' Piring pecah ', amount: '25000', paymentMethod: 'Non-Tunai' }))).toEqual({
+      p_deduction_id: 'd1', p_label: 'Piring pecah', p_amount: 25000, p_date: '2026-10-08', p_category: 'Denda', p_payment_method: 'Non-Tunai',
+    });
+  });
+  it('keterangan kosong -> nama kategori; nilai asing jatuh ke Tunai', () => {
+    const a = deductionUpdateArgs('d1', form({ category: 'Kasbon', label: '', paymentMethod: 'Kartu' }));
+    expect(a.p_label).toBe('Kasbon'); expect(a.p_payment_method).toBe('Tunai');
+  });
+  it('tetap divalidasi: nominal, kategori, tanggal; id wajib', () => {
+    expect(() => deductionUpdateArgs('d1', form({ amount: '0' }))).toThrow('Nominal');
+    expect(() => deductionUpdateArgs('d1', form({ category: '' }))).toThrow('kategori');
+    expect(() => deductionUpdateArgs('d1', form({ date: '' }))).toThrow('tanggal');
+    expect(() => deductionUpdateArgs('', form())).toThrow('tidak ditemukan');
   });
 });

@@ -8,6 +8,7 @@ import { employeeGrossCost } from '../features/payroll/payrollCost';
 import { prepareLogs, nowMinutesOf } from '../features/attendance/dayRules';
 import { fetchOverrides } from './attendanceOverrides';
 import { isCountedAddition, countPendingAdditions } from '../features/payroll/additionApproval';
+import { deductionUpdateArgs } from '../features/home/quickEntryMath';
 
 /**
  * usePayrollData — data Penggajian untuk satu periode (mingguan Jumat–Kamis
@@ -24,6 +25,7 @@ import { isCountedAddition, countPendingAdditions } from '../features/payroll/ad
  */
 
 const fail = (error, aksi) => { throw new Error(`${aksi}: ${error.message}`); };
+const MIGRATION_010 = 'Mengubah potongan butuh migrasi baru: jalankan supabase/migrations/010_ubah_potongan.sql di SQL Editor dulu.';
 const day = (v) => String(v).slice(0, 10);
 
 const toEngineEmployee = (e) => ({
@@ -172,6 +174,28 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
     await reload();
   };
 
+  /**
+   * Ubah potongan: RPC ubah_potongan mengubah potongan gaji + pengeluaran karyawannya dalam SATU transaksi
+   * (nominal, tanggal, kategori, keterangan, sumber dana). Periode yang sudah ditutup ditolak oleh database.
+   */
+  const updateDeduction = async (id, form) => {
+    const { error: e } = await supabase.rpc('ubah_potongan', deductionUpdateArgs(id, form));
+    if (e) {
+      if (['PGRST202', '42883'].includes(e.code) || /schema cache|does not exist/i.test(e.message || '')) throw new Error(MIGRATION_010);
+      fail(e, 'Gagal mengubah potongan');
+    }
+    await reload();
+  };
+
+  /** Sumber dana (Tunai/Non-Tunai) pengeluaran yang terhubung ke potongan; null kalau potongan lama tanpa pengeluaran. */
+  const getDeductionPayment = async (id) => {
+    const target = deductions.find(d => d.id === id);
+    if (!target?.expenseId) return null;
+    const { data, error: e } = await supabase.from('expenses').select('payment_method').eq('id', target.expenseId).maybeSingle();
+    if (e) fail(e, 'Gagal membaca sumber dana potongan');
+    return data?.payment_method === 'Non-Tunai' ? 'Non-Tunai' : 'Tunai';
+  };
+
   /** Saldo awal bulan (hanya periode bulanan). Positif = karyawan berutang ke toko. */
   const setOpeningBalance = async (employeeId, amount) => {
     if (!monthKey) throw new Error('Saldo awal hanya untuk periode bulanan.');
@@ -221,6 +245,6 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
   return {
     configured, loading, error, attendance, status, isLocked, closing, closeBlockers, results, totals, employees,
     prepared, overrideKeys: new Set(overrides.map(o => `${o.employeeId}|${o.date}`)),
-    reload, deleteAddition, deleteDeduction, setOpeningBalance, closePeriod, reopenPeriod,
+    reload, deleteAddition, deleteDeduction, updateDeduction, getDeductionPayment, setOpeningBalance, closePeriod, reopenPeriod,
   };
 }

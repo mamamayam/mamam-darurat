@@ -69,7 +69,14 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 - **Potongan = pengeluaran karyawan**: RPC `catat_potongan` (migrasi `009_catat_cepat.sql`) menulis `expenses` (dengan `employee_id`) + `payroll_deductions` dalam satu transaksi.
   Sumber dana Tunai otomatis mengurangi saldo Dompet (rumus Dompet tidak diubah: hanya `payment_method = 'Tunai'`). Menghapus pengeluaran karyawan ikut menghapus potongannya (FK cascade), begitu juga sebaliknya lewat `usePayrollData.deleteDeduction`.
 - **Tambahan & Potongan HANYA dicatat lewat Catat Cepat** (satu tempat). Layar **Penggajian** bersih dari formulir Tambahan/Potongan: hanya menampilkan rincian (+ tombol hapus) dan saldo awal.
+  Potongan juga bisa **diubah** dari Penggajian: tombol pensil membuka form Potongan Catat Cepat yang SAMA (`QuickAdjustmentSheet` prop `editing`; karyawan dan jenis dikunci).
+  RPC `ubah_potongan` (migrasi `010_ubah_potongan.sql`) mengubah potongan + pengeluaran karyawannya dalam satu transaksi (nominal, tanggal, kategori, keterangan, sumber dana). Periode yang sudah ditutup tetap menolak.
   Semua Potongan jadi pengeluaran karyawan, jadi selalu masuk gaji, Laporan pengeluaran, dan Dompet (kalau Tunai).
 - **Kasbon hanya lewat Potongan karyawan**: kategori yang berawalan "Kasbon" tidak ditawarkan di dropdown form Pengeluaran (toko), tapi pengeluaran karyawan hasil Potongan tetap tampil di daftar Pengeluaran
   (badge Karyawan) dan dihitung di Laporan dan Dompet.
 - Staf tidak melihat nominal Tambah/Potongan (izin `karyawan.upah`), hanya nominal toko.
+
+**Laporan Gaji** (`src/features/payroll/PayrollReport.jsx`, periode **Mingguan dan Bulanan** memakai tampilan yang SAMA): Gaji Bersih di atas, lalu tiga bagian yang bisa dibuka satu per satu, TANPA tab Ringkas/Detail:
+**Total Pendapatan**, **Pengurangan** (Kasbon, Potongan; khusus bulanan juga Saldo awal + form Saldo Awal Bulan, tanpa teks penjelasan), dan **Rincian Harian** (absensi per tanggal; Tambahan, Potongan, dan Kasbon tampil di tanggalnya).
+- Susunan data ada di `payrollReport.js` (dites) dan dipakai tampilan DAN slip PDF, jadi angkanya selalu sama; tidak ada hitungan gaji baru di sana.
+- **Bagikan PDF**: `payslipPdf.js` membuat PDF di perangkat (tanpa library tambahan), dibagikan lewat menu share HP (`src/lib/shareFile.js`; tanpa menu share = diunduh). Pilihan: sertakan rincian harian.

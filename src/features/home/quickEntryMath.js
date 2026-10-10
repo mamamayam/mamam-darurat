@@ -64,6 +64,24 @@ export function deductionRpcArgs(form) {
   };
 }
 
+/**
+ * Argumen RPC ubah_potongan (migrasi 010): mengubah potongan gaji + pengeluaran karyawannya
+ * dalam satu transaksi. Aturan isian SAMA dengan catat_potongan (validasi, keterangan, sumber dana).
+ */
+export function deductionUpdateArgs(id, form) {
+  if (!id) throw new Error('Potongan tidak ditemukan.');
+  const amount = validateAdjustment(form);
+  const category = form.category.trim();
+  return {
+    p_deduction_id: id,
+    p_label: adjustmentLabel(form.label, category),
+    p_amount: amount,
+    p_date: form.date,
+    p_category: category,
+    p_payment_method: form.paymentMethod === 'Non-Tunai' ? 'Non-Tunai' : 'Tunai',
+  };
+}
+
 /** Total pengeluaran HARI INI: karyawan (terhubung ke karyawan) vs toko. */
 export function summarizeTodayExpenses(expenses, today) {
   let karyawan = 0; let toko = 0;
