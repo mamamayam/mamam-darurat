@@ -66,7 +66,7 @@ describe('buildPayslipPdf', () => {
 
   it('ringkasan berurutan: Pendapatan > Total Pendapatan > Potongan > Total Potongan > GAJI BERSIH; tanpa rincian harian', () => {
     const s = text();
-    const order = ['PENDAPATAN', 'Upah Dasar \\(27j 14m\\)', 'Uang Lembur \\(125 mnt\\)', 'Total Pendapatan', 'POTONGAN', '(Kasbon)', '(Potongan)', 'Total Potongan', 'GAJI BERSIH'].map((t) => at(s, t.startsWith('(') ? t : `(${t}`));
+    const order = ['PENDAPATAN', 'Upah Dasar \\(27j 14m\\)', 'Uang Lembur \\(4 blok\\)', 'Total Pendapatan', 'POTONGAN', '(Kasbon)', '(Potongan)', 'Total Potongan', 'GAJI BERSIH'].map((t) => at(s, t.startsWith('(') ? t : `(${t}`));
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(s).not.toContain('(Tanggal & Jam)');
     expect(s).not.toContain('(Bonus Full Time (0');   // baris Rp 0 disembunyikan

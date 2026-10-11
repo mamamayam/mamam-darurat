@@ -217,7 +217,7 @@ function OwnerPayroll() {
                         <Badge size="sm" variant="neutral">{a.hadirDays} hari hadir</Badge>
                         {a.liburDays > 0 && <Badge size="sm" variant="neutral">{a.liburDays} libur</Badge>}
                         <Badge size="sm" variant="info">{fmtHM(a.totalWorkedMinutes)}</Badge>
-                        {a.totalOvertimeMinutes > 0 && <Badge size="sm" variant="warning">lembur {a.totalOvertimeMinutes} mnt</Badge>}
+                        {a.overtimeBlocks30Min > 0 && <Badge size="sm" variant="warning">lembur {a.overtimeBlocks30Min} blok</Badge>}
                         {r.needsClarification.length > 0 && <Badge size="sm" variant="danger">perlu klarifikasi</Badge>}
                       </div>
                     </div>

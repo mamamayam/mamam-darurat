@@ -140,7 +140,7 @@ export function buildPayslipPdf({ business = 'Mamam Ayam', employeeName, role, p
   };
   const sec = (title) => { need(LINE * 2); y -= 4; T(title, M, y - 8, 8, { bold: true, color: GRAY }); y -= LINE - 3; };
   const incomeLabel = {
-    upah: `Upah Dasar (${fmtHM(report.workedMinutes)})`, lembur: `Uang Lembur (${report.overtimeMinutes} mnt)`, tambahan: 'Tambahan (+)',
+    upah: `Upah Dasar (${fmtHM(report.workedMinutes)})`, lembur: `Uang Lembur (${report.overtimeBlocks} blok)`, tambahan: 'Tambahan (+)',
   };
 
   sec('PENDAPATAN');

@@ -169,7 +169,7 @@ export function buildPayrollReport(payroll, { formatRupiah, withOpening = true, 
   return {
     income, totalIncome, cuts, totalDeductions, net: payroll.netPay, days,
     withOpening, opening: { kind: opening < 0 ? 'toko' : opening > 0 ? 'karyawan' : null, amount: Math.abs(opening) },
-    periodDays, overtimeRate: a.overtimeRate, overtimeMinutes: a.totalOvertimeMinutes,
+    periodDays, overtimeRate: a.overtimeRate, overtimeMinutes: a.totalOvertimeMinutes, overtimeBlocks: a.overtimeBlocks30Min,
     hadirDays: a.hadirDays, liburDays: a.liburDays, workedMinutes: a.totalWorkedMinutes,
   };
 }
