@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Modal, Button } from '../components/ui';
 import AppRoutes, { VIEWS } from './AppRoutes';
-import { readSavedNav, saveNav } from './navPersist';
+import { readSavedNav, saveNav, clearNav } from './navPersist';
 import BottomSheetMenu from './layout/BottomSheetMenu';
 import Header from './layout/Header';
 import BottomNav from './layout/BottomNav';
@@ -121,6 +121,17 @@ export default function App() {
   }, [viewHistory, currentView]);
 
   useEffect(() => { saveNav(currentView, viewHistory); }, [currentView, viewHistory]);
+
+  // Sesi berakhir (logout, atau sesi habis sehingga PIN diminta lagi): lupakan layar terakhir. Setelah PIN dimasukkan
+  // aplikasi mulai dari Beranda; layar tersimpan hanya untuk refresh di sesi yang masih berlaku.
+  useEffect(() => {
+    if (!ready || role) return;
+    clearNav();
+    setViewHistory([]);
+    setMountedViews(new Set(['beranda']));
+    setNavDirection('forward-root');
+    setCurrentView('beranda');
+  }, [ready, role]);
 
   // --- Tombol Back browser/HP <-> stack navigasi ---
   // Kedalaman stack = jumlah sub-layar, ditambah 1 kalau stack berakar di layar selain

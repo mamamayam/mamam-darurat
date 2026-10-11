@@ -2,7 +2,10 @@
  * navPersist — simpan layar yang sedang dibuka di sessionStorage supaya refresh halaman
  * (tarik-ke-bawah / tombol reload) tetap di layar yang sama, bukan balik ke Beranda.
  * sessionStorage (bukan localStorage): hilang saat tab/aplikasi ditutup, jadi membuka
- * aplikasi baru tetap mulai dari Beranda. Logout menimpanya dengan Beranda.
+ * aplikasi baru tetap mulai dari Beranda.
+ *
+ * Layar tersimpan HANYA berlaku untuk refresh di sesi login yang sama. Begitu sesi berakhir (logout, atau sesi habis
+ * sehingga PIN diminta lagi), layar tersimpan dihapus dan masuk lagi selalu mulai dari Beranda (lihat App.jsx).
  */
 export const NAV_KEY = 'mamam.nav';
 
@@ -18,4 +21,9 @@ export function readSavedNav(isValidView, storage = globalThis.sessionStorage) {
 
 export function saveNav(view, history, storage = globalThis.sessionStorage) {
   try { storage?.setItem(NAV_KEY, JSON.stringify({ view, history })); } catch { /* storage penuh / diblokir: abaikan */ }
+}
+
+/** Hapus layar tersimpan (sesi berakhir): berikutnya aplikasi mulai dari Beranda. */
+export function clearNav(storage = globalThis.sessionStorage) {
+  try { storage?.removeItem(NAV_KEY); } catch { /* abaikan */ }
 }
