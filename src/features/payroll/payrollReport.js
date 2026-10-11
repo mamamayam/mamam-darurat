@@ -53,9 +53,9 @@ export function allocateProportional(total, weights) {
 }
 
 /**
- * Lembur dibayar per blok 30 menit dari TOTAL periode. Tiap hari mendapat blok penuh miliknya sendiri; blok
- * tambahan (hasil menggabung sisa menit antar hari) diberikan ke hari dengan sisa menit terbesar.
- * Jumlah blok hasil SELALU = totalBlocks.
+ * Hanya untuk periode tertutup LAMA (dulu lembur dibulatkan dari TOTAL periode). Tiap hari mendapat blok penuh
+ * miliknya sendiri; blok tambahan (hasil menggabung sisa menit antar hari) diberikan ke hari dengan sisa menit
+ * terbesar. Jumlah blok hasil SELALU = totalBlocks. Periode baru: blok sudah dihitung per hari di engine.
  */
 export function allocateBlocks(totalBlocks, minutes) {
   const out = minutes.map((m) => Math.floor(m / 30));
@@ -136,8 +136,12 @@ export function buildPayrollReport(payroll, { formatRupiah, withOpening = true, 
   // Pembagian upah & lembur per hari hadir
   const hadirRows = a.dayRows.filter((r) => r.status === 'hadir');
   const upah = allocateProportional(a.wagePay, hadirRows.map((r) => r.workedMinutes));
-  const blocks = allocateBlocks(a.overtimeBlocks30Min, hadirRows.map((r) => r.overtimeMinutes));
-  const share = new Map(hadirRows.map((r, i) => [r.date, { upah: upah[i], lembur: blocks[i] * a.overtimeRate }]));
+  // Lembur ditutup per hari (engine mengisi overtimeBlocks tiap hari). Periode tertutup lama (aturan total periode)
+  // tidak punya kolom itu / jumlahnya tidak sama dengan total beku, jadi dibagi seperti dulu.
+  const perDay = hadirRows.map((r) => r.overtimeBlocks);
+  const perDayOk = perDay.every((b) => Number.isInteger(b)) && perDay.reduce((s, b) => s + b, 0) === a.overtimeBlocks30Min;
+  const blocks = perDayOk ? perDay : allocateBlocks(a.overtimeBlocks30Min, hadirRows.map((r) => r.overtimeMinutes));
+  const share = new Map(hadirRows.map((r, i) => [r.date, { upah: upah[i], lembur: blocks[i] * a.overtimeRate, blocks: blocks[i] }]));
   const bonusPerDay = a.fullTimeDays > 0 ? Math.round(a.fullTimeBonusPay / a.fullTimeDays) : 0;
 
   // Catatan Tambahan/Potongan ditaruh di tanggalnya masing-masing. Tanggal tanpa absensi tetap tampil.
@@ -155,7 +159,7 @@ export function buildPayrollReport(payroll, { formatRupiah, withOpening = true, 
     if (row?.status === 'hadir') {
       const s = share.get(date);
       lines.push({ key: 'upah', label: `Upah Jam Kerja (${fmtHM(row.workedMinutes)}${row.bolongMinutes > 0 ? ` · bolong ${row.bolongMinutes}m` : ''})`, plus: s.upah, minus: 0 });
-      if (row.overtimeMinutes > 0) lines.push({ key: 'lembur', label: `Uang Lembur (${row.overtimeMinutes} mnt)`, plus: s.lembur, minus: 0 });
+      if (row.overtimeMinutes > 0) lines.push({ key: 'lembur', label: `Uang Lembur (${s.blocks} blok)`, plus: s.lembur, minus: 0 });
       if (row.fullTimeBonus) lines.push({ key: 'bonus', label: 'Bonus Full Time', plus: bonusPerDay, minus: 0 });
     } else if (row) {
       lines.push({ key: 'status', label: STATUS_LABEL[row.status] || row.status, plus: 0, minus: 0 });

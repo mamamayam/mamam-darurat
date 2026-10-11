@@ -8,9 +8,9 @@ const latin1 = (bytes) => new TextDecoder('latin1').decode(bytes);
 const hadir = (date, workedMinutes, over = {}) => ({ date, status: 'hadir', workedMinutes, overtimeMinutes: 0, bolongMinutes: 0, fullTimeBonus: false, effectiveFromBolong: false, ...over });
 const basePayroll = (over = {}) => ({
   attendance: {
-    dayRows: [hadir('2026-10-05', 559, { overtimeMinutes: 35 }), hadir('2026-10-06', 535, { overtimeMinutes: 50 }), hadir('2026-10-07', 540, { overtimeMinutes: 40 }), { date: '2026-10-09', status: 'libur' }],
-    hadirDays: 3, liburDays: 1, fullTimeDays: 0, totalWorkedMinutes: 1634, totalOvertimeMinutes: 125, overtimeBlocks30Min: 4, overtimeRate: 5000,
-    wagePay: 408500, overtimePay: 20000, fullTimeBonusPay: 0,
+    dayRows: [hadir('2026-10-05', 559, { overtimeMinutes: 35, overtimeBlocks: 1 }), hadir('2026-10-06', 535, { overtimeMinutes: 50, overtimeBlocks: 1 }), hadir('2026-10-07', 540, { overtimeMinutes: 40, overtimeBlocks: 1 }), { date: '2026-10-09', status: 'libur' }],
+    hadirDays: 3, liburDays: 1, fullTimeDays: 0, totalWorkedMinutes: 1634, totalOvertimeMinutes: 125, overtimeBlocks30Min: 3, overtimeRate: 5000,
+    wagePay: 408500, overtimePay: 15000, fullTimeBonusPay: 0,
   },
   additions: [], deductions: [{ id: 'k', employeeId: 'e1', category: 'Kasbon', label: '', amount: 20000, date: '2026-10-08' }, { id: 'p', employeeId: 'e1', category: 'Denda', label: 'Piring pecah', amount: 5000, date: '2026-10-07' }],
   additionsTotal: 0, deductionsTotal: 25000, openingBalance: 0, totalPenghasilan: 428500, netPay: 403500, ...over,
@@ -66,7 +66,7 @@ describe('buildPayslipPdf', () => {
 
   it('ringkasan berurutan: Pendapatan > Total Pendapatan > Potongan > Total Potongan > GAJI BERSIH; tanpa rincian harian', () => {
     const s = text();
-    const order = ['PENDAPATAN', 'Upah Dasar \\(27j 14m\\)', 'Uang Lembur \\(4 blok\\)', 'Total Pendapatan', 'POTONGAN', '(Kasbon)', '(Potongan)', 'Total Potongan', 'GAJI BERSIH'].map((t) => at(s, t.startsWith('(') ? t : `(${t}`));
+    const order = ['PENDAPATAN', 'Upah Dasar \\(27j 14m\\)', 'Uang Lembur \\(3 blok\\)', 'Total Pendapatan', 'POTONGAN', '(Kasbon)', '(Potongan)', 'Total Potongan', 'GAJI BERSIH'].map((t) => at(s, t.startsWith('(') ? t : `(${t}`));
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(s).not.toContain('(Tanggal & Jam)');
     expect(s).not.toContain('(Bonus Full Time (0');   // baris Rp 0 disembunyikan
@@ -93,7 +93,7 @@ describe('buildPayslipPdf', () => {
   it('rincian harian: tabel 4 kolom, tanggal + jam, upah/lembur per hari, kasbon di tanggalnya', () => {
     const s = text({}, { withDays: true });
     for (const t of ['Rincian Pemasukan & Pengeluaran Harian', 'Tanggal & Jam', 'Keterangan', 'Pemasukan (+)', 'Pengeluaran (-)', '2026-10-05', '09:41 s/d 19:35',
-      'Upah Jam Kerja (9j 19m)', 'Rp 139.750', 'Uang Lembur (35 mnt)', 'Rp 5.000', '2026-10-08', 'Libur', '--:-- s/d --:--']) at(s, `(${t.replace(/[()]/g, '\\$&')})`);
+      'Upah Jam Kerja (9j 19m)', 'Rp 139.750', 'Uang Lembur (1 blok)', 'Rp 5.000', '2026-10-08', 'Libur', '--:-- s/d --:--']) at(s, `(${t.replace(/[()]/g, '\\$&')})`);
     expect(s).toContain('(Rp 20.000)');    // kasbon 8 Okt di kolom pengeluaran
     at(s, '(Denda \\(Piring pecah\\))');
   });

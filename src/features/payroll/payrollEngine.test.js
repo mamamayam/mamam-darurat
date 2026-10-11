@@ -107,7 +107,7 @@ describe('computeDayResult — skenario harian (EMP-1001)', () => {
 
 describe('computePayroll — bulanan, 6 karyawan seed (2026-09)', () => {
   const expected = {
-    'EMP-1001': { hadir: 9, wage: 1324250, ot: 25000, ft: 175000, net: 1474250 },
+    'EMP-1001': { hadir: 9, wage: 1324250, ot: 20000, ft: 175000, net: 1469250 },
     'EMP-1002': { hadir: 8, wage: 1116033, ot: 5000, ft: 120000, net: 1291033 },
     'EMP-1003': { hadir: 6, wage: 1200000, ot: 6000, ft: 180000, net: 1236000 },
     'EMP-1004': { hadir: 2, wage: 208000, ot: 0, ft: 0, net: 208000 },
@@ -148,9 +148,9 @@ describe('computePayroll — bulanan, 6 karyawan seed (2026-09)', () => {
     }
     expect(wage).toBe(3848283);
     expect(bonus).toBe(625000);
-    expect(overtime).toBe(36000);
+    expect(overtime).toBe(31000);
     expect(deductions).toBe(350000);
-    expect(wage + bonus + overtime).toBe(4509283);
+    expect(wage + bonus + overtime).toBe(4504283);
   });
 });
 
@@ -173,15 +173,29 @@ describe('roundedWage & tambahan', () => {
     expect(roundedWage(1, 15000)).toBe(250);
     expect(roundedWage(599, 15000)).toBe(149750);
   });
-  it('lembur dibulatkan ke bawah pada TOTAL periode, bukan per hari', () => {
-    // 3 hari x 20 menit lembur: per hari 0 blok, tapi total 60 menit = 2 blok
+  it('lembur ditutup PER HARI: sisa menit hari itu hangus, tidak dibawa ke hari lain', () => {
+    // 3 hari masing-masing pulang 19:50 = 50 menit lembur: per hari 1 blok (sisa 20 menit hangus).
+    // Total periode 150 menit TIDAK menjadi 5 blok; hasilnya 3 blok.
     const logs = ['2026-09-01', '2026-09-02', '2026-09-03'].flatMap((d) => [
       { id: d + 'a', employeeId: 'EMP-1001', date: d, type: 'masuk', time: '08:40' },      // masuk 08:40 -> tidak lembur pagi
-      { id: d + 'b', employeeId: 'EMP-1001', date: d, type: 'pulang', time: '19:30' },     // pulang 19:30 -> 30 menit lembur
+      { id: d + 'b', employeeId: 'EMP-1001', date: d, type: 'pulang', time: '19:50' },     // pulang 19:50 -> 50 menit lembur
     ]);
     const a = computeAttendance(E, logs, monthPeriod('2026-09'), '2026-09-30');
-    expect(a.totalOvertimeMinutes).toBe(90);
+    expect(a.totalOvertimeMinutes).toBe(150);
     expect(a.overtimeBlocks30Min).toBe(3);
+    expect(a.dayRows.map((r) => r.overtimeBlocks)).toEqual([1, 1, 1]);
+    expect(a.overtimePay).toBe(3 * 5000);
+  });
+  it('lembur 55 menit = 1 blok; hari lain yang belum genap 30 menit tidak digabung', () => {
+    const logs = [
+      { id: '1a', employeeId: 'EMP-1001', date: '2026-09-01', type: 'masuk', time: '08:05' },    // pagi 55 menit
+      { id: '1b', employeeId: 'EMP-1001', date: '2026-09-01', type: 'pulang', time: '18:00' },
+      { id: '2a', employeeId: 'EMP-1001', date: '2026-09-02', type: 'masuk', time: '09:00' },
+      { id: '2b', employeeId: 'EMP-1001', date: '2026-09-02', type: 'pulang', time: '19:25' },   // 19:25 -> tidak lembur
+    ];
+    const a = computeAttendance(E, logs, monthPeriod('2026-09'), '2026-09-30');
+    expect(a.dayRows.map((r) => [r.overtimeMinutes, r.overtimeBlocks])).toEqual([[55, 1], [0, 0]]);
+    expect(a.overtimeBlocks30Min).toBe(1);
   });
   it('tarif lembur 0/kosong memakai bawaan 5.000', () => {
     const a = computeAttendance({ ...E, overtimeRatePer30Min: 0 }, [

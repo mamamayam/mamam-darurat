@@ -164,9 +164,9 @@ describe('buildPayrollReport — baris harian', () => {
   it('hari hadir: upah, lembur, bonus; libur: status; catatan di tanggalnya (kolom + / -)', () => {
     const r = buildPayrollReport(payroll({
       attendance: attendance({
-        dayRows: [hadir('2026-10-05', 559, { overtimeMinutes: 35 }), hadir('2026-10-06', 535, { overtimeMinutes: 50, bolongMinutes: 15 }), hadir('2026-10-07', 540, { overtimeMinutes: 40, fullTimeBonus: true }), { date: '2026-10-09', status: 'libur' }],
-        hadirDays: 3, liburDays: 1, fullTimeDays: 1, totalWorkedMinutes: 1634, totalOvertimeMinutes: 125, overtimeBlocks30Min: 4,
-        wagePay: 408500, overtimePay: 20000, fullTimeBonusPay: 25000,
+        dayRows: [hadir('2026-10-05', 559, { overtimeMinutes: 35, overtimeBlocks: 1 }), hadir('2026-10-06', 535, { overtimeMinutes: 50, overtimeBlocks: 1, bolongMinutes: 15 }), hadir('2026-10-07', 540, { overtimeMinutes: 40, overtimeBlocks: 1, fullTimeBonus: true }), { date: '2026-10-09', status: 'libur' }],
+        hadirDays: 3, liburDays: 1, fullTimeDays: 1, totalWorkedMinutes: 1634, totalOvertimeMinutes: 125, overtimeBlocks30Min: 3,
+        wagePay: 408500, overtimePay: 15000, fullTimeBonusPay: 25000,
       }),
       additions: [{ id: 't', category: 'Bonus', label: 'THR', amount: 50000, date: '2026-10-05' }],
       deductions: [{ id: 'k', category: 'Kasbon', label: '', amount: 20000, date: '2026-10-08', expenseId: 'x1', employeeId: 'e1' }],
@@ -176,7 +176,7 @@ describe('buildPayrollReport — baris harian', () => {
     const d5 = r.days[0], d6 = r.days[1], d7 = r.days[2], d8 = r.days[3], d9 = r.days[4];
     expect(d5.lines.map((l) => [l.key, l.plus, l.minus])).toEqual([['upah', 139750, 0], ['lembur', 5000, 0], ['tambahan-t', 50000, 0]]);
     expect(d6.lines[0].label).toBe('Upah Jam Kerja (8j 55m · bolong 15m)');
-    expect(d6.lines[1]).toMatchObject({ key: 'lembur', label: 'Uang Lembur (50 mnt)', plus: 10000 });   // blok sisa jatuh ke hari ini
+    expect(d6.lines[1]).toMatchObject({ key: 'lembur', label: 'Uang Lembur (1 blok)', plus: 5000 });   // 50 menit = 1 blok, sisa 20 menit hangus
     expect(d7.lines.map((l) => [l.key, l.plus])).toEqual([['upah', 135000], ['lembur', 5000], ['bonus', 25000]]);
     expect(d8.row).toBeNull();                                      // tanpa absensi tapi ada kasbon
     expect(d8.lines).toEqual([{ key: 'potongan-k', label: 'Kasbon', plus: 0, minus: 20000, item: expect.objectContaining({ id: 'k', expenseId: 'x1', employeeId: 'e1', date: '2026-10-08' }) }]);

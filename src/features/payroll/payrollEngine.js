@@ -186,22 +186,24 @@ export function computeAttendance(employee, allLogs, period, today) {
   }
   const dates = [...byDate.keys()].sort();
 
-  let totalWorkedMinutes = 0, totalOvertimeMinutes = 0, fullTimeDays = 0, hadirDays = 0, liburDays = 0;
+  let totalWorkedMinutes = 0, totalOvertimeMinutes = 0, overtimeBlocks30Min = 0, fullTimeDays = 0, hadirDays = 0, liburDays = 0;
   const dayRows = [];
   for (const date of dates) {
     const r = computeDayResult(byDate.get(date), employee, date, today);
+    // Lembur ditutup PER HARI: sisa menit yang tidak genap 30 pada hari itu hangus, tidak dibawa ke hari lain.
+    const dayBlocks = r.status === 'hadir' ? Math.floor((r.overtimeMinutes || 0) / 30) : 0;
     if (r.status === 'hadir') {
       hadirDays++;
       totalWorkedMinutes += r.workedMinutes;
       totalOvertimeMinutes += r.overtimeMinutes;
+      overtimeBlocks30Min += dayBlocks;
       if (r.fullTimeBonus) fullTimeDays++;
     } else if (r.status === 'libur') {
       liburDays++;
     }
-    dayRows.push({ date, ...r });
+    dayRows.push({ date, ...r, overtimeBlocks: dayBlocks });
   }
 
-  const overtimeBlocks30Min = Math.floor(totalOvertimeMinutes / 30);   // dibulatkan ke bawah, per aturan
   const overtimeRate = employee.overtimeRatePer30Min > 0 ? employee.overtimeRatePer30Min : DEFAULT_OVERTIME_RATE_PER_30MIN;
 
   return {

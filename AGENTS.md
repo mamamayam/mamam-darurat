@@ -87,7 +87,8 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 **Total Pendapatan**, **Pengurangan** (Kasbon, Potongan), **Saldo Awal Bulan** (khusus bulanan), dan **Rincian Harian**. Judul bagian hanya nama + nilai (tanpa teks abu-abu rincian).
 - **Rincian Harian** = tabel *Keterangan | Pemasukan (+) | Pengeluaran (-)* per tanggal, dengan jam masuk s/d pulang (dibaca dari log absensi; periode tertutup tidak membaca absensi, jadi jam tidak tampil).
   Tiap hari hadir: Upah Jam Kerja, Uang Lembur, Bonus Full Time; Kasbon/Potongan/Tambahan tampil di tanggalnya (Potongan: ubah/hapus; Tambahan: hapus).
-  Upah dan lembur per hari hanyalah **pembagian dari total periode** (aturan B tidak berubah, pembulatan tetap per periode): jumlah harian SELALU sama dengan total (`allocateProportional`, `allocateBlocks` di `payrollReport.js`).
+  **Lembur ditutup PER HARI** (keputusan pemilik): blok = floor(menit lembur hari itu / 30), sisa menit hari itu hangus dan tidak dibawa ke hari lain (`overtimeBlocks` per hari di `payrollEngine.js`; Rincian Harian menampilkan blok hari itu).
+  Upah per hari hanyalah **pembagian dari total periode** (pembulatan tetap per periode, `allocateProportional` di `payrollReport.js`). `allocateBlocks` hanya dipakai untuk periode tertutup lama yang dibekukan dengan aturan total periode.
 - **Saldo awal bulan** disimpan bertanda di `payroll_opening_balances.amount`: positif = karyawan berutang ke toko (mengurangi gaji), negatif = toko berutang / kurang bayar (menambah gaji). Formulir memakai **jenis eksplisit**
   (Toko berutang / Karyawan berutang) + nominal positif, tanpa tanda minus (`openingToForm` / `openingFromForm`); nominal tanpa jenis ditolak. Toko berutang tampil sebagai "Sisa Bulan Lalu (Kurang Bayar)" di **Pendapatan**;
   karyawan berutang tampil sebagai "Hutang Bulan Lalu (Karyawan)" di **Potongan**. Rumus engine tidak berubah: Gaji Bersih = Total Pendapatan - Total Potongan.

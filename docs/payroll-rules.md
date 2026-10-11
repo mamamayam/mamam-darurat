@@ -13,7 +13,9 @@ Tes patokan: `payrollEngine.test.js` (nilainya sama dengan tes B; fixture dibuat
 - Jam toko tetap 09:00–19:00.
 - Lembur pagi hanya kalau masuk <= 08:30 (dihitung dari masuk sampai 09:00).
 - Lembur sore hanya kalau pulang >= 19:30 (dihitung dari 19:00 sampai jam pulang).
-- Uang lembur = floor(TOTAL menit lembur dalam periode / 30) x tarif per 30 menit.
+- Uang lembur ditutup **PER HARI**: blok hari itu = floor(menit lembur hari itu / 30), uang lembur = jumlah blok semua hari x tarif per 30 menit.
+  Sisa menit yang tidak genap 30 pada suatu hari hangus dan **tidak dibawa** ke hari lain (55 menit = 1 blok; 25 menit di hari lain = 0 blok).
+  **Diubah oleh pemilik (11 Okt 2026) di C (mamam-pos); B (mamam-kasir) masih memakai total periode dan harus disamakan.**
 - Upah hanya untuk menit di dalam 09:00–19:00, dibulatkan dari menit persis.
 - Jam bolong dikurangi, hanya bagian di dalam jam toko.
 - Bonus Full Time: masuk <= 09:00 dan pulang >= 19:00.
@@ -42,7 +44,7 @@ Ini aturan B yang disengaja, bukan bug di port. Kalau mau diubah, ubah di B DAN 
 1. **Pulang 19:00–19:29**: menit di luar jam toko tidak dibayar sama sekali. Pulang 19:29 = Rp 0 untuk menit
    tambahan, pulang 19:30 = lembur 30 menit dibayar (ada "tebing").
 2. **Masuk 08:31–08:59**: menit sebelum 09:00 tidak dibayar.
-3. **Sisa menit lembur yang tidak genap 30** di akhir periode tidak dibayar (dibulatkan ke bawah).
+3. **Sisa menit lembur yang tidak genap 30** pada suatu hari tidak dibayar dan tidak digabung dengan hari lain (dibulatkan ke bawah per hari).
 
 ## Saldo awal bulan (hanya periode bulanan)
 
