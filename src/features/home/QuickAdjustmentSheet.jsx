@@ -65,7 +65,7 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
   const hideSource = isAddition || (!!editing && !editing.item.paymentMethod);
 
   const handleSubmit = () => run(async () => {
-    const f = { employeeId, category, label: form.label, amount: form.amount, date: form.date, requestedBy, paymentMethod };
+    const f = { employeeId, category, label: form.label, amount: form.amount, date: form.date, requestedBy, paymentMethod, detail: isAddition ? form.detail : null };
     if (editing) {
       await editing.onSave(editing.item.id, f);
       onClose();

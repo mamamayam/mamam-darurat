@@ -145,3 +145,42 @@ describe('deductionUpdateArgs — ubah potongan (form yang sama dengan Catat Cep
     expect(() => deductionUpdateArgs('', form())).toThrow('tidak ditemukan');
   });
 });
+
+describe('newAdditionRow — rincian Ongkir / Potong Ayam', () => {
+  const ongkir = { kind: 'ongkir', rows: [{ customer: 'Pak Hendra', amount: '5000' }, { customer: 'Bu Rina', amount: '4000' }] };
+  const potong = { kind: 'potong_ayam', rows: [{ type: 'Bld', name: '', qty: '10', price: '3000' }, { type: 'Lainnya', name: 'Kepala ayam', qty: '2', price: '4500' }] };
+
+  it('nominal = total rincian (nominal ketikan diabaikan), keterangan kosong = ringkasan, rincian ikut disimpan', () => {
+    const r = newAdditionRow(form({ amount: '999', detail: ongkir }), { canApprove: true, nowISO: NOW });
+    expect(r.amount).toBe(9000);
+    expect(r.label).toBe('Ongkir (2 customer)');
+    expect(r.detail).toEqual({ kind: 'ongkir', rows: [{ customer: 'Pak Hendra', amount: 5000 }, { customer: 'Bu Rina', amount: 4000 }] });
+    const p = newAdditionRow(form({ category: 'Potong Ayam', amount: '', detail: potong }), { canApprove: false, nowISO: NOW });
+    expect(p.amount).toBe(39000);
+    expect(p.label).toBe('Potong Ayam (12 potong)');
+    expect(p.detail.rows[1]).toEqual({ name: 'Kepala ayam', qty: 2, price: 4500 });
+    expect(p.status).toBe('menunggu');
+  });
+
+  it('keterangan yang diisi sendiri tetap dipakai', () => {
+    expect(newAdditionRow(form({ label: ' Sabtu ramai ', detail: ongkir }), { canApprove: true, nowISO: NOW }).label).toBe('Sabtu ramai');
+  });
+
+  it('tanpa rincian: baris persis seperti dulu (tidak ada kolom detail, aman sebelum migrasi 012)', () => {
+    const r = newAdditionRow(form(), { canApprove: true, nowISO: NOW });
+    expect('detail' in r).toBe(false);
+    expect(newAdditionRow(form({ detail: null }), { canApprove: true, nowISO: NOW }).amount).toBe(15000);
+  });
+
+  it('rincian salah / tidak cocok kategori ditolak dengan pesan jelas', () => {
+    expect(() => newAdditionRow(form({ detail: { kind: 'ongkir', rows: [{ customer: '', amount: '5000' }] } }), { canApprove: true, nowISO: NOW })).toThrow('isi nama customer');
+    expect(() => newAdditionRow(form({ category: 'Bonus', detail: ongkir }), { canApprove: true, nowISO: NOW })).toThrow('tidak cocok');
+  });
+
+  it('mapAdditionRow membaca kolom detail dengan aman', () => {
+    const base = { id: 'a', employee_id: 'e1', category: 'Ongkir', label: 'x', amount: 9000, date: '2026-10-08' };
+    expect(mapAdditionRow({ ...base, detail: { kind: 'ongkir', rows: [{ customer: 'A', amount: 9000 }] } }).detail.rows).toHaveLength(1);
+    expect(mapAdditionRow(base).detail).toBeNull();
+    expect(mapAdditionRow({ ...base, detail: 'rusak' }).detail).toBeNull();
+  });
+});

@@ -113,3 +113,46 @@ describe('buildPayslipPdf', () => {
     at(s, `(Hal. ${pages}/${pages})`);
   });
 });
+
+describe('lampiran rincian Ongkir / Potong Ayam', () => {
+  const adds = [
+    { id: 'o1', employeeId: 'e1', category: 'Ongkir', label: 'Ongkir (2 customer)', amount: 9000, date: '2026-10-06', detail: { kind: 'ongkir', rows: [{ customer: 'Pak Hendra', amount: 5000 }, { customer: 'Bu Rina', amount: 4000 }] } },
+    { id: 'o2', employeeId: 'e1', category: 'Ongkir', label: 'Ongkir (1 customer)', amount: 6000, date: '2026-10-08', detail: { kind: 'ongkir', rows: [{ customer: 'Mas Dani', amount: 6000 }] } },
+    { id: 'p1', employeeId: 'e1', category: 'Potong Ayam', label: 'Potong Ayam (16 potong)', amount: 51000, date: '2026-10-07', detail: { kind: 'potong_ayam', rows: [{ name: 'Bld', qty: 10, price: 3000 }, { name: 'Sayap', qty: 4, price: 3000 }, { name: 'Kepala ayam', qty: 2, price: 4500 }] } },
+  ];
+  const over = { additions: adds, additionsTotal: 66000, totalPenghasilan: 494500, netPay: 469500 };
+  const pageCount = (s) => Number(/\/Count (\d+)/.exec(s)[1]);
+
+  it('default mati: slip tetap ringkas, tanpa halaman lampiran', () => {
+    const s = text(over);
+    expect(s).not.toContain('LAMPIRAN RINCIAN');
+    expect(s).not.toContain('Pak Hendra');
+    expect(pageCount(s)).toBe(1);
+  });
+
+  it('dicentang: halaman terpisah setelah tanda tangan berisi tabel Ongkir dan Potong Ayam dengan total', () => {
+    const s = text(over, { withAttachment: true });
+    expect(pageCount(s)).toBe(2);
+    for (const t of ['LAMPIRAN RINCIAN', 'Agung Prayoga', 'ONGKIR', 'Tanggal', 'Customer', 'Jumlah', '6 Okt', 'Pak Hendra', 'Bu Rina', 'Mas Dani', 'Total ongkir', 'Rp 15.000', 'Rp 5.000',
+      'POTONG AYAM', 'Jenis', 'Subtotal', '10 \xd7 3.000', 'Kepala ayam', '2 \xd7 4.500', 'Rp 51.000']) at(s, `(${t})`);
+    expect(s.indexOf('(Penerima,)')).toBeLessThan(s.indexOf('(LAMPIRAN RINCIAN)'));      // setelah tanda tangan
+    expect(s).not.toMatch(/\(Total ongkir \(/);                                           // total tanpa jumlah customer
+    expect(s).not.toMatch(/\(Total \(/);
+    at(s, '(Hal. 2/2)');
+  });
+
+  it('dicentang tapi tidak ada rincian: tidak ada halaman tambahan', () => {
+    const s = text({ additions: [{ id: 'b', employeeId: 'e1', category: 'Bonus', label: '', amount: 1000, date: '2026-10-06' }], additionsTotal: 1000, totalPenghasilan: 429500, netPay: 404500 }, { withAttachment: true });
+    expect(pageCount(s)).toBe(1);
+    expect(s).not.toContain('LAMPIRAN RINCIAN');
+  });
+
+  it('rincian panjang pindah halaman dan kepala tabel diulang', () => {
+    const rows = Array.from({ length: 80 }, (_, i) => ({ customer: `Customer ${i + 1}`, amount: 1000 }));
+    const s = text({ additions: [{ id: 'big', employeeId: 'e1', category: 'Ongkir', label: 'Ongkir', amount: 80000, date: '2026-10-06', detail: { kind: 'ongkir', rows } }], additionsTotal: 80000, totalPenghasilan: 508500, netPay: 483500 }, { withAttachment: true });
+    expect(pageCount(s)).toBeGreaterThanOrEqual(3);
+    expect(s.split('(Customer)').length - 1).toBeGreaterThanOrEqual(2);
+    at(s, '(Customer 80)');
+    at(s, '(Total ongkir)');
+  });
+});

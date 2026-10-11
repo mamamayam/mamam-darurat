@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { ChevronRight, Pencil, Trash2, Share2, Lock } from 'lucide-react';
+import { useState, Fragment } from 'react';
+import { ChevronRight, ChevronDown, Pencil, Trash2, Share2, Lock } from 'lucide-react';
 import { Badge, Button, NominalInput, PillTabs } from '../../components/ui';
 import { fmtDay, fmtHM, STATUS_LABEL, STATUS_VARIANT } from './payrollReport';
+import { detailSubRows } from './additionDetail';
 
 /**
  * PayrollReport — isi detail gaji satu karyawan, untuk periode MINGGUAN dan BULANAN (tampilan sama).
@@ -49,6 +50,8 @@ export default function PayrollReport({
   initialOpen = {},   // bagian yang terbuka sejak awal (default semua tertutup; dipakai tes)
 }) {
   const [open, setOpen] = useState({ pend: false, cut: false, sal: false, hari: false, ...initialOpen });
+  const [openDetail, setOpenDetail] = useState(() => new Set());   // baris Tambahan (Ongkir / Potong Ayam) yang rinciannya terbuka
+  const toggleDetail = (key) => setOpenDetail((prev) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const toggle = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   const { opening } = report;
   const openingValue = opening.kind ? `${opening.kind === 'toko' ? '+' : '-'}${formatRupiah(opening.amount)}` : formatRupiah(0);
@@ -113,21 +116,40 @@ export default function PayrollReport({
                         <button type="button" aria-label={`Edit absen ${fmtDay(d.date)}`} data-testid="edit-day" onClick={() => onEditDay(d.date)} className="ml-auto p-1 text-slate-400 hover:text-accent-600"><Pencil className="w-3.5 h-3.5" /></button>
                       )}
                     </div>
-                    {d.lines.map((l) => (
-                      <div key={l.key} data-testid={l.item ? 'adj-row' : undefined} className={`${COLS} px-2 py-0.5 items-center`}>
-                        <span className="min-w-0 text-slate-500 dark:text-slate-400">
-                          {l.label}
-                          {l.item && !isLocked && l.item.kind === 'potongan' && (
-                            <button type="button" aria-label="Ubah potongan" data-testid="edit-potongan" onClick={() => onEditDeduction(l.item)} className="ml-1 p-0.5 align-middle text-slate-400 hover:text-accent-600"><Pencil className="w-3 h-3" /></button>
-                          )}
-                          {l.item && !isLocked && (
-                            <button type="button" aria-label="Hapus" onClick={() => onDeleteItem(l.item.kind, l.item)} className="p-0.5 align-middle text-slate-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
-                          )}
-                        </span>
-                        {money(l.plus, 'text-emerald-600')}
-                        {money(l.minus, 'text-red-500')}
-                      </div>
-                    ))}
+                    {d.lines.map((l) => {
+                      const subs = detailSubRows(l.item?.detail);
+                      const expanded = subs.length > 0 && openDetail.has(l.key);
+                      return (
+                        <Fragment key={l.key}>
+                          <div data-testid={l.item ? 'adj-row' : undefined} className={`${COLS} px-2 py-0.5 items-center`}>
+                            <span className="min-w-0 text-slate-500 dark:text-slate-400">
+                              {subs.length > 0 ? (
+                                <button type="button" aria-expanded={expanded} data-testid="detail-toggle" onClick={() => toggleDetail(l.key)}
+                                  className="inline-flex items-center gap-1 text-left align-middle">
+                                  {expanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-accent-600" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-accent-600" />}
+                                  <span>{l.label}</span>
+                                </button>
+                              ) : l.label}
+                              {l.item && !isLocked && l.item.kind === 'potongan' && (
+                                <button type="button" aria-label="Ubah potongan" data-testid="edit-potongan" onClick={() => onEditDeduction(l.item)} className="ml-1 p-0.5 align-middle text-slate-400 hover:text-accent-600"><Pencil className="w-3 h-3" /></button>
+                              )}
+                              {l.item && !isLocked && (
+                                <button type="button" aria-label="Hapus" onClick={() => onDeleteItem(l.item.kind, l.item)} className="p-0.5 align-middle text-slate-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                              )}
+                            </span>
+                            {money(l.plus, 'text-emerald-600')}
+                            {money(l.minus, 'text-red-500')}
+                          </div>
+                          {expanded && subs.map((r, i) => (
+                            <div key={i} data-testid="detail-row" className={`${COLS} pl-6 pr-2 text-[11px] text-slate-400 dark:text-slate-500`}>
+                              <span className="min-w-0 truncate">{r.text}</span>
+                              <span className="text-right tabular-nums">{formatRupiah(r.amount)}</span>
+                              <span />
+                            </div>
+                          ))}
+                        </Fragment>
+                      );
+                    })}
                   </div>
                 );
               })}

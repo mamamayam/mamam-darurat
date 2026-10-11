@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { DEFAULT_CUT_PRICES } from '../features/payroll/additionDetail';
 
 /**
  * useAppSettings — pengaturan aplikasi (tabel app_settings, satu baris per kunci).
@@ -10,6 +11,7 @@ export const SETTING_DEFAULTS = {
   session_hours: 12,               // lama sesi login (jam)
   employee_pin_enabled: true,      // staf boleh melihat gaji karyawan lewat PIN karyawan
   employee_pin_view_minutes: 3,    // tutup otomatis setelah tidak ada aktivitas
+  potong_ayam_prices: DEFAULT_CUT_PRICES,  // harga bawaan tiap jenis potong ayam (rincian Tambahan); bisa diubah di Pengaturan
   device_enforce: false,           // database menolak catatan dari HP yang belum terdaftar (migrasi 011)
 };
 

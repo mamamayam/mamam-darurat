@@ -1,4 +1,5 @@
 import { fmtHM } from './payrollReport';
+import { fmtTgl, fmtNum } from './additionDetail';
 import { formatRupiah as defaultRupiah } from '../../utils/formatters';
 
 /**
@@ -55,7 +56,7 @@ const rgb = (c) => `${c.map(num).join(' ')} rg`;
 
 const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
-export function buildPayslipPdf({ business = 'Mamam Ayam', employeeName, role, periodLabel, rates, report, withDays = false, formatRupiah = defaultRupiah }) {
+export function buildPayslipPdf({ business = 'Mamam Ayam', employeeName, role, periodLabel, rates, report, withDays = false, withAttachment = false, formatRupiah = defaultRupiah }) {
   const pages = [[]];
   let y = PAGE_H - M;   // tepi ATAS elemen berikutnya
   const page = () => pages[pages.length - 1];
@@ -163,6 +164,49 @@ export function buildPayslipPdf({ business = 'Mamam Ayam', employeeName, role, p
   y -= 64;
   T(fit(`(${employeeName})`, 10, CW / 2 - 20, false), cx[0], y - 9, 10, { align: 'center' }); T('( HRD / Manajemen )', cx[1], y - 9, 10, { align: 'center' });
   y -= LINE;
+
+  // Lampiran (opsional): rincian Ongkir dan Potong Ayam di halaman terpisah, setelah tanda tangan.
+  const att = withAttachment ? report.attachments : null;
+  if (att) {
+    newPage();
+    T('LAMPIRAN RINCIAN', M, y - 12, 13, { bold: true }); y -= 18;
+    T(fit(`${employeeName} · ${periodLabel}`, 9.5, CW, false), M, y - 9, 9.5, { color: GRAY }); y -= 24;
+    const section = (title, cols, rows, totalLabel, total) => {
+      need(16 + 16 + RH * 2 + 20);
+      T(title, M, y - 9, 9, { bold: true, color: GRAY }); y -= 16;
+      const head = () => {
+        fill(M, y - 16, CW, 16, BAND);
+        cols.forEach((c) => T(c.head, c.x, y - 11.5, 8.5, { bold: true, align: c.align }));
+        y -= 16;
+      };
+      head();
+      for (const r of rows) {
+        if (y - RH * 2 < M + 28) { newPage(); head(); }   // sisakan tempat untuk baris total
+        cols.forEach((c) => T(fit(c.get(r), 8.5, c.w, false), c.x, y - RH + 4.2, 8.5, { align: c.align }));
+        stroke(M, y - RH, RIGHT, y - RH, 0.3);
+        y -= RH;
+      }
+      stroke(M, y, RIGHT, y, 0.8, GRAY);
+      T(totalLabel, cols[1].x, y - RH + 4.2, 9, { bold: true });
+      T(formatRupiah(total), RIGHT - 4, y - RH + 4.2, 9, { bold: true, align: 'right' });
+      y -= RH + 18;
+    };
+    if (att.ongkir) {
+      section('ONGKIR', [
+        { head: 'Tanggal', x: M + 4, align: 'left', w: 52, get: (r) => fmtTgl(r.date) },
+        { head: 'Customer', x: M + 64, align: 'left', w: CW - 64 - 110, get: (r) => r.customer },
+        { head: 'Jumlah', x: RIGHT - 4, align: 'right', w: 100, get: (r) => formatRupiah(r.amount) },
+      ], att.ongkir.rows, 'Total ongkir', att.ongkir.total);
+    }
+    if (att.potong) {
+      section('POTONG AYAM', [
+        { head: 'Tanggal', x: M + 4, align: 'left', w: 52, get: (r) => fmtTgl(r.date) },
+        { head: 'Jenis', x: M + 64, align: 'left', w: CW - 64 - 190, get: (r) => r.name },
+        { head: 'Jml × Harga', x: RIGHT - 84, align: 'right', w: 100, get: (r) => `${r.qty} × ${fmtNum(r.price)}` },
+        { head: 'Subtotal', x: RIGHT - 4, align: 'right', w: 70, get: (r) => fmtNum(r.subtotal) },
+      ], att.potong.rows, 'Total', att.potong.total);
+    }
+  }
 
   // Kaki halaman (tahu total halaman setelah semua tersusun)
   pages.forEach((p, i) => {

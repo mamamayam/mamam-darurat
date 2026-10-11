@@ -4,6 +4,7 @@ import { useAppSettings } from '../../hook/useAppSettings';
 import LoginSettings from './LoginSettings';
 import EmployeePinSettings from './EmployeePinSettings';
 import DeviceSettings from './DeviceSettings';
+import CutPriceSettings from './CutPriceSettings';
 
 /** Pengaturan (khusus owner): login, PIN, akses gaji karyawan lewat PIN, dan perangkat terdaftar. */
 export default function SettingsView() {
@@ -20,6 +21,7 @@ export default function SettingsView() {
         )}
         <LoginSettings settings={settings} loading={loading} saveSetting={save} />
         <EmployeePinSettings settings={settings} saveSetting={save} />
+        <CutPriceSettings settings={settings} saveSetting={save} />
         <DeviceSettings settings={settings} saveSetting={save} />
       </div>
     </div>

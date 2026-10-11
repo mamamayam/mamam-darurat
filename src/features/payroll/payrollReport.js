@@ -1,4 +1,5 @@
 import { parseIsoDate, findStuckBolong, timeToMinutes } from './payrollEngine';
+import { buildAttachments, parseDetail } from './additionDetail';
 
 /**
  * payrollReport — susunan data "Laporan Gaji" satu karyawan (periode mingguan DAN bulanan). FUNGSI MURNI (dites).
@@ -31,6 +32,8 @@ export const isKasbon = (d) => String(d.category || '').trim().toLowerCase() ===
 /** Judul satu catatan: "Kategori" saja kalau keterangan kosong/sama, selain itu "Kategori (Keterangan)". */
 export const itemTitle = (item) => {
   const label = String(item.label || '').trim();
+  // Keterangan otomatis dari rincian ("Ongkir (2 customer)") sudah memuat nama kategori.
+  if (item.detail && label && label.toLowerCase().startsWith(String(item.category || '').trim().toLowerCase())) return label;
   return !label || label === item.category ? String(item.category || '') : `${item.category} (${label})`;
 };
 
@@ -147,7 +150,7 @@ export function buildPayrollReport(payroll, { formatRupiah, withOpening = true, 
   // Catatan Tambahan/Potongan ditaruh di tanggalnya masing-masing. Tanggal tanpa absensi tetap tampil.
   const itemsByDate = new Map();
   const put = (date, item) => { if (!itemsByDate.has(date)) itemsByDate.set(date, []); itemsByDate.get(date).push(item); };
-  for (const x of additions) put(x.date, { kind: 'tambahan', id: x.id, category: x.category, label: x.label, amount: x.amount });
+  for (const x of additions) put(x.date, { kind: 'tambahan', id: x.id, category: x.category, label: x.label, amount: x.amount, detail: parseDetail(x.detail) });
   for (const x of deductions) put(x.date, { kind: 'potongan', id: x.id, category: x.category, label: x.label, amount: x.amount, expenseId: x.expenseId || null, employeeId: x.employeeId, date: x.date });
 
   const rowByDate = new Map(a.dayRows.map((r) => [r.date, r]));
@@ -175,5 +178,6 @@ export function buildPayrollReport(payroll, { formatRupiah, withOpening = true, 
     withOpening, opening: { kind: opening < 0 ? 'toko' : opening > 0 ? 'karyawan' : null, amount: Math.abs(opening) },
     periodDays, overtimeRate: a.overtimeRate, overtimeMinutes: a.totalOvertimeMinutes, overtimeBlocks: a.overtimeBlocks30Min,
     hadirDays: a.hadirDays, liburDays: a.liburDays, workedMinutes: a.totalWorkedMinutes,
+    attachments: buildAttachments(additions),   // rincian Ongkir / Potong Ayam untuk lampiran PDF (null kalau tidak ada)
   };
 }

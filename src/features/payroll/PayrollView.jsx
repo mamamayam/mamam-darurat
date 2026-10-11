@@ -128,10 +128,10 @@ function OwnerPayroll() {
   });
 
   // Slip gaji PDF dibuat di perangkat, lalu dibagikan lewat menu share (atau diunduh kalau tidak ada menu share).
-  const handleSharePdf = async ({ withDays }) => {
+  const handleSharePdf = async ({ withDays, withAttachment }) => {
     try {
       const report = reportOf(selected);
-      const bytes = buildPayslipPdf({ employeeName: selected.employee.name, role: selected.employee.role, periodLabel: label, rates: selected.rates, report, withDays, formatRupiah });
+      const bytes = buildPayslipPdf({ employeeName: selected.employee.name, role: selected.employee.role, periodLabel: label, rates: selected.rates, report, withDays, withAttachment, formatRupiah });
       const safeName = selected.employee.name.replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '') || 'karyawan';
       const result = await shareOrDownloadFile(bytes, `Slip-Gaji-${safeName}-${period.monthKey || period.start}.pdf`, { title: `Slip Gaji ${selected.employee.name} ${label}` });
       if (result === 'downloaded') triggerAlert('PDF tersimpan di perangkat ini (menu share tidak tersedia).');
@@ -279,7 +279,7 @@ function OwnerPayroll() {
       )}
 
       <PayslipShareSheet isOpen={!!selected && shareOpen} onClose={() => setShareOpen(false)} onShare={handleSharePdf}
-        employeeName={selected?.employee.name} periodLabel={label} />
+        hasAttachment={Boolean(selected && reportOf(selected).attachments)} />
     </div>
   );
 }

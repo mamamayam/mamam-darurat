@@ -24,12 +24,12 @@ const withinRange = (n) => Math.abs(n) <= MAX_VALUE;
 // ── Digit entry ──────────────────────────────────────────────────────────────
 
 /**
- * Tambah satu tombol ('0'-'9' atau '00') ke nilai sekarang.
+ * Tambah satu tombol ('0'-'9' atau '000') ke nilai sekarang. Tombol nol ganda ('00' / '000') diabaikan di field kosong atau "0".
  * opts.maxDigits — batas panjang digit; opts.max — batas nilai (mis. 100 untuk %).
  */
 export function appendKey(current, key, { maxDigits = MAX_DIGITS, max = null } = {}) {
   const [sign, body] = splitSign(current);
-  if (key === '00' && (body === '' || body === '0')) return current;
+  if (/^0{2,}$/.test(key) && (body === '' || body === '0')) return current;
   const next = body === '0' ? key : body + key;
   if (next.length > maxDigits) return current;
   if (max !== null && Number(next) > max) return current;

@@ -1,4 +1,5 @@
 import { ADDITION_STATUS, normalizeStatus } from '../payroll/additionApproval';
+import { cleanDetail, detailKindForCategory, detailTotal, detailLabel, parseDetail } from '../payroll/additionDetail';
 
 /**
  * quickEntryMath — aturan "Catat Cepat" di Beranda. FUNGSI MURNI (dites).
@@ -34,11 +35,14 @@ export function validateAdjustment({ employeeId, category, amount, date, request
 
 /** Baris payroll_additions untuk Tambah baru. Owner = langsung disetujui; staf = menunggu. */
 export function newAdditionRow(form, { canApprove, nowISO }) {
-  const amount = validateAdjustment(form, { needsRequester: !canApprove });
+  // Rincian (Ongkir / Potong Ayam): nominal = total rincian, keterangan kosong = ringkasan rincian.
+  const detail = cleanDetail(form.detail);
+  if (detail && detail.kind !== detailKindForCategory(form.category)) throw new Error('Rincian tidak cocok dengan kategori.');
+  const amount = validateAdjustment(detail ? { ...form, amount: detailTotal(detail) } : form, { needsRequester: !canApprove });
   const category = form.category.trim();
   return {
     employee_id: form.employeeId,
-    label: adjustmentLabel(form.label, category),
+    label: String(form.label || '').trim() || (detail ? detailLabel(detail) : adjustmentLabel(form.label, category)),
     amount,
     date: form.date,
     category,
@@ -47,6 +51,7 @@ export function newAdditionRow(form, { canApprove, nowISO }) {
     requested_by: canApprove ? null : form.requestedBy.trim(),
     approved_by: canApprove ? 'Owner' : null,
     approved_at: canApprove ? nowISO : null,
+    ...(detail ? { detail } : {}),   // kolom hanya dikirim bila ada rincian (aman sebelum migrasi 012)
   };
 }
 
@@ -100,7 +105,7 @@ export const mapAdditionRow = (r, nameById = {}) => ({
   id: r.id, employeeId: r.employee_id, employeeName: nameById[r.employee_id] || 'Karyawan',
   category: r.category, label: r.label, amount: r.amount, date: dayOf(r.date),
   status: normalizeStatus(r.status), requestedBy: r.requested_by || '', rejectReason: r.reject_reason || '',
-  createdAt: r.created_at || '',
+  createdAt: r.created_at || '', detail: parseDetail(r.detail),
 });
 
 export const mapDeductionRow = (r, nameById = {}) => ({

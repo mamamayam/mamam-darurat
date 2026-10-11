@@ -16,6 +16,11 @@ describe('appendKey', () => {
     expect(appendKey('', '00')).toBe('');
     expect(appendKey('0', '00')).toBe('0');
     expect(appendKey('5', '00')).toBe('500');
+    expect(appendKey('', '000')).toBe('');
+    expect(appendKey('0', '000')).toBe('0');
+    expect(appendKey('5', '000')).toBe('5000');
+    expect(appendKey('-5', '000')).toBe('-5000');
+    expect(appendKey('12', '000')).toBe('12000');
   });
   it('"0" di field kosong jadi "0" (nol eksplisit), lalu digit berikutnya menggantikan', () => {
     expect(appendKey('', '0')).toBe('0');
@@ -26,6 +31,7 @@ describe('appendKey', () => {
     const full = '9'.repeat(MAX_DIGITS);
     expect(appendKey(full, '1')).toBe(full);
     expect(appendKey('9'.repeat(MAX_DIGITS - 1), '00')).toBe('9'.repeat(MAX_DIGITS - 1));
+    expect(appendKey('9'.repeat(MAX_DIGITS - 2), '000')).toBe('9'.repeat(MAX_DIGITS - 2));
   });
   it('menghormati batas nilai max (mis. persen ≤ 100)', () => {
     expect(appendKey('10', '0', { max: 100 })).toBe('100');

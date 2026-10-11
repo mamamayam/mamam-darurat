@@ -616,3 +616,8 @@ end $$;
 
 grant execute on function catat_potongan(uuid, text, integer, date, text, text, uuid) to anon;
 grant execute on function catat_potongan(uuid, text, integer, date, text, text, uuid) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Migrasi 012: rincian Tambahan gaji (payroll_additions.detail)
+-- ---------------------------------------------------------------------
+alter table payroll_additions add column if not exists detail jsonb;

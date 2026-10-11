@@ -8,6 +8,7 @@ import { useExpenseData } from '../../hook/useExpenseData';
 import ExpenseFormSheet from '../expense/ExpenseFormSheet';
 import QuickAdjustmentSheet from './QuickAdjustmentSheet';
 import { filterFeed } from './quickEntryMath';
+import { detailSubRows } from '../payroll/additionDetail';
 
 /**
  * QuickEntrySection — "Catat Cepat" di Beranda (menggantikan daftar Riwayat Pesanan Hari Ini).
@@ -120,6 +121,13 @@ export default function QuickEntrySection({ onChanged }) {
                   <div className="min-w-0">
                     <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{r.employeeName} <span className="font-medium text-slate-500 dark:text-slate-400">· {r.category}</span></p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 break-words">{r.label}</p>
+                    {r.detail && (
+                      <ul className="mt-1 space-y-0.5" data-testid="pengajuan-detail">
+                        {detailSubRows(r.detail).map((d, i) => (
+                          <li key={i} className="flex justify-between gap-3 text-[11px] text-slate-400 dark:text-slate-500"><span className="min-w-0 truncate">{d.text}</span><span className="shrink-0 tabular-nums">{formatRupiah(d.amount)}</span></li>
+                        ))}
+                      </ul>
+                    )}
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Dicatat {r.requestedBy || 'staf'}{r.date !== quick.today ? ` · untuk ${r.date}` : ''}</p>
                   </div>
                   <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400 shrink-0">+{formatRupiah(r.amount)}</p>

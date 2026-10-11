@@ -1,0 +1,11 @@
+-- =====================================================================
+-- Migrasi 012 — Rincian Tambahan gaji (Ongkir: nama customer + jumlah; Potong Ayam: jenis + jumlah + harga).
+-- Jalankan SEKALI di SQL Editor project C SEBELUM aplikasi versi ini dipasang. Aman diulang.
+--
+-- payroll_additions.detail (jsonb, boleh kosong):
+--   { "kind": "ongkir",      "rows": [{ "customer": "Pak Hendra", "amount": 5000 }] }
+--   { "kind": "potong_ayam", "rows": [{ "name": "Bld", "qty": 10, "price": 3000 }] }
+-- Nominal (amount) tetap total rincian; baris lama tanpa rincian tidak berubah.
+-- Daftar harga potong ayam disimpan di app_settings (kunci potong_ayam_prices), tanpa tabel baru.
+-- =====================================================================
+alter table payroll_additions add column if not exists detail jsonb;

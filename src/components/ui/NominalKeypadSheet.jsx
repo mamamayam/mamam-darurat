@@ -11,7 +11,7 @@ import {
  * NominalKeypadSheet — keypad nominal (pengganti keyboard HP). Muncul menempel di
  * dasar layar seperti keyboard biasa (lihat NominalDock), bukan pop-up geser.
  * Layout dari "Preview: Nominal Keypad + Kalkulator Popup": layar angka +
- * ikon kalkulator, lalu 1-9 / 00 0 ⌫.
+ * ikon kalkulator, lalu 1-9 / 000 0 ⌫.
  *
  * Nilai di-commit LIVE ke pemanggil tiap tombol ditekan (seperti mengetik di
  * field biasa); tombol "Selesai" atau Back HP cuma menutup.
@@ -120,7 +120,7 @@ export default function NominalKeypadSheet({
               </div>
             ))}
             <div className="flex gap-2.5">
-              <button type="button" className={KEY} onClick={() => press('00')}>00</button>
+              <button type="button" className={KEY} onClick={() => press('000')}>000</button>
               <button type="button" className={KEY} onClick={() => press('0')}>0</button>
               <button type="button" className={KEY} aria-label="Hapus" onClick={backspace}>⌫</button>
             </div>

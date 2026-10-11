@@ -8,6 +8,7 @@ import { employeeGrossCost } from '../features/payroll/payrollCost';
 import { prepareLogs, nowMinutesOf } from '../features/attendance/dayRules';
 import { fetchOverrides } from './attendanceOverrides';
 import { isCountedAddition, countPendingAdditions } from '../features/payroll/additionApproval';
+import { parseDetail } from '../features/payroll/additionDetail';
 import { deductionUpdateArgs } from '../features/home/quickEntryMath';
 
 /**
@@ -64,7 +65,7 @@ export function usePayrollData({ period, attendanceClient = absensiClient }) {
       const empRows = (emps.data || []).map(e => ({ ...e, externalId: e.external_id || null, name: e.name }));
       setEmployees(empRows); setEmpList(empRows);
       // Hanya Tambahan yang DISETUJUI yang masuk hitungan gaji (menunggu/ditolak diabaikan).
-      setAdditions((adds.data || []).filter(isCountedAddition).map(a => ({ id: a.id, employeeId: a.employee_id, label: a.label, amount: a.amount, date: day(a.date), category: a.category })));
+      setAdditions((adds.data || []).filter(isCountedAddition).map(a => ({ id: a.id, employeeId: a.employee_id, label: a.label, amount: a.amount, date: day(a.date), category: a.category, detail: parseDetail(a.detail) })));
       setPendingAdditions(countPendingAdditions(adds.data));
       setDeductions((deds.data || []).map(d => ({ id: d.id, employeeId: d.employee_id, label: d.label, amount: d.amount, date: day(d.date), category: d.category, expenseId: d.expense_id || null })));
       setOpeningBalances(Object.fromEntries((opens.data || []).map(o => [`${o.employee_id}|${o.month}`, o.amount])));
