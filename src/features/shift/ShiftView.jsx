@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Clock, FileText, History, AlertTriangle, Users } from 'lucide-react';
+import { Clock, FileText, AlertTriangle, Users } from 'lucide-react';
 import { Button, Card, Input, NominalInput, Select, PillTabs, EmptyState, Badge, Modal } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useShiftData } from '../../hook/useShiftData';
@@ -186,7 +186,7 @@ const ShiftView = () => {
             <div>
               <p className="font-bold text-sm text-red-700 dark:text-red-300">Dompet Belum Ditutup dari Hari Sebelumnya!</p>
               <p className="text-xs text-red-600/90 dark:text-red-400/80 mt-0.5">
-                Dibuka sejak {new Date(currentShift.opened_at).toLocaleString('id-ID')}. Transaksi hari ini bisa kecampur sama shift lama, segera hitung & tutup dompet sebelum lanjut jualan.
+                Dibuka sejak {new Date(currentShift.opened_at).toLocaleString('id-ID')}.
               </p>
             </div>
           </div>
@@ -269,13 +269,7 @@ const ShiftView = () => {
 
       {activeTab === 'riwayat' && (
         <div className="pb-12">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <div>
-              <h3 className="font-heading text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <History className="w-5 h-5 text-accent-600 dark:text-accent-400" /> Riwayat
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Laporan performa dan akurasi kas di dompet.</p>
-            </div>
+          <div className="flex justify-start mb-6">
             <div className="flex items-center gap-2">
               <Select value={filterMode} onChange={e => setFilterMode(e.target.value)} className="py-1.5 px-3 text-xs font-bold">
                 <option value="hari-ini">Hari Ini</option>
@@ -308,7 +302,7 @@ const ShiftView = () => {
               <h4 className="font-heading text-base md:text-lg font-bold text-slate-800 dark:text-slate-100">{formatRupiah(rekap.expected)}</h4>
             </Card>
             <Card padding="sm" className="flex flex-col justify-center">
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Selisih (Short/Over)</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-1">Total Selisih</p>
               <h4 className={`font-heading text-base md:text-lg font-bold ${diffColor(rekap.diff)}`}>{formatRupiah(rekap.diff)}</h4>
             </Card>
           </div>
