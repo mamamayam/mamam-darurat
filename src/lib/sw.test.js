@@ -127,6 +127,14 @@ describe('service worker — membuka aplikasi (navigasi): jaringan dulu', () => 
     expect(sw.store.get('mamam-pos-shell-v1').get(SCOPE).body).toBe('BARU');
   });
 
+  it('navigasi ke /hpp dan /hpp/* ikut diintersep (cangkang yang sama), bukan dilewati', async () => {
+    const sw = loadSW({ fetchImpl: async () => res({ contentType: 'text/html', body: 'SHELL' }) });
+    for (const path of ['/hpp', '/hpp/bahan']) {
+      const out = await sw.request(`${ORIGIN}${path}`, nav);
+      expect(out.body).toBe('SHELL');
+    }
+  });
+
   it('offline: memakai cangkang tersimpan', async () => {
     let online = true;
     const sw = loadSW({ fetchImpl: async () => { if (!online) throw new TypeError('offline'); return res({ contentType: 'text/html', body: 'LAMA' }); } });

@@ -30,6 +30,7 @@ import {
   Users,
   UserCog,
   Settings,
+  Calculator,
 } from 'lucide-react';
 
 /**
@@ -175,6 +176,8 @@ export default function App() {
     { id: 'riwayat',     icon: History,      label: 'Riwayat' },
     { id: 'laporan',     icon: BarChart3,    label: 'Laporan' },
     { id: 'pengaturan',  icon: Settings,     label: 'Pengaturan' },
+    // HPP bukan layar POS: membuka halaman /hpp di tab baru (lihat src/hpp, PRD Routing).
+    { id: 'hpp',         icon: Calculator,   label: 'HPP', href: '/hpp' },
   ], []);
 
   // Menu yang butuh izin khusus (mis. Penggajian, Manajemen Menu) disembunyikan

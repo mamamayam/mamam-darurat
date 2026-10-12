@@ -11,7 +11,7 @@ import { versionLabel } from '../../lib/appVersion';
 
 /**
  * BottomSheetMenu — swipe-up sheet, ported dari test-app-baru (mamam-global).
- * Grid 3-kolom untuk 9 menu gelombang 1 Mamam POS.
+ * Grid 3-kolom untuk menu Mamam POS (+ tombol HPP yang membuka /hpp di tab baru, hanya owner).
  *
  * BEDA dari versi asli: card "Notifikasi" di atas grid DIHAPUS — C belum
  * punya push notifications/NotificationBell (di luar scope gelombang 1).
@@ -95,6 +95,12 @@ export default function BottomSheetMenu({
 
   const handleSelect = (id) => {
     if (editing) return;
+    const item = ordered.find((m) => m.id === id);
+    if (item?.href) {   // menu tautan (mis. HPP): buka halaman lain di tab baru, bukan layar POS
+      window.open(item.href, '_blank', 'noopener');
+      onClose();
+      return;
+    }
     navigate(id);
     onClose();
   };

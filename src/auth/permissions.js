@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   'screen.menu': ['owner'],              // layar Manajemen Menu (ubah harga & HPP)
   'screen.riwayat': ['owner'],           // layar Riwayat (daftar semua transaksi)
   'screen.laporan': ['owner'],           // layar Laporan (Laba Rugi, Rincian Pengeluaran)
+  'screen.hpp': ['owner'],               // tombol HPP di menu Lainnya (membuka /hpp). Pagar tampilan saja; data HPP dijaga RLS
   'laporan.rincianPengeluaran': ['owner'], // tab Rincian Pengeluaran di Laporan
   'laporan.labaKotor': ['owner'],        // kartu Laba Kotor di tab Laba Rugi
   'laporan.hapusTransaksi': ['owner'],   // tombol hapus transaksi di Riwayat
@@ -38,6 +39,7 @@ export const VIEW_PERMISSION = {
   menu: 'screen.menu',
   riwayat: 'screen.riwayat',
   laporan: 'screen.laporan',
+  hpp: 'screen.hpp',
 };
 
 export const can = (role, permission) =>

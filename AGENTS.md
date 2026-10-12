@@ -46,6 +46,15 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
   patch berikutnya): jangan di-apply ulang dan jangan dijadikan acuan. Patch baru dari agent cukup diserahkan lewat chat; pemilik bebas
   menyimpannya di `patches/` atau menghapusnya.
 
+## Routing POS dan HPP (satu domain)
+
+- `/` dan path lain = POS (`App`, login PIN). `/hpp` dan `/hpp/*` = HPP (`src/hpp/HppApp.jsx`, login email + password Supabase Auth). Satu project Vercel, satu build, satu database.
+- Mode dipilih SEKALI di `src/main.jsx` lewat `isHppPath` (`src/lib/appMode.js`); jangan dicek ulang di dalam komponen. Navigasi POS tetap berbasis state (tanpa react-router).
+- `HppApp` dimuat `React.lazy` (chunk terpisah, tidak terunduh di HP yang hanya membuka POS). Jangan mengimpor `src/hpp/*` secara statis dari kode POS, dan jangan mengimpor `lib/backStack`/`AuthContext`/`app/*` dari kode HPP (dijaga `src/lib/appMode.test.js`).
+- Mode HPP: tanpa `backStack`, `AuthProvider`, `ExitToast`, `ConnectionBanner`, dan tanpa service worker baru. Manifest PWA tetap `start_url: "/"`, tidak menyebut `/hpp`.
+- `vercel.json` mengarahkan semua path ke `index.html` (refresh/link langsung ke `/hpp` tidak 404); berkas nyata (`/assets/*`, manifest, ikon) tetap dilayani apa adanya.
+- `/hpp` bisa dibuka siapa saja: pembatasan data HARUS lewat RLS di database, bukan cek path. Frontend HPP hanya memakai anon key.
+
 ## Keputusan produk yang sudah ditetapkan pemilik
 
 **Laporan** (`src/features/reports/`) punya dua tab dengan filter periode yang sama (Hari Ini, Kemarin, Bulan Ini, Semua, Tanggal Terpilih):
