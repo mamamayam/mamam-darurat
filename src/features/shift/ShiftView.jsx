@@ -261,8 +261,7 @@ const ShiftView = () => {
           </Card>
 
           <Card variant="elevated" className="flex flex-col justify-center">
-            <h3 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 text-center">Saldo Aktual</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
+            <h3 className="font-heading text-xl font-bold text-slate-800 dark:text-slate-100 mb-6 text-center">Saldo Aktual</h3>
             <Button size="full" onClick={() => setIsCloseSheet(true)}>Hitung &amp; Tutup Dompet</Button>
           </Card>
         </div>
@@ -376,8 +375,7 @@ const ShiftView = () => {
 
       <Modal isOpen={isCloseSheet} onClose={() => setIsCloseSheet(false)} sheet size="lg" maxHeight title="Saldo Aktual">
         <div className="p-5 pt-2 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Hitung dan masukkan total uang tunai yang ada di dalam dompet sekarang untuk dicocokkan dengan sistem.</p>
-          <NominalInput label="Saldo aktual yang ada di dompet"
+          <NominalInput title="Saldo Aktual"
             value={actualCashInput} onChange={e => setActualCashInput(e.target.value)} placeholder="0"
             className="text-xl font-bold py-4 border-2 focus:border-accent-600" />
           <Button size="full" onClick={handleClose} disabled={busy}>{busy ? 'Memproses...' : 'Tutup Dompet'}</Button>
