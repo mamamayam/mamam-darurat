@@ -53,6 +53,12 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 - `HppApp` dimuat `React.lazy` (chunk terpisah, tidak terunduh di HP yang hanya membuka POS). Jangan mengimpor `src/hpp/*` secara statis dari kode POS, dan jangan mengimpor `lib/backStack`/`AuthContext`/`app/*` dari kode HPP (dijaga `src/lib/appMode.test.js`).
 - Mode HPP: tanpa `backStack`, `AuthProvider`, `ExitToast`, `ConnectionBanner`, dan tanpa service worker baru. Manifest PWA tetap `start_url: "/"`, tidak menyebut `/hpp`.
 - `vercel.json` mengarahkan semua path ke `index.html` (refresh/link langsung ke `/hpp` tidak 404); berkas nyata (`/assets/*`, manifest, ikon) tetap dilayani apa adanya.
+- **Halaman HPP** (`src/hpp/`): tiga tab, yaitu Bahan (`/hpp`), Resep (`/hpp/resep`), Menu (`/hpp/menu`). Pindah tab = `pushState` biasa, jadi Back dan refresh jalan seperti halaman web.
+  Data di `src/hpp/data/hppData.js` disalin dari file "DATABASE MAMAM AYAM" (harga per 27/11/2025): hanya angka masukan, semua turunan (HPP baris, total resep, online, profit, margin, HIGH/LOW) dihitung di `hppMath.js` (dites).
+  Aturan file: HPP baris = komposisi / pembelian * harga; resep saos/sambal adalah batch yang dipakai lagi di Topping (`ref`); harga online = outlet + 25%; margin = profit / harga outlet; HIGH jika margin >= 30%.
+  Total "Sambal Geprek" di file (Rp64.860) tidak menghitung baris Gas (Rp537); hitungan app Rp65.397 dan tab Resep menampilkan peringatan selisihnya. HPP per menu disalin dari file (rincian bahan per menu tidak ada).
+  Berkas di `src/hpp` hanya boleh mengimpor sesama `src/hpp`, `react`, `lucide-react` (dijaga `appMode.test.js`). Layar login masih **dummy** (`hppAuth.js`, owner@mamam.test / hpp123): bukan pengaman, data ikut terunduh di chunk `/hpp`. Ganti Supabase Auth + RLS dan pindahkan data ke database sebelum dipakai sungguhan.
+- Tombol HPP di menu Lainnya pindah ke `/hpp` di **tab yang sama** lewat `leaveForHref` (`location.replace`), BUKAN tab baru: tab baru riwayatnya kosong sehingga Back keluar aplikasi. Dengan ini Back dari HPP kembali ke POS; `pageshow` di `main.jsx` memuat ulang POS kalau dipulihkan dari cache back/forward.
 - `/hpp` bisa dibuka siapa saja: pembatasan data HARUS lewat RLS di database, bukan cek path. Frontend HPP hanya memakai anon key.
 
 ## Keputusan produk yang sudah ditetapkan pemilik

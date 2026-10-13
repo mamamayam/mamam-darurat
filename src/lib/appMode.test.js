@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { isHppPath } from './appMode';
+import { isHppPath, leaveForHref, shouldReloadOnReturn } from './appMode';
 
 const read = (rel) => fs.readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
@@ -67,6 +67,68 @@ describe('tombol HPP di menu Lainnya', () => {
 
   it('menu HPP berupa tautan ke /hpp (bukan layar POS)', () => {
     expect(read('../app/App.jsx')).toMatch(/id: 'hpp',[^\n]*href: '\/hpp'/);
-    expect(read('../app/layout/BottomSheetMenu.jsx')).toMatch(/window\.open\(item\.href, '_blank', 'noopener'\)/);
+    expect(read('../app/layout/BottomSheetMenu.jsx')).toMatch(/leaveForHref\(item\.href\)/);
+    expect(read('../app/layout/BottomSheetMenu.jsx')).not.toMatch(/window\.open/);
+  });
+});
+
+describe('src/hpp berdiri sendiri (tanpa kode POS)', () => {
+  const root = fileURLToPath(new URL('../hpp', import.meta.url));
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+    const p = `${dir}/${d.name}`;
+    return d.isDirectory() ? walk(p) : [p];
+  });
+  const files = walk(root).filter((f) => /\.(jsx?|mjs)$/.test(f) && !/\.test\./.test(f));
+
+  it('berkas HPP hanya mengimpor sesama src/hpp, react, atau lucide-react', () => {
+    expect(files.length).toBeGreaterThan(3);
+    const bad = [];
+    for (const f of files) {
+      const src = fs.readFileSync(f, 'utf8');
+      for (const m of src.matchAll(/(?:^|\n)\s*import\s[^;]*?from\s+['"]([^'"]+)['"]/g)) {
+        const spec = m[1];
+        const ok = spec === 'react' || spec === 'lucide-react' || spec.startsWith('react/')
+          || (spec.startsWith('./') && !spec.includes('..'));
+        if (!ok) bad.push(`${f.replace(root, 'src/hpp')}: ${spec}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
+describe('pindah ke HPP di tab yang sama (Back kembali ke POS)', () => {
+  const store = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
+
+  it('leaveForHref memakai location.replace (bukan buka tab baru) dan memasang penanda', () => {
+    const calls = [];
+    const win = { sessionStorage: store(), location: { replace: (u) => calls.push(u) }, open: () => calls.push('OPEN') };
+    leaveForHref('/hpp', win);
+    expect(calls).toEqual(['/hpp']);
+    expect(shouldReloadOnReturn(true, win.sessionStorage)).toBe(true);
+  });
+
+  it('leaveForHref tetap pindah walau sessionStorage diblokir', () => {
+    const calls = [];
+    const rusak = { setItem() { throw new Error('x'); }, getItem() { throw new Error('x'); }, removeItem() {} };
+    leaveForHref('/hpp', { sessionStorage: rusak, location: { replace: (u) => calls.push(u) } });
+    expect(calls).toEqual(['/hpp']);
+  });
+
+  it('muat ulang hanya jika halaman dipulihkan dari cache SETELAH pergi ke HPP; penanda sekali pakai', () => {
+    const s = store();
+    expect(shouldReloadOnReturn(true, s)).toBe(false);    // tanpa penanda: pemulihan biasa dibiarkan
+    s.setItem('mamam-leaving-for-hpp', '1');
+    expect(shouldReloadOnReturn(false, s)).toBe(false);   // muatan baru: tidak perlu reload
+    expect(shouldReloadOnReturn(true, s)).toBe(false);    // penanda sudah dihapus tadi
+    s.setItem('mamam-leaving-for-hpp', '1');
+    expect(shouldReloadOnReturn(true, s)).toBe(true);
+    expect(shouldReloadOnReturn(true, s)).toBe(false);
+  });
+
+  it('main.jsx memasang pageshow hanya di cabang POS', () => {
+    const main = read('../main.jsx');
+    const hppBranch = main.slice(main.indexOf('if (isHpp) {'), main.indexOf('} else {')).replace(/\/\/.*$/gm, '');
+    expect(main).toMatch(/addEventListener\('pageshow'/);
+    expect(hppBranch).not.toMatch(/pageshow|shouldReloadOnReturn/);
   });
 });

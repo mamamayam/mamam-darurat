@@ -5,7 +5,7 @@ import { backStack } from './lib/backStack'
 import { AuthProvider } from './auth/AuthContext.jsx'
 import ExitToast from './components/ui/ExitToast.jsx'
 import { registerServiceWorker } from './lib/registerServiceWorker'
-import { isHppPath } from './lib/appMode'
+import { isHppPath, shouldReloadOnReturn } from './lib/appMode'
 import './index.css'
 
 // Mode ditentukan SEKALI di sini: /hpp dan /hpp/* = HPP (owner, laptop), selain itu = POS.
@@ -38,6 +38,12 @@ if (isHpp) {
       </AuthProvider>
     </React.StrictMode>,
   )
+
+  // Kembali dari /hpp lewat Back: kalau browser memulihkan halaman POS lama dari cache, muat ulang
+  // supaya state-nya cocok dengan posisi riwayat (lihat appMode.js).
+  window.addEventListener('pageshow', (e) => {
+    if (shouldReloadOnReturn(e.persisted)) window.location.reload();
+  });
 
   // PWA: hanya aktif di build produksi (lihat src/lib/registerServiceWorker.js).
   registerServiceWorker();

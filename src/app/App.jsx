@@ -176,7 +176,7 @@ export default function App() {
     { id: 'riwayat',     icon: History,      label: 'Riwayat' },
     { id: 'laporan',     icon: BarChart3,    label: 'Laporan' },
     { id: 'pengaturan',  icon: Settings,     label: 'Pengaturan' },
-    // HPP bukan layar POS: membuka halaman /hpp di tab baru (lihat src/hpp, PRD Routing).
+    // HPP bukan layar POS: pindah ke halaman /hpp di tab yang sama (lihat src/hpp, PRD Routing).
     { id: 'hpp',         icon: Calculator,   label: 'HPP', href: '/hpp' },
   ], []);
 
