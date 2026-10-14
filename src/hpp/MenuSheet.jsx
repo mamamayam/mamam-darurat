@@ -95,7 +95,6 @@ export default function MenuSheet({ model, menuId, actions, onClose }) {
         <div className="flex items-start justify-between gap-3 border-t border-slate-100 py-2.5">
           <div className="pt-1">
             <div className="font-semibold text-slate-800">Biaya lain (sisa dari file)</div>
-            <div className="text-xs text-slate-400">Packaging dan biaya lain yang belum diuraikan</div>
           </div>
           <NumberField value={Math.round(m.biayaLain)} ariaLabel="Biaya lain" onCommit={(v) => actions.biayaLain(m.id, v)} />
         </div>
@@ -113,11 +112,11 @@ export default function MenuSheet({ model, menuId, actions, onClose }) {
           <TombolTambah onClick={() => setPicker('menu')}>Tambah komponen</TombolTambah>
         ))}
       </Card>
-      <p className="mt-2 text-xs text-slate-400">
-        {edit
-          ? 'Komponen menu dan isi resep disimpan langsung. Isi resep berlaku untuk semua menu yang memakai resep itu.'
-          : 'Ubah harga bahan langsung di sini. Perubahan tercatat di riwayat dan berlaku untuk semua menu yang memakai bahan itu.'}
-      </p>
+      {edit && (
+        <p className="mt-2 text-xs text-slate-400">
+          Komponen menu dan isi resep disimpan langsung. Isi resep berlaku untuk semua menu yang memakai resep itu.
+        </p>
+      )}
     </Sheet>
   )
 }
