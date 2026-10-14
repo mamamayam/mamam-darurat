@@ -239,7 +239,7 @@ describe('ubah komposisi', () => {
   it('baris Biaya lain selalu ada, juga saat nilainya 0 (supaya bisa diisi lagi)', () => {
     const nol = buildModel({ ...RAW, menu: RAW.menu.map((m) => (m.id === 'm1' ? { ...m, biaya_lain: 0 } : m)) });
     const html = render(<MenuSheet model={nol} menuId="m1" actions={actions} onClose={noop} />);
-    expect(html).toContain('Biaya lain (sisa dari file)');
+    expect(html).toContain('Biaya lain');
     expect(html).toContain('aria-label="Biaya lain"');
   });
 

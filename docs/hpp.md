@@ -64,7 +64,7 @@ Dimigrasikan: **101 bahan** (94 di daftar + 7 yang hanya ada di sheet HPP), **37
 5 kategori bahan, 7 kategori menu. Daftar kontak pelanggan di PDF tidak dipakai dan tidak disimpan.
 
 - **HPP ke-54 menu sama persis dengan file** saat migrasi. Selisih antara HPP file dan komponen yang bisa
-  diuraikan disimpan di `biaya_lain` ("Biaya lain, sisa dari file": packaging dkk). Isinya bisa diedit di popup menu.
+  diuraikan disimpan di `biaya_lain` ("Biaya lain": packaging dkk). Isinya bisa diedit di popup menu.
 - **Komposisi menu adalah perkiraan awal**: protein (Mamam Chicken / Wingers / Classic Chicken) + Nasi +
   Topping sesuai nama menu; Twins = 0,5 porsi Wingers. File tidak memuat rincian bahan per menu. Koreksi lewat SQL
   (contoh di bawah) kalau berbeda dengan praktik di dapur.

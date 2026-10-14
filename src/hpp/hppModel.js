@@ -141,7 +141,7 @@ export function menuParts(model, ctx, m) {
     return { kind: 'resep', itemId: it.id, id: it.resepId, nama: r?.nama ?? '(resep dihapus)', qty: it.qty, unit: r?.hasilUnit ?? 'porsi', biaya: ctx.menuItemCost(it) };
   });
   parts.sort((a, b) => b.biaya - a.biaya);
-  if (m.biayaLain) parts.push({ kind: 'lain', id: m.id, nama: 'Biaya lain (sisa dari file)', qty: 1, unit: '', biaya: m.biayaLain });
+  if (m.biayaLain) parts.push({ kind: 'lain', id: m.id, nama: 'Biaya lain', qty: 1, unit: '', biaya: m.biayaLain });
   return parts;
 }
 

@@ -75,7 +75,7 @@ describe('struktur', () => {
   it('komponen menu urut biaya terbesar, biaya lain di akhir', () => {
     const m = model(); const c = makeCtx(m);
     const p = menuParts(m, c, m.menu[0]);
-    expect(p.map((x) => x.nama)).toEqual(['Kemasan', 'Ayam goreng', 'Biaya lain (sisa dari file)']);
+    expect(p.map((x) => x.nama)).toEqual(['Kemasan', 'Ayam goreng', 'Biaya lain']);
     expect(p.reduce((s, x) => s + x.biaya, 0)).toBeCloseTo(1730);
   });
 
