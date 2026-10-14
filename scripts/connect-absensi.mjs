@@ -4,12 +4,12 @@
  *
  * Yang dilakukan:
  *   1. Mencari file .env milik app lama (mamam-absensi / mamam-global) di folder-folder
- *      sebelah folder mamam-darurat.
+ *      sebelah folder mamam-pos.
  *   2. Membaca VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY dari sana.
  *   3. Menyalinnya ke .env.local milik C sebagai VITE_ABSENSI_SUPABASE_URL dan
  *      VITE_ABSENSI_SUPABASE_ANON_KEY. Baris lain di .env.local TIDAK disentuh.
  *
- * Cara pakai (PowerShell), DARI folder mamam-darurat:
+ * Cara pakai (PowerShell), DARI folder mamam-pos:
  *   node "C:\path\ke\connect-absensi.mjs"
  * Kalau file .env-nya tidak ketemu otomatis, tunjukkan sendiri:
  *   node "C:\path\ke\connect-absensi.mjs" "C:\...\mamam-absensi\.env"

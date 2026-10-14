@@ -15,11 +15,11 @@ import { buildPlan, TABLE_ORDER } from './transform.mjs';
 import { createClient, ApiError, EXISTING_READ, EXISTING_READ_HISTORY, conflictOf } from './postgrest.mjs';
 
 export const HELP = `
-Migrasi data app lama (mamam-global) -> C (mamam-darurat)
+Migrasi data app lama (mamam-global) -> C (mamam-pos)
 
 Langkah:
   1. Di app lama: Backup & Restore -> Export Data (JSON), rentang tanggal dikosongkan ("semua"). Kirim file-nya ke laptop.
-  2. Dari folder mamam-darurat (yang ada .env.local), jalankan SIMULASI dulu:
+  2. Dari folder mamam-pos (yang ada .env.local), jalankan SIMULASI dulu:
        node scripts/migrasi-dari-a.mjs "C:\\path\\backup.json"
   3. Kalau laporannya masuk akal, tulis beneran:
        node scripts/migrasi-dari-a.mjs "C:\\path\\backup.json" --apply
@@ -198,7 +198,7 @@ export async function run(argv, { cwd = process.cwd(), log = console.log, fetchI
     catch (err) { throw new Error(`File backup bukan JSON yang valid (${err.message}). Pakai file hasil Backup → Export JSON dari app lama.`); }
 
     // --- baca isi C ---------------------------------------------------------
-    if (args.apply && !client) throw new Error(`Tidak bisa menulis: ${envPath} tidak ditemukan. Jalankan dari folder mamam-darurat yang punya .env.local.`);
+    if (args.apply && !client) throw new Error(`Tidak bisa menulis: ${envPath} tidak ditemukan. Jalankan dari folder mamam-pos yang punya .env.local.`);
     const existing = {};
     if (client) {
       log('Membaca isi database C…');
@@ -210,7 +210,7 @@ export async function run(argv, { cwd = process.cwd(), log = console.log, fetchI
     const scope = args.riwayat ? 'data master + riwayat (transaksi, pengeluaran, shift)' : 'data master saja (menu, varian, pelanggan, voucher, karyawan)';
     const offline = !client;
     log(formatReport(plan, { apply: args.apply, offline, host: target ? maskHost(target.url) : '', scope }));
-    if (offline) log('⚠ .env.local tidak ditemukan, jadi isi C belum bisa dibaca: semua dianggap BARU. Jalankan dari folder mamam-darurat untuk hasil yang akurat.\n');
+    if (offline) log('⚠ .env.local tidak ditemukan, jadi isi C belum bisa dibaca: semua dianggap BARU. Jalankan dari folder mamam-pos untuk hasil yang akurat.\n');
     if (args.riwayat && client) { const w = openShiftWarning(plan, existing.shifts); if (w) log(`⚠ ${w}\n`); }
 
     const total = plan.inserts.reduce((n, g) => n + g.rows.length, 0);

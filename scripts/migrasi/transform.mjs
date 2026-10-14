@@ -1,6 +1,6 @@
 /**
  * transform.mjs — mengubah file backup JSON mamam-global (app A) menjadi baris
- * siap-simpan untuk tabel-tabel C (mamam-darurat). FUNGSI MURNI: tanpa jaringan,
+ * siap-simpan untuk tabel-tabel C (mamam-pos). FUNGSI MURNI: tanpa jaringan,
  * tanpa file, tanpa efek samping. Bisa dites tanpa database.
  *
  * Prinsip:

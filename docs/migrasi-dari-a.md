@@ -1,6 +1,6 @@
 # Migrasi data dari app lama (mamam-global) ke C
 
-Skrip: `scripts/migrasi-dari-a.mjs`. Dijalankan di laptop, dari folder `mamam-darurat`
+Skrip: `scripts/migrasi-dari-a.mjs`. Dijalankan di laptop, dari folder `mamam-pos`
 (yang punya `.env.local`). Tidak ada kunci yang perlu dikirim ke mana pun: skrip membaca
 `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` dari `.env.local` milik C.
 
