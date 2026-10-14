@@ -37,7 +37,14 @@
  */
 const GESTURE_EVENTS = ['click', 'keydown'];   // peristiwa yang dihitung browser sebagai interaksi pengguna
 
-export function createBackStack(win, { exitWindowMs = 2000 } = {}) {
+/**
+ * Opsi:
+ *   exitWindowMs  lama notif "ketuk lagi untuk keluar" (ms).
+ *   exitAnchor    false = TANPA jangkar dan tanpa notif keluar: Back dari entri dasar langsung meninggalkan
+ *                 halaman (ke halaman sebelumnya). Dipakai halaman HPP, yang dibuka dari POS di tab yang sama
+ *                 sehingga Back dari HPP harus kembali ke POS, bukan menahan pengguna dengan notif.
+ */
+export function createBackStack(win, { exitWindowMs = 2000, exitAnchor = true } = {}) {
   const layers = [];        // [{ id, close }] urutan dibuka
   let nextId = 1;
   let depth = 0;            // entri riwayat yang sudah kita buat di atas entri dasar
@@ -89,7 +96,7 @@ export function createBackStack(win, { exitWindowMs = 2000 } = {}) {
       // belakangnya tetap membawa penanda lama (basi) dan dilewati saat Back.
       try { win.history.replaceState({ ...base, mdr: 0, sid }, ''); } catch { /* abaikan */ }
       if (base.anchored === true) anchorOwned = true;   // refresh di entri dasar: jangkar masih di bawahnya
-      else watchFirstGesture();
+      else if (exitAnchor) watchFirstGesture();
     }
     win.addEventListener('popstate', onPop);
   }

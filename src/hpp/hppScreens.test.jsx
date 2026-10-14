@@ -153,38 +153,78 @@ describe('isian harga: tersimpan hanya lewat tombol Simpan', () => {
   });
 });
 
-describe('animasi popup HPP', () => {
-  const css = fs.readFileSync(new URL('./hppSheet.css', import.meta.url), 'utf8');
+describe('popup HPP: kerangka sama dengan app utama (Overlay)', () => {
+  const css = fs.readFileSync(new URL('./hppAnim.css', import.meta.url), 'utf8');
+  const baca = (f) => fs.readFileSync(new URL(`./${f}`, import.meta.url), 'utf8');
 
-  it('Sheet: latar dan panel memakai kelas animasi, belum dalam keadaan keluar', () => {
-    const html = render(<Sheet title="Tes" onClose={noop}><p>isi</p></Sheet>);
-    expect(html).toContain('hpp-overlay');
-    expect(html).toContain('hpp-panel');
-    expect(html).not.toContain('data-keluar');
+  it('Sheet: lembar putih dengan handle bar, judul, tombol X bulat (aria-label Tutup), dan isi', () => {
+    const html = render(<Sheet title="Tes Popup" onClose={noop}><p>isi popup</p></Sheet>);
     expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
+    expect(html).toContain('aria-label="Tes Popup"');
+    expect(html).toContain('>Tes Popup<');
+    expect(html).toContain('aria-label="Tutup"');
+    expect(html).toContain('rounded-full bg-slate-100 p-2');     // tombol X bulat seperti Modal app utama
+    expect(html).toContain('w-10');                              // handle bar
+    expect(html).toContain('rounded-t-3xl bg-white');
+    expect(html).toContain('<p>isi popup</p>');
+    expect(html).not.toContain('data-keluar');
   });
 
-  it('keyframes masuk dan keluar ada untuk latar, lembar HP, dialog laptop; gerakan dikurangi dihormati', () => {
-    for (const k of ['hpp-fade-in', 'hpp-fade-out', 'hpp-sheet-up', 'hpp-sheet-down', 'hpp-pop-in', 'hpp-pop-out', 'hpp-reveal', 'hpp-toast-in']) expect(css).toContain(`@keyframes ${k}`);
-    expect(css).toContain('.hpp-panel[data-keluar]');
-    expect(css).toContain('.hpp-overlay[data-keluar]');
-    expect(css).toMatch(/@media \(min-width: 768px\)/);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none/);
+  it('Sheet memakai Overlay app utama (varian responsive: animasi masuk/keluar dan tarik ke bawah untuk menutup)', () => {
+    const src = baca('ui.jsx');
+    expect(src).toMatch(/import Overlay from '\.\.\/components\/ui\/Overlay'/);
+    expect(src).toMatch(/<Overlay[\s\S]*variant="responsive"/);
+    const overlay = fs.readFileSync(new URL('../components/ui/Overlay.jsx', import.meta.url), 'utf8');
+    expect(overlay).toMatch(/useSwipeDown/);
+    expect(overlay).toMatch(/variant === 'sheet' \|\| variant === 'responsive'/);   // swipe aktif untuk varian ini
   });
 
-  it('durasi menunggu animasi keluar: 200 ms; 0 bila gerakan dikurangi atau tanpa matchMedia', () => {
-    expect(DURASI_KELUAR_MS).toBe(200);
-    expect(durasiKeluar(() => ({ matches: false }))).toBe(200);
+  it('Sheet menjadi lapisan di stack navigasi: Back menutup popup', () => {
+    const src = baca('ui.jsx');
+    expect(src).toMatch(/useBackLayer\(true, tutup\)/);
+    expect(src).toMatch(/from '\.\/hppBackStack'/);
+  });
+
+  it('Esc, X, tarik ke bawah, ketuk latar, dan Back semuanya lewat tutup() (animasi keluar dulu, baru onClose)', () => {
+    const src = baca('ui.jsx');
+    const sheet = src.slice(src.indexOf('export function Sheet'));
+    expect(sheet).toMatch(/onClose=\{tutup\}/);                 // Overlay: ketuk latar dan tarik ke bawah
+    expect(sheet).toMatch(/onClick=\{tutup\}/);                 // tombol X
+    expect(sheet).toMatch(/e\.key === 'Escape'\) tutup\(\)/);
+    expect(sheet).toMatch(/setTimeout\(onClose, durasiKeluar\(\)\)/);
+    expect(sheet).toMatch(/open=\{!keluar\}/);
+  });
+
+  it('durasi menunggu animasi keluar = 300 ms (sama dengan Overlay responsive); 0 bila gerakan dikurangi', () => {
+    expect(DURASI_KELUAR_MS).toBe(300);
+    expect(durasiKeluar(() => ({ matches: false }))).toBe(300);
     expect(durasiKeluar(() => ({ matches: true }))).toBe(0);
-    expect(durasiKeluar(undefined)).toBe(200);
+    expect(durasiKeluar(undefined)).toBe(300);
+    const overlay = fs.readFileSync(new URL('../components/ui/Overlay.jsx', import.meta.url), 'utf8');
+    expect(overlay).toMatch(/responsive: \{[^}]*ms: 300/);
   });
 
-  it('semua popup HPP memakai Sheet yang beranimasi (tidak ada dialog buatan sendiri)', () => {
+  it('animasi kecil (isian Simpan/Batal, notifikasi) ada di hppAnim.css; gerakan dikurangi dihormati', () => {
+    for (const k of ['hpp-reveal', 'hpp-toast-in']) expect(css).toContain(`@keyframes ${k}`);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none/);
+    expect(css).not.toContain('hpp-panel');                      // animasi popup kini milik Overlay
+  });
+
+  it('semua popup HPP memakai Sheet yang sama (tidak ada dialog buatan sendiri)', () => {
     for (const f of ['MenuSheet.jsx', 'BahanSheet.jsx', 'SettingsSheet.jsx']) {
-      const src = fs.readFileSync(new URL(`./${f}`, import.meta.url), 'utf8');
+      const src = baca(f);
       expect(src, f).toMatch(/<Sheet\b/);
       expect(src, f).not.toMatch(/role="dialog"/);
     }
+  });
+
+  it('HppApp: tab Harga bahan adalah lapisan stack; alamat mengikuti tab lewat replaceState (bukan pushState)', () => {
+    const src = baca('HppApp.jsx');
+    expect(src).toMatch(/useBackLayer\(tab !== 'menu', \(\) => setTab\('menu'\)\)/);
+    expect(src).toMatch(/history\.replaceState\(window\.history\.state/);
+    expect(src).not.toMatch(/history\.pushState\(/);
+    expect(src).not.toMatch(/addEventListener\('popstate'/);
   });
 });
 

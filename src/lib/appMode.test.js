@@ -35,9 +35,24 @@ describe('pemisahan jalur POS dan HPP', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('HppApp tidak menyentuh backStack, AuthContext, atau kode POS', () => {
+  it('HppApp tidak menyentuh lib/backStack, AuthContext, atau kode POS (stack navigasinya lewat hppBackStack.js)', () => {
     const hpp = read('../hpp/HppApp.jsx').split('\n').filter((l) => /^\s*import /.test(l)).join('\n');
-    expect(hpp).not.toMatch(/backStack|AuthContext|\/app\/|ExitToast|ConnectionBanner/);
+    expect(hpp).not.toMatch(/lib\/backStack|AuthContext|\/app\/|ExitToast|ConnectionBanner/);
+    expect(hpp).toMatch(/from '\.\/hppBackStack'/);
+  });
+
+  it('hppBackStack.js membuat instance SENDIRI tanpa jangkar; singleton backStack milik POS tidak diimpor', () => {
+    const src = read('../hpp/hppBackStack.js');
+    expect(src).toMatch(/import \{ createBackStack \} from '\.\.\/lib\/backStack'/);
+    expect(src).not.toMatch(/import\s*\{[^}]*\bbackStack\b[^}]*\}/);
+    expect(src).toMatch(/exitAnchor: false/);
+  });
+
+  it('dua modul bersama yang dipakai HPP murni: tidak mengimpor apa pun selain react', () => {
+    for (const rel of ['../lib/backStack.js', '../components/ui/Overlay.jsx']) {
+      const imports = [...read(rel).matchAll(/(?:^|\n)\s*import\s[^;]*?from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
+      expect(imports.filter((x) => x !== 'react'), rel).toEqual([]);
+    }
   });
 
   it('main.jsx: backStack, service worker, dan AuthProvider hanya di cabang POS', () => {
@@ -80,7 +95,10 @@ describe('src/hpp berdiri sendiri (tanpa kode POS)', () => {
   });
   const files = walk(root).filter((f) => /\.(jsx?|mjs)$/.test(f) && !/\.test\./.test(f));
 
-  it('berkas HPP hanya mengimpor sesama src/hpp, react, lucide-react, atau @supabase/supabase-js', () => {
+  // Satu-satunya impor keluar dari src/hpp: dua modul bersama yang murni (dicek terpisah di atas), masing-masing hanya dari berkas ini.
+  const BOLEH_KELUAR = { 'hppBackStack.js': ['../lib/backStack'], 'ui.jsx': ['../components/ui/Overlay'] };
+
+  it('berkas HPP hanya mengimpor sesama src/hpp, react, lucide-react, @supabase/supabase-js, dan dua modul bersama yang murni', () => {
     expect(files.length).toBeGreaterThan(3);
     const bad = [];
     for (const f of files) {
@@ -88,7 +106,8 @@ describe('src/hpp berdiri sendiri (tanpa kode POS)', () => {
       for (const m of src.matchAll(/(?:^|\n)\s*import\s[^;]*?from\s+['"]([^'"]+)['"]/g)) {
         const spec = m[1];
         const ok = spec === 'react' || spec === 'lucide-react' || spec === '@supabase/supabase-js' || spec.startsWith('react/')
-          || (spec.startsWith('./') && !spec.includes('..'));
+          || (spec.startsWith('./') && !spec.includes('..'))
+          || (BOLEH_KELUAR[f.split('/').pop()] || []).includes(spec);
         if (!ok) bad.push(`${f.replace(root, 'src/hpp')}: ${spec}`);
       }
     }

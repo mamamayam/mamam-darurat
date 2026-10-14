@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createBackStack } from './backStack.js';
+import { buatBackStackHpp, setelahSinkron } from '../hpp/hppBackStack.js';
 
 /**
  * Browser palsu yang meniru aturan riwayat sungguhan:
@@ -580,5 +581,104 @@ describe('backStack — kegagalan yang tidak boleh menjatuhkan aplikasi', () => 
     const spy = console.error; console.error = () => {};
     try { b.userBack(); await tick(); b.userBack(); await tick(); } finally { console.error = spy; }
     expect(order).toEqual(['B', 'A']);
+  });
+});
+
+describe('backStack — tanpa jangkar (exitAnchor: false), dipakai HPP', () => {
+  it('sentuhan tidak membuat jangkar dan tidak memasang pendengar sentuhan', async () => {
+    const { b, bs } = make({}, { exitAnchor: false });
+    bs.init(); await tick();
+    expect(b.gestureListeners).toBe(0);
+    b.tap('click'); await tick();
+    expect(b.log).toEqual(['replace']);                     // hanya menandai entri dasar
+    expect(b.length).toBe(2);                               // [halaman lain, dasar]
+  });
+
+  it('Back dari entri dasar langsung meninggalkan halaman: tanpa notif "ketuk lagi untuk keluar"', async () => {
+    const { b, bs } = make({}, { exitAnchor: false });
+    bs.init(); b.tap('click'); await tick();
+    b.userBack(); await tick();
+    expect(b.left).toBe(true);
+    expect(bs.snapshot().exitArmed).toBe(false);
+  });
+
+  it('lapisan tetap bekerja: 1 entri per lapisan (tanpa jangkar), Back menutup lapisan lalu keluar', async () => {
+    const { b, bs } = make({}, { exitAnchor: false });
+    let closed = 0; bs.register(() => { closed += 1; }); await tick();
+    expect(b.log).toEqual(['replace', 'push']);
+    expect(b.length).toBe(3);                               // [halaman lain, dasar, lapisan]
+    b.userBack(); await tick();
+    expect(closed).toBe(1);
+    expect(b.left).toBe(false);
+    b.userBack(); await tick();
+    expect(b.left).toBe(true);
+  });
+});
+
+describe('stack navigasi HPP — tab dan popup (buatBackStackHpp)', () => {
+  const siap = () => { const b = fakeBrowser(); const bs = buatBackStackHpp(b.win); return { b, bs }; };
+
+  it('Back berurutan: popup ditutup dulu, lalu tab Harga bahan kembali ke Menu, lalu keluar ke POS', async () => {
+    const { b, bs } = siap(); const urutan = [];
+    bs.register(() => urutan.push('tab'));      // tab Harga bahan dibuka
+    await tick();
+    bs.register(() => urutan.push('popup'));    // popup dibuka di atasnya
+    await tick();
+    expect(b.length).toBe(4);                   // [POS, dasar, tab, popup]
+    b.userBack(); await tick();
+    expect(urutan).toEqual(['popup']);
+    b.userBack(); await tick();
+    expect(urutan).toEqual(['popup', 'tab']);
+    expect(b.left).toBe(false);
+    b.userBack(); await tick();
+    expect(b.left).toBe(true);                  // dari Menu: meninggalkan HPP, tanpa notif
+    expect(bs.snapshot().exitArmed).toBe(false);
+  });
+
+  it('popup ditutup lewat X / tarik ke bawah (unregister): entri ikut dibuang, Back berikutnya menutup tab', async () => {
+    const { b, bs } = siap(); let tabDitutup = 0;
+    bs.register(() => { tabDitutup += 1; }); await tick();
+    const popup = bs.register(() => {}); await tick();
+    bs.unregister(popup); await tick();
+    expect(b.index).toBe(2);                    // mundur satu entri: berdiri di entri tab (entri popup tinggal "maju" yang akan dibuang)
+    b.userBack(); await tick();
+    expect(tabDitutup).toBe(1);
+  });
+
+  it('pindah tab lewat tombol (Harga bahan -> Menu -> Harga bahan berkali-kali): riwayat tidak menumpuk', async () => {
+    const { b, bs } = siap();
+    for (let i = 0; i < 4; i += 1) {
+      const id = bs.register(() => {}); await tick();
+      bs.unregister(id); await tick();
+    }
+    expect(b.index).toBe(1);                    // kembali di entri dasar
+    b.userBack(); await tick();
+    expect(b.left).toBe(true);                  // satu Back = keluar
+  });
+
+  it('alamat tab dipertahankan: state entri (mdr, sid) tidak hilang saat URL diganti dengan replaceState', async () => {
+    const { b, bs } = siap();
+    bs.register(() => {}); await tick();
+    const state = b.state;
+    b.win.history.replaceState(b.win.history.state, '/hpp/bahan');   // seperti efek URL di HppApp
+    expect(b.state).toBe(state);
+    expect(state).toMatchObject({ mdr: 1 });
+  });
+
+  it('setelahSinkron: fn jalan SESUDAH entri lapisan didorong (alamat tab menempel di entri lapisan, bukan entri Menu)', async () => {
+    const { b, bs } = siap(); let saat = null;
+    bs.register(() => {});
+    setelahSinkron(() => { saat = b.index; }, bs);
+    await tick();
+    expect(saat).toBe(2);                       // [POS, dasar, lapisan]: sudah di entri lapisan
+  });
+
+  it('setelahSinkron: lapisan baru dibuang -> menunggu go(-1) selesai, baru jalan (di entri dasar)', async () => {
+    const { b, bs } = siap(); let saat = null;
+    const id = bs.register(() => {}); await tick();
+    bs.unregister(id);
+    setelahSinkron(() => { saat = b.index; }, bs);
+    await tick(80);
+    expect(saat).toBe(1);                       // sudah kembali di entri dasar
   });
 });

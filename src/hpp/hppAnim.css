@@ -1,0 +1,13 @@
+/* Animasi kecil halaman HPP: isian harga yang membuka tombol Simpan/Batal (ui.jsx), panel tambah komponen,
+   dan notifikasi galat (HppApp.jsx). Proyek ini tidak memasang plugin animate-in, jadi keyframes ditulis di sini
+   (dimuat bersama chunk HPP).
+   Animasi POPUP (naik dari bawah, tarik ke bawah untuk menutup) ada di components/ui/Overlay.jsx, sama dengan app utama. */
+@keyframes hpp-reveal   { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes hpp-toast-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.hpp-reveal { animation: hpp-reveal 150ms ease-out; }
+.hpp-toast { animation: hpp-toast-in 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hpp-reveal, .hpp-toast { animation: none; }
+}

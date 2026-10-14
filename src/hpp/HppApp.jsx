@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Settings } from 'lucide-react'
 import LoginScreen from './LoginScreen'
 import MenuTab from './MenuTab'
@@ -10,15 +10,17 @@ import { hppConfigured, hppDb } from './hppClient'
 import { keluar, masuk, pulihkanSesi } from './hppAuth'
 import { TABS, pathForTab, tabFromPath } from './hppRoutes'
 import { useHpp } from './useHpp'
+import { setelahSinkron, useBackLayer } from './hppBackStack'
 
 /**
  * Root HPP (path /hpp dan /hpp/*). Dimuat lewat React.lazy dari src/main.jsx, jadi menjadi
  * chunk terpisah dan TIDAK ikut terunduh di HP yang hanya membuka POS.
  *
  * ATURAN (lihat PRD Routing, dijaga appMode.test.js):
- *  - Berkas di src/hpp hanya boleh mengimpor dari src/hpp, `react`, `lucide-react`, `@supabase/supabase-js`.
- *    Jangan menyentuh `lib/backStack`, `auth/*`, `app/*`, atau komponen POS.
- *  - Tombol Back = Back browser biasa (pushState biasa untuk pindah tab).
+ *  - Berkas di src/hpp hanya boleh mengimpor dari src/hpp, `react`, `lucide-react`, `@supabase/supabase-js`,
+ *    ditambah dua modul bersama yang murni (tanpa kode POS): `lib/backStack` (hanya `createBackStack`, lewat
+ *    `hppBackStack.js`) dan `components/ui/Overlay` (lewat `ui.jsx`). Jangan menyentuh `auth/*`, `app/*`, atau komponen POS lain.
+ *  - Stack navigasi: Back menutup popup dulu, lalu tab Harga bahan -> Menu, lalu keluar ke POS (hppBackStack.js).
  *  - Data HPP dijaga RLS di database (supabase/migrations/013_hpp.sql). Frontend hanya memakai anon key.
  */
 export default function HppApp() {
@@ -70,16 +72,22 @@ function Cangkang({ db, email, onKeluar }) {
   const [tab, setTab] = useState(() => tabFromPath(window.location.pathname))
   const [lembar, setLembar] = useState(null)   // { t: 'menu' | 'bahan' | 'set', id }
 
+  // Tab selain Menu = satu lapisan di stack navigasi (hppBackStack.js): Back dari Harga bahan kembali ke Menu,
+  // Back dari Menu meninggalkan HPP (ke POS). Popup (Sheet) menumpuk di atasnya dan ditutup lebih dulu.
+  const gantiTab = useCallback((key) => setTab(key), [])
+  useBackLayer(tab !== 'menu', () => setTab('menu'))
+  // Alamat mengikuti tab yang tampil (refresh / bagikan link tetap benar). replaceState, bukan pushState:
+  // entri riwayat dikelola backStack, dan state-nya dipertahankan. Dijalankan SETELAH stack menyamakan entri
+  // (setelahSinkron), supaya yang diganti entri lapisan tab, bukan entri Menu di bawahnya.
+  const tabTerbaru = useRef(tab)
   useEffect(() => {
-    const onPop = () => setTab(tabFromPath(window.location.pathname))
-    window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
-  }, [])
-  const gantiTab = useCallback((key) => {
-    const path = pathForTab(key)
-    if (window.location.pathname !== path) window.history.pushState(null, '', path)
-    setTab(key)
-  }, [])
+    tabTerbaru.current = tab
+    setelahSinkron(() => {
+      const path = pathForTab(tabTerbaru.current)
+      if (window.location.pathname === path) return
+      try { window.history.replaceState(window.history.state, '', path) } catch { /* abaikan */ }
+    })
+  }, [tab])
   const tutup = useCallback(() => setLembar(null), [])
 
   if (status === 'loading') return <Pesan judul="Memuat data HPP…" />

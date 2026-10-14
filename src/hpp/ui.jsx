@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { parseAngka, rupiah, persen } from './hppFormat'
-import './hppSheet.css'
+import Overlay from '../components/ui/Overlay'
+import { useBackLayer } from './hppBackStack'
+import './hppAnim.css'
 
 /** Potongan tampilan bersama halaman HPP. Gaya mengikuti app (accent, slate, rounded-2xl, font-heading). */
 
@@ -168,15 +170,21 @@ export function ProporsiBar({ parts, total, gelap = false }) {
   )
 }
 
-export const DURASI_KELUAR_MS = 200
+/** Lama menunggu animasi keluar Overlay (ms, sama dengan `motion.ms` varian responsive). */
+export const DURASI_KELUAR_MS = 300
 
-/** Lama menunggu animasi keluar; 0 kalau pengguna meminta gerakan dikurangi (sama dengan CSS: tanpa animasi). */
+/** Lama menunggu animasi keluar; 0 kalau pengguna meminta gerakan dikurangi. */
 export const durasiKeluar = (matchMedia = typeof window !== 'undefined' ? window.matchMedia?.bind(window) : undefined) =>
   (matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0 : DURASI_KELUAR_MS)
 
+const TOMBOL_X = 'flex-none rounded-full bg-slate-100 p-2 text-slate-400 transition-all duration-300 hover:bg-accent-100 hover:text-accent-600 active:scale-95'
+
 /**
- * Lembar dari bawah (HP) / dialog tengah (laptop), dengan animasi masuk dan keluar (hppSheet.css).
- * Esc, tombol X, dan ketuk latar menutup: animasi keluar diputar dulu, baru `onClose` dipanggil.
+ * Popup HPP, kerangkanya SAMA dengan popup app utama (`Overlay` varian responsive): lembar putih dari bawah di HP
+ * (handle bar, tombol X bulat, bisa ditarik ke bawah untuk menutup), dialog di tengah di laptop.
+ * Menutup lewat X, tarik ke bawah, ketuk latar, Esc, atau tombol Back browser/HP: animasi keluar diputar dulu,
+ * baru `onClose` dipanggil (induk melepas popup). Selama terbuka, popup menjadi lapisan di stack navigasi
+ * (`hppBackStack.js`), jadi Back menutup popup ini, bukan keluar dari halaman.
  */
 export function Sheet({ title, onClose, children, full = false }) {
   const [keluar, setKeluar] = useState(false)
@@ -187,30 +195,32 @@ export function Sheet({ title, onClose, children, full = false }) {
     timer.current = setTimeout(onClose, durasiKeluar())
   }, [onClose])
   useEffect(() => () => clearTimeout(timer.current), [])
+  useBackLayer(true, tutup)
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') tutup() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [tutup])
   return (
-    <div
-      className="hpp-overlay fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 md:items-center"
-      data-keluar={keluar ? '' : undefined}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) tutup() }}
-      role="dialog" aria-modal="true" aria-label={title}
+    <Overlay
+      open={!keluar} onClose={tutup} variant="responsive" z="z-50"
+      containerClass="items-end md:items-center justify-center md:p-4"
+      panelClass={`flex w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl md:max-w-xl md:rounded-3xl ${
+        full ? 'h-[92dvh] md:h-auto md:max-h-[92dvh]' : 'max-h-[92dvh]'
+      }`}
     >
-      <div data-keluar={keluar ? '' : undefined} className={`hpp-panel w-full overflow-y-auto bg-slate-50 p-4 shadow-2xl md:max-w-xl md:rounded-3xl ${
-        full ? 'h-full md:h-auto md:max-h-[92vh]' : 'max-h-[92vh] rounded-t-[28px]'
-      }`}>
-        <div className="mb-3 flex items-center justify-between gap-3">
+      <div role="dialog" aria-modal="true" aria-label={title} className="flex min-h-0 flex-1 flex-col">
+        <div className="mx-auto mb-1 mt-3 h-1 w-10 flex-none rounded-full bg-slate-200 md:hidden" aria-hidden="true" />
+        <div className="flex flex-none items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
           <h2 className="min-w-0 truncate font-heading text-lg font-bold text-slate-900">{title}</h2>
-          <button type="button" onClick={tutup} aria-label="Tutup"
-            className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-slate-100 text-slate-500 active:scale-95">
-            <X size={16} />
+          <button type="button" onClick={tutup} aria-label="Tutup" className={TOMBOL_X}>
+            <X className="h-4 w-4" />
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50 p-4">
+          {children}
+        </div>
       </div>
-    </div>
+    </Overlay>
   )
 }
