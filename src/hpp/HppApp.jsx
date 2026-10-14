@@ -10,7 +10,8 @@ import { hppConfigured, hppDb } from './hppClient'
 import { keluar, masuk, pulihkanSesi } from './hppAuth'
 import { TABS, pathForTab, tabFromPath } from './hppRoutes'
 import { useHpp } from './useHpp'
-import { setelahSinkron, useBackLayer } from './hppBackStack'
+import { setelahSinkron, useBackLayer, useExitHint } from './hppBackStack'
+import { NotifKeluar } from './ui'
 
 /**
  * Root HPP (path /hpp dan /hpp/*). Dimuat lewat React.lazy dari src/main.jsx, jadi menjadi
@@ -20,11 +21,13 @@ import { setelahSinkron, useBackLayer } from './hppBackStack'
  *  - Berkas di src/hpp hanya boleh mengimpor dari src/hpp, `react`, `lucide-react`, `@supabase/supabase-js`,
  *    ditambah dua modul bersama yang murni (tanpa kode POS): `lib/backStack` (hanya `createBackStack`, lewat
  *    `hppBackStack.js`) dan `components/ui/Overlay` (lewat `ui.jsx`). Jangan menyentuh `auth/*`, `app/*`, atau komponen POS lain.
- *  - Stack navigasi: Back menutup popup dulu, lalu tab Harga bahan -> Menu, lalu keluar ke POS (hppBackStack.js).
+ *  - Stack navigasi: Back menutup popup dulu, lalu tab Harga bahan -> Menu, lalu notif "Tekan Back lagi" dan keluar ke POS (hppBackStack.js).
  *  - Data HPP dijaga RLS di database (supabase/migrations/013_hpp.sql). Frontend hanya memakai anon key.
  */
 export default function HppApp() {
   const [auth, setAuth] = useState({ status: hppConfigured ? 'cek' : 'tidak-diset', email: '' })
+
+  const tampilKeluar = useExitHint()
 
   useEffect(() => { document.title = 'Mamam HPP' }, [])
   useEffect(() => {
@@ -51,6 +54,7 @@ export default function HppApp() {
       {auth.status === 'cek' && <Pesan judul="Memeriksa sesi…" />}
       {auth.status === 'keluar' && <LoginScreen onMasuk={login} />}
       {auth.status === 'masuk' && <Cangkang db={hppDb} email={auth.email} onKeluar={logout} />}
+      <NotifKeluar tampil={tampilKeluar} />
     </main>
   )
 }
@@ -73,7 +77,7 @@ function Cangkang({ db, email, onKeluar }) {
   const [lembar, setLembar] = useState(null)   // { t: 'menu' | 'bahan' | 'set', id }
 
   // Tab selain Menu = satu lapisan di stack navigasi (hppBackStack.js): Back dari Harga bahan kembali ke Menu,
-  // Back dari Menu meninggalkan HPP (ke POS). Popup (Sheet) menumpuk di atasnya dan ditutup lebih dulu.
+  // Back dari Menu memunculkan notif, Back kedua meninggalkan HPP (ke POS). Popup (Sheet) menumpuk di atasnya dan ditutup lebih dulu.
   const gantiTab = useCallback((key) => setTab(key), [])
   useBackLayer(tab !== 'menu', () => setTab('menu'))
   // Alamat mengikuti tab yang tampil (refresh / bagikan link tetap benar). replaceState, bukan pushState:

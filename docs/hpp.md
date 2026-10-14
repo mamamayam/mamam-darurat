@@ -51,8 +51,9 @@ Bahan tanpa harga dihitung 0 dan menu yang memakainya diberi peringatan.
 ## Navigasi dan popup
 
 - **Back** (tombol Back HP, browser, atau geser mundur) menutup lapisan teratas: popup dulu, lalu tab **Harga bahan**
-  kembali ke **Menu**, lalu keluar dari HPP (kembali ke POS). Tidak ada notif "ketuk lagi untuk keluar" di HPP.
-  Mesinnya `createBackStack` yang sama dengan POS, instance sendiri tanpa jangkar (`src/hpp/hppBackStack.js`).
+  kembali ke **Menu**. Dari Menu, Back pertama memunculkan notif **"Tekan Back lagi untuk kembali ke POS"**; Back kedua
+  dalam 2 detik meninggalkan HPP (kembali ke POS). Cara kerjanya sama dengan "Ketuk lagi untuk keluar" di Beranda POS.
+  Mesinnya `createBackStack` yang sama dengan POS, instance sendiri (`src/hpp/hppBackStack.js`).
 - Alamat mengikuti tab (`/hpp`, `/hpp/bahan`) lewat `replaceState`, jadi refresh dan link langsung tetap jalan.
 - **Popup** memakai kerangka yang sama dengan app utama (`components/ui/Overlay`): lembar putih naik dari bawah di HP
   (laptop: dialog di tengah), ada handle bar dan tombol X bulat, dan bisa **ditarik ke bawah** untuk menutup.

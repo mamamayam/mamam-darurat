@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { createBackStack } from '../lib/backStack'
 
 /**
@@ -6,15 +6,21 @@ import { createBackStack } from '../lib/backStack'
  * Lapisan = popup (Sheet) dan tab selain Menu. Urutan tutup: yang terakhir dibuka ditutup duluan.
  *
  * Memakai mesin yang sama dengan POS (`createBackStack`, tanpa React dan tanpa kode POS), tetapi dengan
- * instance SENDIRI dan `exitAnchor: false`: tidak ada jangkar dan tidak ada notif "ketuk lagi untuk keluar".
- * Back dari Menu (tanpa lapisan terbuka) langsung meninggalkan HPP. HPP dibuka dari POS di tab yang sama
- * (`leaveForHref`), jadi Back kembali ke POS.
+ * instance SENDIRI. Seperti di Beranda POS, Back dari Menu (tanpa lapisan terbuka) TIDAK langsung keluar:
+ * pertama muncul notif "Tekan Back lagi untuk kembali ke POS" (`useExitHint` + `NotifKeluar` di ui.jsx),
+ * Back kedua dalam 2 detik meninggalkan HPP. HPP dibuka dari POS di tab yang sama (`leaveForHref`), jadi
+ * keluar dari HPP = kembali ke POS.
  *
- * JANGAN mengimpor singleton `backStack` dari lib/backStack: itu milik POS (dengan jangkar dan notif keluar).
+ * JANGAN mengimpor singleton `backStack` dari lib/backStack: itu milik POS.
  */
-export const buatBackStackHpp = (win) => createBackStack(win, { exitAnchor: false })
+export const buatBackStackHpp = (win, opsi) => createBackStack(win, opsi)
 
 export const hppBackStack = buatBackStackHpp(typeof window !== 'undefined' ? window : null)
+
+/** true selama notif "Tekan Back lagi untuk kembali ke POS" harus tampil (padam sendiri kalau tidak ada Back kedua). */
+export function useExitHint(stack = hppBackStack) {
+  return useSyncExternalStore(stack.subscribeExitHint, stack.getExitHint, () => false)
+}
 
 /**
  * useBackLayer(aktif, onBack): selama `aktif`, Back memanggil `onBack` (menutup lapisan ini).

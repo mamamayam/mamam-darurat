@@ -10,7 +10,7 @@ import MenuSheet from './MenuSheet.jsx';
 import BahanSheet from './BahanSheet.jsx';
 import SettingsSheet from './SettingsSheet.jsx';
 import KomposisiPicker from './KomposisiPicker.jsx';
-import { NumberField, Sheet, statusIsian, durasiKeluar, DURASI_KELUAR_MS } from './ui.jsx';
+import { NumberField, NotifKeluar, Sheet, statusIsian, durasiKeluar, DURASI_KELUAR_MS } from './ui.jsx';
 
 const render = (el) => renderToString(el).replace(/<!-- -->/g, '');
 const noop = () => {};
@@ -225,6 +225,26 @@ describe('popup HPP: kerangka sama dengan app utama (Overlay)', () => {
     expect(src).toMatch(/history\.replaceState\(window\.history\.state/);
     expect(src).not.toMatch(/history\.pushState\(/);
     expect(src).not.toMatch(/addEventListener\('popstate'/);
+  });
+});
+
+describe('notif keluar HPP (Back dari Menu)', () => {
+  it('tampil: pesan "Tekan Back lagi untuk kembali ke POS", role status, tidak menangkap sentuhan, di atas popup', () => {
+    const html = render(<NotifKeluar tampil />);
+    expect(html).toContain('Tekan Back lagi untuk kembali ke POS');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('pointer-events-none');
+    expect(html).toContain('z-[70]');
+  });
+
+  it('tidak tampil: tidak merender apa pun', () => {
+    expect(render(<NotifKeluar tampil={false} />)).toBe('');
+  });
+
+  it('HppApp memasang notif di akar (juga saat memuat/galat) dan memakai useExitHint milik HPP', () => {
+    const src = fs.readFileSync(new URL('./HppApp.jsx', import.meta.url), 'utf8');
+    expect(src).toMatch(/useExitHint\(\)/);
+    expect(src).toMatch(/<NotifKeluar tampil=\{tampilKeluar\} \/>/);
   });
 });
 

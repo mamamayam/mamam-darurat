@@ -41,11 +41,11 @@ describe('pemisahan jalur POS dan HPP', () => {
     expect(hpp).toMatch(/from '\.\/hppBackStack'/);
   });
 
-  it('hppBackStack.js membuat instance SENDIRI tanpa jangkar; singleton backStack milik POS tidak diimpor', () => {
+  it('hppBackStack.js membuat instance SENDIRI; singleton backStack milik POS tidak diimpor', () => {
     const src = read('../hpp/hppBackStack.js');
     expect(src).toMatch(/import \{ createBackStack \} from '\.\.\/lib\/backStack'/);
     expect(src).not.toMatch(/import\s*\{[^}]*\bbackStack\b[^}]*\}/);
-    expect(src).toMatch(/exitAnchor: false/);
+    expect(src).toMatch(/createBackStack\(win, opsi\)/);
   });
 
   it('dua modul bersama yang dipakai HPP murni: tidak mengimpor apa pun selain react', () => {

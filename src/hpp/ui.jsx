@@ -224,3 +224,19 @@ export function Sheet({ title, onClose, children, full = false }) {
     </Overlay>
   )
 }
+
+/**
+ * Notif mengambang saat Back ditekan di Menu: Back sekali lagi akan keluar dari HPP (kembali ke POS).
+ * `tampil` dari `useExitHint()` (hppBackStack.js). Tidak menangkap sentuhan dan berada di atas popup.
+ */
+export function NotifKeluar({ tampil }) {
+  if (!tampil) return null
+  return (
+    <div role="status" aria-live="polite"
+      className="hpp-toast pointer-events-none fixed inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-[70] flex justify-center px-4">
+      <div className="rounded-full bg-slate-900/95 px-4 py-2.5 text-sm font-semibold text-white shadow-lg">
+        Tekan Back lagi untuk kembali ke POS
+      </div>
+    </div>
+  )
+}
