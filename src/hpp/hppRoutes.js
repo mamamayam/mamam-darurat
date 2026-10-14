@@ -1,13 +1,12 @@
-/** Tab HPP <-> path. /hpp = tab Bahan; /hpp/resep; /hpp/menu. Path lain di bawah /hpp jatuh ke Bahan. */
+/** Tab HPP <-> path. /hpp = Menu; /hpp/bahan = Harga bahan. Path lain di bawah /hpp jatuh ke Menu. */
 export const TABS = [
-  { key: 'bahan', label: 'Bahan', path: '/hpp' },
-  { key: 'resep', label: 'Resep', path: '/hpp/resep' },
-  { key: 'menu', label: 'Menu', path: '/hpp/menu' },
+  { key: 'menu', label: 'Menu', path: '/hpp' },
+  { key: 'bahan', label: 'Harga bahan', path: '/hpp/bahan' },
 ];
 
 export function tabFromPath(pathname) {
   const clean = String(pathname || '').replace(/\/+$/, '');
-  return TABS.find((t) => t.path === clean)?.key || 'bahan';
+  return TABS.find((t) => t.path === clean)?.key || 'menu';
 }
 
 export function pathForTab(key) {

@@ -80,14 +80,14 @@ describe('src/hpp berdiri sendiri (tanpa kode POS)', () => {
   });
   const files = walk(root).filter((f) => /\.(jsx?|mjs)$/.test(f) && !/\.test\./.test(f));
 
-  it('berkas HPP hanya mengimpor sesama src/hpp, react, atau lucide-react', () => {
+  it('berkas HPP hanya mengimpor sesama src/hpp, react, lucide-react, atau @supabase/supabase-js', () => {
     expect(files.length).toBeGreaterThan(3);
     const bad = [];
     for (const f of files) {
       const src = fs.readFileSync(f, 'utf8');
       for (const m of src.matchAll(/(?:^|\n)\s*import\s[^;]*?from\s+['"]([^'"]+)['"]/g)) {
         const spec = m[1];
-        const ok = spec === 'react' || spec === 'lucide-react' || spec.startsWith('react/')
+        const ok = spec === 'react' || spec === 'lucide-react' || spec === '@supabase/supabase-js' || spec.startsWith('react/')
           || (spec.startsWith('./') && !spec.includes('..'));
         if (!ok) bad.push(`${f.replace(root, 'src/hpp')}: ${spec}`);
       }

@@ -1,55 +1,83 @@
 import { useMemo, useState } from 'react'
-import { BAHAN } from './data/hppData'
-import { rupiah } from './hppMath'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { kelompokkan, menusUsingBahan, perubahanTerakhir } from './hppModel'
+import { persen, rupiah, tanggal } from './hppFormat'
+import { Card, Chip, ChipRow, SearchBox, SectionLabel } from './ui'
 
-/** Tab Bahan: database bahan baku dan harga beli (harga per 27/11/2025). */
-export default function BahanTab() {
+/** Tab Harga bahan: bahan baku per kategori. Ketuk bahan untuk ubah harga, lihat dampak dan riwayat. */
+export default function BahanTab({ model, onOpen }) {
   const [q, setQ] = useState('')
-  const rows = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    return BAHAN.filter(([, nama]) => nama.toLowerCase().includes(s))
-  }, [q])
-  const kosong = BAHAN.filter((b) => b[4] === null).length
+  const [kat, setKat] = useState('semua')
+  const [tutup, setTutup] = useState({})
+
+  const dipakai = useMemo(
+    () => new Map(model.bahanList.map((b) => [b.id, menusUsingBahan(model, b.id).length])),
+    [model],
+  )
+  const cari = q.trim().toLowerCase()
+  const daftar = model.bahanList.filter((b) => (kat === 'semua' || b.kategoriId === kat) && b.nama.toLowerCase().includes(cari))
+  const grup = kelompokkan(daftar, model.kategoriBahan, (b) => b.kategoriId)
+  const kosong = model.bahanList.filter((b) => b.harga === null).length
 
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari bahan"
-          aria-label="Cari bahan"
-          className="w-full sm:w-72 rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20" />
-        <p className="text-slate-500">{rows.length} dari {BAHAN.length} bahan, {kosong} belum ada harga. Harga per 27/11/2025.</p>
-      </div>
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[520px] text-left">
-          <thead className="bg-slate-50 text-slate-500">
-            <tr>
-              <th className="w-12 px-4 py-2.5 font-semibold">No</th>
-              <th className="px-4 py-2.5 font-semibold">Nama bahan</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Qty</th>
-              <th className="px-4 py-2.5 font-semibold">Satuan</th>
-              <th className="px-4 py-2.5 font-semibold text-right">Harga beli</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([no, nama, qty, satuan, harga]) => (
-              <tr key={no} className="border-t border-slate-100 hover:bg-slate-50/70">
-                <td className="px-4 py-2 text-slate-400 tabular-nums">{no}</td>
-                <td className="px-4 py-2 text-slate-800">{nama}</td>
-                <td className="px-4 py-2 text-right tabular-nums">{qty ?? '-'}</td>
-                <td className="px-4 py-2 text-slate-600">{satuan ?? '-'}</td>
-                <td className="px-4 py-2 text-right tabular-nums">
-                  {harga === null
-                    ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">Belum diisi</span>
-                    : rupiah(harga)}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Tidak ada bahan yang cocok</td></tr>
+      <SearchBox value={q} onChange={setQ} placeholder="Cari bahan" />
+      <ChipRow>
+        <Chip on={kat === 'semua'} onClick={() => setKat('semua')}>Semua {model.bahanList.length}</Chip>
+        {model.kategoriBahan.map((k) => (
+          <Chip key={k.id} on={kat === k.id} onClick={() => setKat(k.id)}>
+            {k.nama} {model.bahanList.filter((b) => b.kategoriId === k.id).length}
+          </Chip>
+        ))}
+      </ChipRow>
+
+      {grup.map((g) => {
+        const lipat = tutup[g.id ?? 'x']
+        return (
+          <div key={g.id ?? 'x'} className="mb-3">
+            <button type="button" onClick={() => setTutup((s) => ({ ...s, [g.id ?? 'x']: !s[g.id ?? 'x'] }))}
+              aria-expanded={!lipat} className="mb-1.5 flex w-full items-center justify-between px-0.5">
+              <SectionLabel>{g.nama} · {g.items.length}</SectionLabel>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform ${lipat ? '-rotate-90' : ''}`} />
+            </button>
+            {!lipat && (
+              <Card>
+                {g.items.map((b) => {
+                  const p = perubahanTerakhir(model, b.id)
+                  const n = dipakai.get(b.id)
+                  return (
+                    <button key={b.id} type="button" onClick={() => onOpen(b.id)}
+                      className="flex w-full items-center justify-between gap-3 border-t border-slate-100 py-2.5 text-left first:border-t-0 active:opacity-70">
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-slate-800">{b.nama}</span>
+                        <span className="block text-xs text-slate-400">per {b.satuan} · {n ? `dipakai di ${n} menu` : 'belum dipakai menu'}</span>
+                      </span>
+                      <span className="flex flex-none items-center gap-1.5 text-slate-300">
+                        <span className="text-right">
+                          {b.harga === null
+                            ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">Belum diisi</span>
+                            : <span className="block font-bold tabular-nums text-slate-800">{rupiah(b.harga)}</span>}
+                          <span className="block text-xs">
+                            {p
+                              ? <><span className={p.persen > 0 ? 'font-bold text-accent-600' : 'font-bold text-emerald-600'}>{p.persen > 0 ? '▲' : '▼'} {persen(Math.abs(p.persen))}</span> <span className="text-slate-400">· {tanggal(p.pada)}</span></>
+                              : <span className="text-slate-400">Harga awal</span>}
+                          </span>
+                        </span>
+                        <ChevronRight size={14} />
+                      </span>
+                    </button>
+                  )
+                })}
+              </Card>
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        )
+      })}
+
+      {grup.length === 0 && <Card padded className="text-center text-xs text-slate-400">Tidak ada bahan yang cocok</Card>}
+      {kosong > 0 && kat === 'semua' && !cari && (
+        <p className="px-1 text-xs text-slate-400">{kosong} bahan belum ada harganya. Ketuk bahannya untuk mengisi.</p>
+      )}
     </section>
   )
 }
