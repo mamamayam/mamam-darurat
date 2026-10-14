@@ -1,0 +1,28 @@
+/* Animasi popup HPP (Sheet, isian harga, notifikasi di ui.jsx dan HppApp.jsx).
+   Proyek ini tidak memasang plugin animate-in, jadi keyframes ditulis di sini (dimuat bersama chunk HPP).
+   HP: lembar naik dari bawah. Laptop: dialog muncul dengan sedikit membesar. Latar memudar.
+   Saat ditutup, Sheet memberi atribut data-keluar lalu menunggu animasi selesai sebelum dilepas. */
+@keyframes hpp-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hpp-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes hpp-sheet-up   { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes hpp-sheet-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes hpp-pop-in  { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes hpp-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(12px) scale(0.96); } }
+@keyframes hpp-reveal  { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes hpp-toast-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.hpp-overlay { animation: hpp-fade-in 200ms ease-out; }
+.hpp-overlay[data-keluar] { animation: hpp-fade-out 200ms ease-in forwards; }
+.hpp-panel { animation: hpp-sheet-up 300ms cubic-bezier(0.32, 0.72, 0, 1); }
+.hpp-panel[data-keluar] { animation: hpp-sheet-down 200ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+.hpp-reveal { animation: hpp-reveal 150ms ease-out; }
+.hpp-toast { animation: hpp-toast-in 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+
+@media (min-width: 768px) {
+  .hpp-panel { animation: hpp-pop-in 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+  .hpp-panel[data-keluar] { animation: hpp-pop-out 160ms ease-in forwards; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hpp-overlay, .hpp-overlay[data-keluar], .hpp-panel, .hpp-panel[data-keluar], .hpp-reveal, .hpp-toast { animation: none; }
+}

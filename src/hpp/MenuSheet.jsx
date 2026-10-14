@@ -24,6 +24,7 @@ export default function MenuSheet({ model, menuId, actions, onClose }) {
     const b = model.bahan[bahanId]
     const ok = await actions.ubahHarga({ bahanId, harga, catatan: `Diubah dari modal menu ${m.nama}`, sumber: 'modal_menu' })
     if (ok) setCatatan(`${b.nama} diubah ke ${rupiah(harga)}. Tercatat di riwayat harga.`)
+    return ok   // false = gagal: isian tetap terbuka (lihat NumberField)
   }
 
   return (
@@ -75,8 +76,8 @@ export default function MenuSheet({ model, menuId, actions, onClose }) {
             <ResepLine key={`r-${p.id}-${i}`} model={model} ctx={ctx} resepId={p.id} qty={p.qty} biaya={p.biaya}
               total={info.hpp} onHarga={ubahHarga} />
           ) : (
-            <div key={`l-${i}`} className="flex items-center justify-between gap-3 border-t border-slate-100 py-2.5">
-              <div>
+            <div key={`l-${i}`} className="flex items-start justify-between gap-3 border-t border-slate-100 py-2.5">
+              <div className="pt-1">
                 <div className="font-semibold text-slate-800">{p.nama}</div>
                 <div className="text-xs text-slate-400">Packaging dan biaya lain yang belum diuraikan</div>
               </div>
@@ -98,16 +99,16 @@ function BahanLine({ model, bahanId, qty, biaya, onHarga, dalam = false }) {
   if (!b) return null
   const n = menusUsingBahan(model, bahanId).length
   return (
-    <div className={`flex items-center justify-between gap-3 border-t border-slate-100 ${dalam ? 'py-1.5' : 'py-2.5'}`}>
-      <div className="min-w-0">
+    <div className={`flex items-start justify-between gap-3 border-t border-slate-100 ${dalam ? 'py-1.5' : 'py-2.5'}`}>
+      <div className="min-w-0 pt-1">
         <div className={`truncate ${dalam ? 'text-slate-600' : 'font-semibold text-slate-800'}`}>{b.nama}</div>
         <div className="text-xs text-slate-400">
           {angka(qty)} {b.unit} · {rupiah(biaya)}{!dalam ? ` · dipakai di ${n} menu` : ''}
         </div>
       </div>
-      <div className="flex flex-none items-center gap-1.5">
-        <NumberField value={b.harga} placeholder="isi harga" ariaLabel={`Harga ${b.nama}`} onCommit={(v) => onHarga(bahanId, v)} />
-        <span className="w-12 text-xs text-slate-400">/{b.satuan}</span>
+      <div className="flex-none">
+        <NumberField value={b.harga} placeholder="isi harga" ariaLabel={`Harga ${b.nama}`} onCommit={(v) => onHarga(bahanId, v)}
+          suffix={<span className="w-12 text-xs text-slate-400">/{b.satuan}</span>} />
       </div>
     </div>
   )

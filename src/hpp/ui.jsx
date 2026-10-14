@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { parseAngka, rupiah, persen } from './hppFormat'
+import './hppSheet.css'
 
 /** Potongan tampilan bersama halaman HPP. Gaya mengikuti app (accent, slate, rounded-2xl, font-heading). */
 
@@ -80,28 +81,63 @@ export function Row({ children, onClick, className = '' }) {
     : <div className={base}>{children}</div>
 }
 
-/** Isian angka: diketik bebas, disimpan saat keluar kolom atau menekan Enter. Esc membatalkan. */
-export function NumberField({ value, onCommit, ariaLabel, placeholder = '', className = '', changed = false, align = 'right', gelap = false }) {
-  const [draft, setDraft] = useState(null)
-  const commit = () => {
-    if (draft === null) return
-    const v = parseAngka(draft)
-    setDraft(null)
-    if (v !== null && v !== value) onCommit(v)
+/**
+ * Status isian angka. `draft` = teks yang sedang diketik (null = belum diubah), `value` = nilai tersimpan.
+ * Murni (dites): `kotor` = ada ketikan yang belum disimpan, `bisaSimpan` = angkanya valid dan beda dari yang tersimpan.
+ */
+export function statusIsian(draft, value) {
+  if (draft === null) return { kotor: false, valid: false, bisaSimpan: false, nilai: null }
+  const nilai = parseAngka(draft)
+  return { kotor: true, valid: nilai !== null, bisaSimpan: nilai !== null && nilai !== value, nilai }
+}
+
+/**
+ * Isian angka dengan tombol Simpan. Mengetik hanya mengubah isian; perubahan baru tersimpan saat Simpan (atau Enter)
+ * ditekan. Keluar dari kolom TIDAK menyimpan. Batal (atau Esc) mengembalikan angka semula.
+ * `onCommit` boleh async: kalau mengembalikan false (gagal), isian tetap terbuka supaya bisa dicoba lagi.
+ * `suffix` = teks satuan di samping kolom. `awal` = isian awal (hanya untuk tes).
+ */
+export function NumberField({ value, onCommit, ariaLabel, placeholder = '', className = '', align = 'right', gelap = false, suffix = null, awal = null }) {
+  const [draft, setDraft] = useState(awal)
+  const [menyimpan, setMenyimpan] = useState(false)
+  const s = statusIsian(draft, value)
+  const batal = () => setDraft(null)
+  const simpan = async () => {
+    if (!s.bisaSimpan || menyimpan) return
+    setMenyimpan(true)
+    let ok
+    try { ok = await onCommit(s.nilai) } finally { setMenyimpan(false) }
+    if (ok !== false) setDraft(null)
   }
+  const tombol = 'rounded-xl px-3 py-1 text-xs font-bold transition-transform active:scale-95 disabled:opacity-45'
   return (
-    <input
-      type="text" inputMode="decimal" aria-label={ariaLabel} placeholder={placeholder}
-      value={draft ?? (value ?? '')}
-      onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur()
-        if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur() }
-      }}
-      className={`w-24 rounded-xl border px-2.5 py-1.5 font-semibold tabular-nums outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 ${
-        align === 'right' ? 'text-right' : 'text-left'
-      } ${gelap ? 'border-slate-700 bg-slate-800 text-white' : `bg-white text-slate-800 ${changed ? 'border-accent-500 text-accent-700' : 'border-slate-200'}`} ${className}`}
-    />
+    <span className={`inline-flex flex-col gap-1.5 ${align === 'right' ? 'items-end' : 'items-start'} ${gelap ? 'w-full' : ''}`}>
+      <span className={`flex items-center gap-1.5 ${gelap ? 'w-full' : ''}`}>
+        <input
+          type="text" inputMode="decimal" aria-label={ariaLabel} placeholder={placeholder} aria-invalid={s.kotor && !s.valid ? 'true' : undefined}
+          value={draft ?? (value ?? '')}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') simpan()
+            if (e.key === 'Escape') batal()
+          }}
+          className={`w-24 rounded-xl border px-2.5 py-1.5 font-semibold tabular-nums outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 ${
+            align === 'right' ? 'text-right' : 'text-left'
+          } ${gelap ? 'border-slate-700 bg-slate-800 text-white' : `bg-white ${s.kotor ? (s.valid ? 'border-accent-500 text-accent-700' : 'border-red-400 text-red-600') : 'border-slate-200 text-slate-800'}`} ${className}`}
+        />
+        {suffix}
+      </span>
+      {s.kotor && (
+        <span className="hpp-reveal flex items-center gap-1.5">
+          <button type="button" onClick={batal} disabled={menyimpan} aria-label={`Batal ubah ${ariaLabel}`}
+            className={`${tombol} ${gelap ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>Batal</button>
+          <button type="button" onClick={simpan} disabled={!s.bisaSimpan || menyimpan} aria-label={`Simpan ${ariaLabel}`}
+            className={`${tombol} bg-gradient-to-r from-accent-600 to-accent-500 text-white shadow shadow-accent-500/30`}>
+            {menyimpan ? 'Menyimpan…' : 'Simpan'}
+          </button>
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -132,25 +168,43 @@ export function ProporsiBar({ parts, total, gelap = false }) {
   )
 }
 
-/** Lembar dari bawah (HP) / dialog tengah (laptop). Esc dan ketuk latar menutup. */
+export const DURASI_KELUAR_MS = 200
+
+/** Lama menunggu animasi keluar; 0 kalau pengguna meminta gerakan dikurangi (sama dengan CSS: tanpa animasi). */
+export const durasiKeluar = (matchMedia = typeof window !== 'undefined' ? window.matchMedia?.bind(window) : undefined) =>
+  (matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0 : DURASI_KELUAR_MS)
+
+/**
+ * Lembar dari bawah (HP) / dialog tengah (laptop), dengan animasi masuk dan keluar (hppSheet.css).
+ * Esc, tombol X, dan ketuk latar menutup: animasi keluar diputar dulu, baru `onClose` dipanggil.
+ */
 export function Sheet({ title, onClose, children, full = false }) {
+  const [keluar, setKeluar] = useState(false)
+  const timer = useRef(null)
+  const tutup = useCallback(() => {
+    if (timer.current !== null) return
+    setKeluar(true)
+    timer.current = setTimeout(onClose, durasiKeluar())
+  }, [onClose])
+  useEffect(() => () => clearTimeout(timer.current), [])
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => { if (e.key === 'Escape') tutup() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [tutup])
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 md:items-center"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className="hpp-overlay fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 md:items-center"
+      data-keluar={keluar ? '' : undefined}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) tutup() }}
       role="dialog" aria-modal="true" aria-label={title}
     >
-      <div className={`w-full overflow-y-auto bg-slate-50 p-4 shadow-2xl md:max-w-xl md:rounded-3xl ${
+      <div data-keluar={keluar ? '' : undefined} className={`hpp-panel w-full overflow-y-auto bg-slate-50 p-4 shadow-2xl md:max-w-xl md:rounded-3xl ${
         full ? 'h-full md:h-auto md:max-h-[92vh]' : 'max-h-[92vh] rounded-t-[28px]'
       }`}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="min-w-0 truncate font-heading text-lg font-bold text-slate-900">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Tutup"
+          <button type="button" onClick={tutup} aria-label="Tutup"
             className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-slate-100 text-slate-500 active:scale-95">
             <X size={16} />
           </button>

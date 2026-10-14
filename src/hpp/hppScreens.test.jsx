@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
 import { renderToString } from 'react-dom/server';
 import { RAW } from './fixture';
 import { buildModel } from './hppModel';
@@ -8,6 +9,7 @@ import BahanTab from './BahanTab.jsx';
 import MenuSheet from './MenuSheet.jsx';
 import BahanSheet from './BahanSheet.jsx';
 import SettingsSheet from './SettingsSheet.jsx';
+import { NumberField, Sheet, statusIsian, durasiKeluar, DURASI_KELUAR_MS } from './ui.jsx';
 
 const render = (el) => renderToString(el).replace(/<!-- -->/g, '');
 const noop = () => {};
@@ -99,5 +101,88 @@ describe('layar HPP (render server)', () => {
     expect(html).toContain('owner@x.test');
     expect(html).toContain('Keluar');
     expect(html).toContain('Saat ini: 0 LOW, 0 SEDANG, 2 HIGH dari 2 menu');
+  });
+});
+
+describe('isian harga: tersimpan hanya lewat tombol Simpan', () => {
+  it('statusIsian: belum diketik / valid beda / sama / tidak valid / negatif / kosong', () => {
+    expect(statusIsian(null, 1000)).toEqual({ kotor: false, valid: false, bisaSimpan: false, nilai: null });
+    expect(statusIsian('1.500', 1000)).toEqual({ kotor: true, valid: true, bisaSimpan: true, nilai: 1500 });
+    expect(statusIsian('1000', 1000)).toMatchObject({ kotor: true, valid: true, bisaSimpan: false });    // sama dengan yang tersimpan
+    expect(statusIsian('abc', 1000)).toMatchObject({ kotor: true, valid: false, bisaSimpan: false });
+    expect(statusIsian('-5', 1000)).toMatchObject({ valid: false, bisaSimpan: false });
+    expect(statusIsian('', 1000)).toMatchObject({ kotor: true, valid: false, bisaSimpan: false });       // dikosongkan: tidak boleh disimpan
+    expect(statusIsian('500', null)).toMatchObject({ bisaSimpan: true });                                // bahan yang belum berharga
+  });
+
+  it('belum diubah: hanya kolom, tanpa tombol Simpan/Batal', () => {
+    const html = render(<NumberField value={1000} ariaLabel="Harga Tes" onCommit={noop} />);
+    expect(html).toContain('value="1000"');
+    expect(html).not.toContain('Simpan');
+    expect(html).not.toContain('Batal');
+  });
+
+  it('sudah diketik: muncul Simpan (aktif) dan Batal, nilai ketikan tampil', () => {
+    const html = render(<NumberField value={1000} ariaLabel="Harga Tes" onCommit={noop} awal="1500" />);
+    expect(html).toContain('value="1500"');
+    expect(html).toContain('aria-label="Simpan Harga Tes"');
+    expect(html).toContain('aria-label="Batal ubah Harga Tes"');
+    expect(html).not.toMatch(/disabled=""[^>]*aria-label="Simpan Harga Tes"/);
+  });
+
+  it('ketikan tidak valid atau sama dengan yang tersimpan: Simpan nonaktif', () => {
+    expect(render(<NumberField value={1000} ariaLabel="Harga Tes" onCommit={noop} awal="abc" />)).toMatch(/disabled=""[^>]*aria-label="Simpan Harga Tes"/);
+    expect(render(<NumberField value={1000} ariaLabel="Harga Tes" onCommit={noop} awal="1000" />)).toMatch(/disabled=""[^>]*aria-label="Simpan Harga Tes"/);
+    expect(render(<NumberField value={1000} ariaLabel="Harga Tes" onCommit={noop} awal="abc" />)).toContain('aria-invalid="true"');
+  });
+
+  it('satuan (suffix) ikut tampil di samping kolom', () => {
+    expect(render(<NumberField value={1000} ariaLabel="Harga Tes" onCommit={noop} suffix={<i>/kg</i>} />)).toContain('<i>/kg</i>');
+  });
+
+  it('keluar dari kolom TIDAK menyimpan: tidak ada onBlur di NumberField', () => {
+    const src = fs.readFileSync(new URL('./ui.jsx', import.meta.url), 'utf8');
+    const nf = src.slice(src.indexOf('export function NumberField'), src.indexOf('/** Panel gelap'));
+    expect(nf).not.toMatch(/onBlur/);
+    expect(nf).toMatch(/onCommit\(s\.nilai\)/);
+  });
+
+  it('popup menu (belum ada yang diketik): tidak ada tombol Simpan yang menggantung', () => {
+    expect(render(<MenuSheet model={model} menuId="m1" actions={actions} onClose={noop} />)).not.toContain('>Simpan<');
+  });
+});
+
+describe('animasi popup HPP', () => {
+  const css = fs.readFileSync(new URL('./hppSheet.css', import.meta.url), 'utf8');
+
+  it('Sheet: latar dan panel memakai kelas animasi, belum dalam keadaan keluar', () => {
+    const html = render(<Sheet title="Tes" onClose={noop}><p>isi</p></Sheet>);
+    expect(html).toContain('hpp-overlay');
+    expect(html).toContain('hpp-panel');
+    expect(html).not.toContain('data-keluar');
+    expect(html).toContain('role="dialog"');
+  });
+
+  it('keyframes masuk dan keluar ada untuk latar, lembar HP, dialog laptop; gerakan dikurangi dihormati', () => {
+    for (const k of ['hpp-fade-in', 'hpp-fade-out', 'hpp-sheet-up', 'hpp-sheet-down', 'hpp-pop-in', 'hpp-pop-out', 'hpp-reveal', 'hpp-toast-in']) expect(css).toContain(`@keyframes ${k}`);
+    expect(css).toContain('.hpp-panel[data-keluar]');
+    expect(css).toContain('.hpp-overlay[data-keluar]');
+    expect(css).toMatch(/@media \(min-width: 768px\)/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none/);
+  });
+
+  it('durasi menunggu animasi keluar: 200 ms; 0 bila gerakan dikurangi atau tanpa matchMedia', () => {
+    expect(DURASI_KELUAR_MS).toBe(200);
+    expect(durasiKeluar(() => ({ matches: false }))).toBe(200);
+    expect(durasiKeluar(() => ({ matches: true }))).toBe(0);
+    expect(durasiKeluar(undefined)).toBe(200);
+  });
+
+  it('semua popup HPP memakai Sheet yang beranimasi (tidak ada dialog buatan sendiri)', () => {
+    for (const f of ['MenuSheet.jsx', 'BahanSheet.jsx', 'SettingsSheet.jsx']) {
+      const src = fs.readFileSync(new URL(`./${f}`, import.meta.url), 'utf8');
+      expect(src, f).toMatch(/<Sheet\b/);
+      expect(src, f).not.toMatch(/role="dialog"/);
+    }
   });
 });

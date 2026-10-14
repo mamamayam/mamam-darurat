@@ -134,7 +134,7 @@ function Cangkang({ db, email, onKeluar }) {
       {lembar?.t === 'set' && <SettingsSheet model={model} actions={actions} email={email} onKeluar={onKeluar} onClose={tutup} />}
 
       {pesan && (
-        <div role="alert" className="fixed inset-x-4 bottom-4 z-[60] mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl bg-red-600 px-4 py-3 text-white shadow-xl">
+        <div role="alert" className="hpp-toast fixed inset-x-4 bottom-4 z-[60] mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl bg-red-600 px-4 py-3 text-white shadow-xl">
           <span>{pesan}</span>
           <button type="button" onClick={actions.tutupPesan} className="font-bold">Tutup</button>
         </div>
