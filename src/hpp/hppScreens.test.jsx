@@ -9,6 +9,7 @@ import BahanTab from './BahanTab.jsx';
 import MenuSheet from './MenuSheet.jsx';
 import BahanSheet from './BahanSheet.jsx';
 import SettingsSheet from './SettingsSheet.jsx';
+import KomposisiPicker from './KomposisiPicker.jsx';
 import { NumberField, Sheet, statusIsian, durasiKeluar, DURASI_KELUAR_MS } from './ui.jsx';
 
 const render = (el) => renderToString(el).replace(/<!-- -->/g, '');
@@ -27,12 +28,12 @@ describe('layar HPP (render server)', () => {
     expect(html).not.toContain('Ayam');
   });
 
-  it('tab Menu: pil margin, chip kategori, grup, modal dan margin per menu', () => {
+  it('tab Menu: tanpa pil margin; ada pencarian, chip kategori, grup, modal dan margin per menu', () => {
     const html = render(<MenuTab model={model} onOpen={noop} onAcuan={noop} adaPerubahan={false} />);
     expect(html).toContain('Cari menu');
-    expect(html).toContain('Margin LOW');
-    expect(html).toContain('Margin HIGH');
-    expect(html).not.toContain('Margin SEDANG');          // batas sama: tanpa SEDANG
+    expect(html).not.toContain('Margin LOW');
+    expect(html).not.toContain('Margin HIGH');
+    expect(html).not.toContain('aria-pressed');
     expect(html).toContain('Semua 2');
     expect(html).toContain('Paket Ayam');
     expect(html).toContain('Modal Rp1.730');
@@ -40,10 +41,10 @@ describe('layar HPP (render server)', () => {
     expect(html).not.toContain('Jadikan harga sekarang sebagai acuan');
   });
 
-  it('tab Menu: tombol acuan muncul saat ada perubahan; SEDANG muncul saat batas dipisah', () => {
-    const m2 = buildModel({ ...RAW, setting: [{ key: 'margin', value: { lo: 40, hi: 60 } }] });
+  it('tab Menu: tombol acuan muncul saat ada perubahan; SEDANG tampil di baris saat batas dipisah', () => {
+    const m2 = buildModel({ ...RAW, setting: [{ key: 'margin', value: { lo: 40, hi: 90 } }] });
     const html = render(<MenuTab model={m2} onOpen={noop} onAcuan={noop} adaPerubahan />);
-    expect(html).toContain('Margin SEDANG');
+    expect(html).toContain('82,7% SEDANG');
     expect(html).toContain('Jadikan harga sekarang sebagai acuan');
   });
 
@@ -184,5 +185,31 @@ describe('animasi popup HPP', () => {
       expect(src, f).toMatch(/<Sheet\b/);
       expect(src, f).not.toMatch(/role="dialog"/);
     }
+  });
+});
+
+describe('ubah komposisi', () => {
+  it('popup menu: tombol Ubah komposisi ada; mode ubah belum aktif (tanpa Tambah komponen)', () => {
+    const html = render(<MenuSheet model={model} menuId="m1" actions={actions} onClose={noop} />);
+    expect(html).toContain('Ubah komposisi');
+    expect(html).not.toContain('Tambah komponen');
+    expect(html).not.toContain('Hapus Kemasan');
+  });
+
+  it('baris Biaya lain selalu ada, juga saat nilainya 0 (supaya bisa diisi lagi)', () => {
+    const nol = buildModel({ ...RAW, menu: RAW.menu.map((m) => (m.id === 'm1' ? { ...m, biaya_lain: 0 } : m)) });
+    const html = render(<MenuSheet model={nol} menuId="m1" actions={actions} onClose={noop} />);
+    expect(html).toContain('Biaya lain (sisa dari file)');
+    expect(html).toContain('aria-label="Biaya lain"');
+  });
+
+  it('picker menu: tab Bahan/Resep, pencarian, daftar bahan; yang sudah ada dinonaktifkan; Tambah nonaktif sebelum memilih', () => {
+    const html = render(<KomposisiPicker model={model} untuk={{ tipe: 'menu' }} sudah={['b:B']} biayaLain={500} onTambah={noop} onBatal={noop} />);
+    expect(html).toContain('Cari bahan');
+    expect(html).toContain('>Bahan<');
+    expect(html).toContain('>Resep<');
+    expect(html).toContain('Ayam');
+    expect(html).toContain('sudah ada');
+    expect(html).toMatch(/disabled=""[^>]*>Tambah</);
   });
 });

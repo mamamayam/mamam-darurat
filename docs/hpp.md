@@ -75,17 +75,27 @@ jadi tidak dimasukkan; "Sayap" resep Wingers memakai Rp35.000 per 10 pcs (daftar
 dibuat bahan terpisah "Sayap (10 pcs)"; "Chicken" Classic (Rp42.000 per 10 pcs), "Nasi (beras)", "Bawang Putih
 Cincang Minyak", "Saos Sachet Mamam", dan "Garam & Oregano (paket)" hanya ada di sheet HPP.
 
+## Mengubah komposisi modal
+
+Di popup menu, tekan **Ubah komposisi**:
+
+- **Takaran**: ubah angkanya lalu tekan Simpan (satuan mengikuti bahan: gr, ml, pcs; resep per porsi = jumlah porsi).
+- **Hapus komponen**: ikon tempat sampah.
+- **Tambah komponen**: pilih bahan atau resep, isi takaran, tekan Tambah. Kalau komponen itu sebelumnya sudah
+  termasuk di "Biaya lain", centang opsi pengurangannya supaya modal tidak dobel.
+- **Isi resep**: ketuk resep untuk membukanya, lalu ubah/hapus/tambah isinya dengan cara yang sama.
+  Perubahan isi resep berlaku untuk **semua menu** yang memakai resep itu (jumlahnya ditampilkan di atas isi resep).
+  Resep tidak bisa memuat dirinya sendiri, langsung maupun lewat resep lain.
+
+"Biaya lain" selalu tersedia dan bisa diubah, termasuk dikosongkan.
+
 ## Yang belum ada di halaman
 
-Resep dan komposisi menu belum bisa diedit dari halaman (hanya harga bahan, harga jual, biaya lain, kategori,
-dan pengaturan). Sementara itu lewat SQL Editor, contoh:
+Membuat **bahan baru, resep baru, atau menu baru** belum bisa dari halaman (yang ada: ubah komposisi,
+harga bahan, harga jual, biaya lain, kategori, dan pengaturan). Sementara itu lewat SQL Editor, contoh bahan baru:
 
 ```sql
--- tambahkan Lunchbox M ke menu "Firesauce" kategori Ricebox, 1 pcs
-insert into hpp_menu_item (menu_id, urutan, bahan_id, qty)
-select m.id, 9, b.id, 1 from hpp_menu m
-join hpp_kategori k on k.id = m.kategori_id and k.nama = 'Ricebox'
-join hpp_bahan b on b.nama = 'Lunchbox M 50pcs'
-where m.nama = 'Firesauce';
--- lalu kurangi biaya_lain-nya sebesar biaya komponen baru supaya HPP tidak dobel
+insert into hpp_bahan (nama, kategori_id, satuan, isi, unit_dasar, harga)
+select 'Keju Mozzarella', k.id, 'kg', 1000, 'gr', 120000
+from hpp_kategori k where k.jenis = 'bahan' and k.nama = 'Primer';
 ```

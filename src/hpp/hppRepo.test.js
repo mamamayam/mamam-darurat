@@ -90,3 +90,28 @@ describe('mutasi', () => {
     expect(c[6].v).toMatchObject({ key: 'margin', value: { lo: 25, hi: 30 } });
   });
 });
+
+describe('komposisi', () => {
+  it('menu item: tambah (mengembalikan baris), ubah, hapus', async () => {
+    const db = fakeDb((st) => (st.op === 'insert' ? sukses([{ id: 'baru', ...st.v }]) : sukses()));
+    const r = await repo.tambahMenuItem(db, { menuId: 'm1', urutan: 3, bahanId: 'b1', qty: 2 });
+    await repo.ubahMenuItem(db, 'baru', { qty: 5 });
+    await repo.hapusMenuItem(db, 'baru');
+    expect(r).toMatchObject({ id: 'baru', menu_id: 'm1', bahan_id: 'b1', resep_id: null, qty: 2, urutan: 3 });
+    expect(db.calls[0]).toMatchObject({ tabel: 'hpp_menu_item', op: 'insert' });
+    expect(db.calls[1]).toMatchObject({ tabel: 'hpp_menu_item', op: 'update', v: { qty: 5 }, eq: ['id', 'baru'] });
+    expect(db.calls[2]).toMatchObject({ tabel: 'hpp_menu_item', op: 'delete', eq: ['id', 'baru'] });
+  });
+  it('resep item: tambah bahan atau sub-resep, ubah, hapus', async () => {
+    const db = fakeDb((st) => (st.op === 'insert' ? sukses([{ id: 'baru', ...st.v }]) : sukses()));
+    const a = await repo.tambahResepItem(db, { resepId: 'r1', urutan: 1, subResepId: 'r2', qty: 50 });
+    await repo.ubahResepItem(db, 'baru', { qty: 60 });
+    await repo.hapusResepItem(db, 'baru');
+    expect(a).toMatchObject({ resep_id: 'r1', sub_resep_id: 'r2', bahan_id: null, qty: 50 });
+    expect(db.calls.map((c) => [c.tabel, c.op])).toEqual([['hpp_resep_item', 'insert'], ['hpp_resep_item', 'update'], ['hpp_resep_item', 'delete']]);
+  });
+  it('kesalahan database saat menambah dilempar dengan pesan Indonesia', async () => {
+    const db = fakeDb(() => ({ data: null, error: { code: '23514', message: 'check constraint' } }));
+    await expect(repo.tambahMenuItem(db, { menuId: 'm1', urutan: 1, bahanId: 'b', qty: -1 })).rejects.toThrow();
+  });
+});

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { RAW } from './fixture';
 import {
-  buildModel, ctxAcuan, dampakHarga, hargaMinimal, kelompokkan, makeCtx, marginPct, menuBahanKosong, menuInfo,
-  menuParts, menusUsingBahan, perubahanTerakhir, resepRows, tierOf, tiersFor,
+  biayaKomponen, bisaTambahSub, buildModel, ctxAcuan, dampakHarga, hargaMinimal, kelompokkan, makeCtx, marginPct, menuBahanKosong, menuInfo,
+  menuParts, menusUsingBahan, menusUsingResep, perubahanTerakhir, resepMemuat, resepRows, tierOf, tiersFor,
 } from './hppModel';
 
 const model = () => buildModel(RAW);
@@ -152,5 +152,44 @@ describe('dampak perubahan harga dan acuan', () => {
     expect(p.dari).toBe(800);
     expect(perubahanTerakhir(m, 'B')).toBeNull();
     expect(m.riwayat.A.map((r) => r.id)).toEqual(['r2', 'r1']);   // terbaru dulu
+  });
+});
+
+describe('komposisi: id baris, lingkaran, dan pemakai resep', () => {
+  it('menuParts dan resepRows membawa itemId (untuk ubah/hapus baris)', () => {
+    const m = model(); const c = makeCtx(m);
+    expect(menuParts(m, c, m.menu[0]).filter((p) => p.kind !== 'lain').map((p) => p.itemId).sort()).toEqual(['j1', 'j2']);
+    expect(resepRows(m, c, 'porsi').map((r) => r.itemId)).toEqual(['i3', 'i4']);
+  });
+
+  it('resepMemuat dan bisaTambahSub: tidak boleh diri sendiri atau membuat lingkaran', () => {
+    const m = model();
+    expect(resepMemuat(m, 'porsi', 'saos')).toBe(true);
+    expect(resepMemuat(m, 'saos', 'porsi')).toBe(false);
+    expect(bisaTambahSub(m, 'saos', 'saos')).toBe(false);
+    expect(bisaTambahSub(m, 'saos', 'porsi')).toBe(false);   // porsi sudah memuat saos
+    expect(bisaTambahSub(m, 'porsi', 'saos')).toBe(true);    // bukan lingkaran (picker yang menandai "sudah ada")
+    expect(bisaTambahSub({ ...m, resep: { ...m.resep, baru: { id: 'baru', nama: 'Baru', items: [] } } }, 'saos', 'baru')).toBe(true);
+  });
+
+  it('menusUsingResep: langsung dan lewat resep lain', () => {
+    const m = model();
+    expect(menusUsingResep(m, 'porsi').map((x) => x.id)).toEqual(['m1']);
+    expect(menusUsingResep(m, 'saos').map((x) => x.id)).toEqual(['m1']);   // saos ada di dalam porsi
+    expect(menusUsingResep(m, 'tidak-ada')).toEqual([]);
+  });
+
+  it('biayaKomponen: bahan = qty x harga per unit; resep = biaya pada takaran itu', () => {
+    const c = makeCtx(model());
+    expect(biayaKomponen(c, { bahanId: 'B', qty: 3 })).toBe(3000);
+    expect(biayaKomponen(c, { resepId: 'saos', qty: 100 })).toBeCloseTo(260);     // 100 dari batch 1000, total 2600
+    expect(biayaKomponen(c, { resepId: 'porsi', qty: 2 })).toBeCloseTo(460);
+  });
+
+  it('menambah dan menghapus komponen mengubah HPP menu sesuai biayanya', () => {
+    const tambah = buildModel({ ...RAW, menuItem: [...RAW.menuItem, { id: 'j9', menu_id: 'm2', urutan: 2, resep_id: null, bahan_id: 'A', qty: 200 }] });
+    expect(makeCtx(tambah).menuHpp(tambah.menu[1])).toBe(1200);        // 1000 + 200 gr ayam
+    const hapus = buildModel({ ...RAW, menuItem: RAW.menuItem.filter((i) => i.id !== 'j2') });
+    expect(makeCtx(hapus).menuHpp(hapus.menu[0])).toBeCloseTo(730);    // 230 + 500, tanpa kemasan 1000
   });
 });

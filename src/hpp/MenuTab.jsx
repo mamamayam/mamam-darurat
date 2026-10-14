@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { ctxAcuan, kelompokkan, makeCtx, menuInfo, tiersFor } from './hppModel'
+import { ctxAcuan, kelompokkan, makeCtx, menuInfo } from './hppModel'
 import { rupiah } from './hppFormat'
 import { Card, Chip, ChipRow, Delta, SearchBox, SectionLabel, TierBadge } from './ui'
 
@@ -8,7 +8,6 @@ import { Card, Chip, ChipRow, Delta, SearchBox, SectionLabel, TierBadge } from '
 export default function MenuTab({ model, onOpen, onAcuan, adaPerubahan }) {
   const [q, setQ] = useState('')
   const [kat, setKat] = useState('semua')
-  const [tier, setTier] = useState(null)
   const [tutup, setTutup] = useState({})
 
   const info = useMemo(() => {
@@ -17,14 +16,9 @@ export default function MenuTab({ model, onOpen, onAcuan, adaPerubahan }) {
     return new Map(model.menu.map((m) => [m.id, { ...menuInfo(model, ctx, m), delta: ctx.menuHpp(m) - acuan.menuHpp(m) }]))
   }, [model])
 
-  const tiers = tiersFor(model.margin)
-  const hitung = Object.fromEntries(tiers.map((t) => [t, 0]))
-  model.menu.forEach((m) => { hitung[info.get(m.id).tier] += 1 })
-
   const cari = q.trim().toLowerCase()
   const daftar = model.menu.filter((m) => (
     (kat === 'semua' || m.kategoriId === kat)
-    && (!tier || info.get(m.id).tier === tier)
     && m.nama.toLowerCase().includes(cari)
   ))
   const grup = kelompokkan(daftar, model.kategoriMenu, (m) => m.kategoriId)
@@ -32,20 +26,6 @@ export default function MenuTab({ model, onOpen, onAcuan, adaPerubahan }) {
   return (
     <section>
       <SearchBox value={q} onChange={setQ} placeholder="Cari menu" />
-
-      <div className="mb-3 grid gap-2" style={{ gridTemplateColumns: `repeat(${tiers.length}, minmax(0, 1fr))` }}>
-        {tiers.map((t) => (
-          <button
-            key={t} type="button" onClick={() => setTier(tier === t ? null : t)} aria-pressed={tier === t}
-            className={`rounded-2xl border px-3 py-2 text-left transition-all active:scale-95 ${
-              tier === t ? 'border-transparent bg-gradient-to-r from-accent-600 to-accent-500 text-white' : 'border-slate-200 bg-white text-slate-500'
-            }`}
-          >
-            <span className="block text-xs font-bold opacity-80">Margin {t}</span>
-            <span className="font-heading text-lg font-bold">{hitung[t]}</span>
-          </button>
-        ))}
-      </div>
 
       <ChipRow>
         <Chip on={kat === 'semua'} onClick={() => setKat('semua')}>Semua {model.menu.length}</Chip>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildModel } from './hppModel';
+import { biayaKomponen, bisaTambahSub, buildModel, makeCtx } from './hppModel';
 import * as repo from './hppRepo';
 
 const KOSONG = { kategori: [], bahan: [], riwayat: [], resep: [], resepItem: [], menu: [], menuItem: [], setting: [] };
@@ -111,6 +111,59 @@ export function useHpp(db) {
       try {
         await Promise.all([repo.ubahKategori(db, idA, { urutan: b.urutan }), repo.ubahKategori(db, idB, { urutan: a.urutan })]);
       } catch (e) { gagal(e); }
+    },
+
+    /**
+     * Tambah komponen ke menu: { bahanId } atau { resepId }, qty > 0. `kurangiBiayaLain` = komponen ini
+     * sebelumnya sudah termasuk di "Biaya lain", jadi biaya lain dikurangi sebesar biaya komponen.
+     */
+    async tambahKomposisiMenu(menuId, { bahanId = null, resepId = null, qty, kurangiBiayaLain = false }) {
+      const m = model.menu.find((x) => x.id === menuId);
+      if (!m || !(qty > 0) || (!bahanId && !resepId)) return false;
+      const urutan = Math.max(0, ...m.items.map((i) => i.urutan)) + 1;
+      try {
+        const baris = await repo.tambahMenuItem(db, { menuId, urutan, bahanId, resepId, qty });
+        patch((r) => ({ ...r, menuItem: [...r.menuItem, baris] }));
+      } catch (e) { setPesan(e.message); return false; }
+      if (kurangiBiayaLain && m.biayaLain > 0) {
+        const baru = Math.max(0, Math.round(m.biayaLain - biayaKomponen(makeCtx(model), { bahanId, resepId, qty })));
+        update('menu', menuId, { biaya_lain: baru });
+        repo.ubahMenu(db, menuId, { biaya_lain: baru }).catch(gagal);
+      }
+      return true;
+    },
+    ubahQtyMenuItem(itemId, qty) {
+      if (qty === null || !(qty >= 0)) return false;
+      update('menuItem', itemId, { qty });
+      repo.ubahMenuItem(db, itemId, { qty }).catch(gagal);
+      return true;
+    },
+    hapusMenuItem(itemId) {
+      patch((r) => ({ ...r, menuItem: r.menuItem.filter((i) => i.id !== itemId) }));
+      repo.hapusMenuItem(db, itemId).catch(gagal);
+    },
+
+    /** Isi resep (berlaku untuk semua menu pemakai resep itu). Sub-resep yang membuat lingkaran ditolak. */
+    async tambahKomposisiResep(resepId, { bahanId = null, subResepId = null, qty }) {
+      const r = model.resep[resepId];
+      if (!r || !(qty > 0) || (!bahanId && !subResepId)) return false;
+      if (subResepId && !bisaTambahSub(model, resepId, subResepId)) { setPesan('Resep tidak bisa memuat dirinya sendiri (langsung atau lewat resep lain).'); return false; }
+      const urutan = Math.max(0, ...r.items.map((i) => i.urutan)) + 1;
+      try {
+        const baris = await repo.tambahResepItem(db, { resepId, urutan, bahanId, subResepId, qty });
+        patch((x) => ({ ...x, resepItem: [...x.resepItem, baris] }));
+      } catch (e) { setPesan(e.message); return false; }
+      return true;
+    },
+    ubahQtyResepItem(itemId, qty) {
+      if (qty === null || !(qty >= 0)) return false;
+      update('resepItem', itemId, { qty });
+      repo.ubahResepItem(db, itemId, { qty }).catch(gagal);
+      return true;
+    },
+    hapusResepItem(itemId) {
+      patch((r) => ({ ...r, resepItem: r.resepItem.filter((i) => i.id !== itemId) }));
+      repo.hapusResepItem(db, itemId).catch(gagal);
     },
 
     simpanMargin(margin) {

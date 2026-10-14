@@ -135,10 +135,10 @@ export function menuParts(model, ctx, m) {
   const parts = m.items.map((it) => {
     if (it.bahanId) {
       const b = model.bahan[it.bahanId];
-      return { kind: 'bahan', id: it.bahanId, nama: b?.nama ?? '(bahan dihapus)', qty: it.qty, unit: b?.unit ?? '', biaya: ctx.menuItemCost(it) };
+      return { kind: 'bahan', itemId: it.id, id: it.bahanId, nama: b?.nama ?? '(bahan dihapus)', qty: it.qty, unit: b?.unit ?? '', biaya: ctx.menuItemCost(it) };
     }
     const r = model.resep[it.resepId];
-    return { kind: 'resep', id: it.resepId, nama: r?.nama ?? '(resep dihapus)', qty: it.qty, unit: r?.hasilUnit ?? 'porsi', biaya: ctx.menuItemCost(it) };
+    return { kind: 'resep', itemId: it.id, id: it.resepId, nama: r?.nama ?? '(resep dihapus)', qty: it.qty, unit: r?.hasilUnit ?? 'porsi', biaya: ctx.menuItemCost(it) };
   });
   parts.sort((a, b) => b.biaya - a.biaya);
   if (m.biayaLain) parts.push({ kind: 'lain', id: m.id, nama: 'Biaya lain (sisa dari file)', qty: 1, unit: '', biaya: m.biayaLain });
@@ -152,10 +152,10 @@ export function resepRows(model, ctx, resepId) {
   return r.items.map((it) => {
     if (it.bahanId) {
       const b = model.bahan[it.bahanId];
-      return { kind: 'bahan', id: it.bahanId, nama: b?.nama ?? '(bahan dihapus)', qty: it.qty, unit: b?.unit ?? '', biaya: ctx.itemCost(it) };
+      return { kind: 'bahan', itemId: it.id, id: it.bahanId, nama: b?.nama ?? '(bahan dihapus)', qty: it.qty, unit: b?.unit ?? '', biaya: ctx.itemCost(it) };
     }
     const s = model.resep[it.subResepId];
-    return { kind: 'resep', id: it.subResepId, nama: s?.nama ?? '(resep dihapus)', qty: it.qty, unit: s?.hasilUnit ?? 'porsi', biaya: ctx.itemCost(it) };
+    return { kind: 'resep', itemId: it.id, id: it.subResepId, nama: s?.nama ?? '(resep dihapus)', qty: it.qty, unit: s?.hasilUnit ?? 'porsi', biaya: ctx.itemCost(it) };
   });
 }
 
@@ -171,6 +171,29 @@ export function menusUsingBahan(model, bahanId) {
     return ya;
   };
   return model.menu.filter((m) => m.items.some((it) => (it.bahanId ? it.bahanId === bahanId : memakai(it.resepId))));
+}
+
+/** True kalau resep `resepId` memuat resep `targetId`, langsung atau bertingkat. */
+export function resepMemuat(model, resepId, targetId, stack = []) {
+  if (stack.includes(resepId)) return false;
+  const r = model.resep[resepId];
+  if (!r) return false;
+  return r.items.some((it) => it.subResepId && (it.subResepId === targetId || resepMemuat(model, it.subResepId, targetId, [...stack, resepId])));
+}
+
+/** Boleh menaruh `subId` sebagai isi resep `resepId`? Tidak boleh diri sendiri atau yang akan membuat lingkaran. */
+export function bisaTambahSub(model, resepId, subId) {
+  return subId !== resepId && !resepMemuat(model, subId, resepId);
+}
+
+/** Menu yang memakai resep ini, langsung atau lewat resep lain. */
+export function menusUsingResep(model, resepId) {
+  return model.menu.filter((m) => m.items.some((it) => it.resepId && (it.resepId === resepId || resepMemuat(model, it.resepId, resepId))));
+}
+
+/** Biaya sebuah komponen pada takaran `qty`: { bahanId } atau { resepId }. */
+export function biayaKomponen(ctx, { bahanId = null, resepId = null, qty }) {
+  return bahanId ? qty * ctx.unitCost(bahanId) : ctx.resepCost(resepId, qty);
 }
 
 /** Dampak harga bahan berubah dari `hargaSebelum` ke harga sekarang pada tiap menu yang memakainya. */

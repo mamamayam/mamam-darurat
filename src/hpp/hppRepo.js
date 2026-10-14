@@ -83,3 +83,27 @@ export async function hapusKategori(db, id) {
 export async function simpanSetting(db, key, value) {
   ok(await db.from('hpp_setting').upsert({ key, value, diubah_pada: new Date().toISOString() }, { onConflict: 'key' }));
 }
+
+/** Komposisi menu: komponen = resep ATAU bahan langsung. */
+export async function tambahMenuItem(db, { menuId, urutan, bahanId = null, resepId = null, qty }) {
+  const rows = ok(await db.from('hpp_menu_item').insert({ menu_id: menuId, urutan, bahan_id: bahanId, resep_id: resepId, qty }).select());
+  return rows[0];
+}
+export async function ubahMenuItem(db, id, patch) {
+  ok(await db.from('hpp_menu_item').update(patch).eq('id', id));
+}
+export async function hapusMenuItem(db, id) {
+  ok(await db.from('hpp_menu_item').delete().eq('id', id));
+}
+
+/** Isi resep: bahan ATAU resep lain. Berlaku untuk SEMUA menu yang memakai resep itu. */
+export async function tambahResepItem(db, { resepId, urutan, bahanId = null, subResepId = null, qty }) {
+  const rows = ok(await db.from('hpp_resep_item').insert({ resep_id: resepId, urutan, bahan_id: bahanId, sub_resep_id: subResepId, qty }).select());
+  return rows[0];
+}
+export async function ubahResepItem(db, id, patch) {
+  ok(await db.from('hpp_resep_item').update(patch).eq('id', id));
+}
+export async function hapusResepItem(db, id) {
+  ok(await db.from('hpp_resep_item').delete().eq('id', id));
+}
