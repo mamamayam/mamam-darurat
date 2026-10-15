@@ -265,7 +265,7 @@ const VariantListTab = ({ data }) => {
                 <label htmlFor="vgCategory" className="text-xs font-bold text-slate-500 uppercase">Kategori Varian</label>
                 <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>Kelola Kategori</Button>
               </div>
-              <Select id="vgCategory" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+              <Select id="vgCategory" title="Kategori Varian" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                 {(variantCategories ?? []).map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
                 {!(variantCategories ?? []).includes(formData.category) && formData.category && (
                   <option value={formData.category}>{formData.category}</option>

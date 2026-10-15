@@ -9,6 +9,7 @@ import Overlay from '../../components/ui/Overlay';
 import CustomerPickerModal from './CustomerPicker';
 import NominalInput from '../../components/ui/NominalInput';
 import Button from '../../components/ui/Button';
+import { Select } from '../../components/ui/Input';
 
 /**
  * CartDrawer — di-port dari mamam-global, DIPANGKAS sesuai scope
@@ -258,10 +259,10 @@ export default function CartDrawer({ menus, customers, saveCustomer, vouchers, e
                   <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col space-y-2">
                     <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1"><Minus className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" /> Diskon Tambahan Manual</span>
                     <div className="flex items-center gap-1.5">
-                      <select className="w-20 text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" value={manualDiscount.type} onChange={e => setManualDiscount({ ...manualDiscount, type: e.target.value })}>
+                      <Select bare title="Jenis Diskon" className="w-20 text-xs font-bold bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors" value={manualDiscount.type} onChange={e => setManualDiscount({ ...manualDiscount, type: e.target.value })}>
                         <option value="fixed">Rp</option>
                         <option value="percent">%</option>
-                      </select>
+                      </Select>
                       <NominalInput bare title="Diskon Tambahan Manual"
                         prefix={manualDiscount.type === 'percent' ? null : 'Rp'} suffix={manualDiscount.type === 'percent' ? '%' : ''}
                         max={manualDiscount.type === 'percent' ? 100 : null} calculator={manualDiscount.type !== 'percent'}

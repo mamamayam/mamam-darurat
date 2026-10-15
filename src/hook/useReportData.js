@@ -27,7 +27,7 @@ export function useReportData({ fromDate, toDate, withSales = true, withExpenses
   const reload = useCallback(async () => {
     try {
       const [salesRows, expenseRows] = await Promise.all([
-        // Rincian Pengeluaran (withSales=false) tidak butuh penjualan: lewati query-nya.
+        // withSales=false: layar yang tidak butuh penjualan melewati query-nya.
         withSales ? fetchAllPages((from, to) => {
           let q = supabase.from('transactions')
             .select(`${SALE_COLUMNS}, items:transaction_items(${ITEM_COLUMNS})`)

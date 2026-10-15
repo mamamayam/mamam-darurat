@@ -9,19 +9,20 @@ import { Modal } from './ui';
  *       [    Ke hari ini    ]
  *
  * - Label periode BISA DIKETUK untuk memilih periode langsung:
- *     picker = { title, value, options:[{value,label,tag?}], onChange, dateInput? }
+ *     picker = { title, value, options:[{value,label,tag?}], onChange, dateInput? }  (dateInput: { label?, value, onChange, max? })
  *     -> bottom sheet daftar periode (hari / minggu / bulan); yang aktif ditandai &
  *        otomatis digulir ke tengah. `dateInput` menambah kolom tanggal biasa (kalender
  *        bawaan HP) di atas daftar, untuk tanggal yang jauh. Semua lewat sheet karena
  *        input tanggal transparan di atas label terbukti tidak andal di sebagian HP.
+ * - `nextDisabled` mematikan tombol > (Laporan: tidak ada periode masa depan; Absensi/Penggajian tidak memakainya).
  * - "Ke hari ini" = tombol lebar setinggi jari (44px), bukan teks kecil. Meredup kalau
  *   sudah berada di periode berjalan.
  */
-const NAV_BTN = 'shrink-0 w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center active:scale-95 transition-all';
+const NAV_BTN = 'shrink-0 w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100';
 
 export default function PeriodNav({
   label, labelTestId, onPrev, onNext, prevLabel = 'Sebelumnya', nextLabel = 'Berikutnya',
-  onToday, isCurrent = false, todayLabel = 'Ke hari ini', picker,
+  onToday, isCurrent = false, todayLabel = 'Ke hari ini', picker, nextDisabled = false,
 }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef(null);
@@ -49,7 +50,7 @@ export default function PeriodNav({
 
         <button onClick={() => setOpen(true)} aria-label={`Pilih periode: ${label}`} aria-haspopup="dialog" className={labelBox}>{labelInner}</button>
 
-        <button onClick={onNext} aria-label={nextLabel} className={NAV_BTN}><ChevronRight className="w-5 h-5" /></button>
+        <button onClick={onNext} disabled={nextDisabled} aria-label={nextLabel} className={NAV_BTN}><ChevronRight className="w-5 h-5" /></button>
       </div>
 
       <button
@@ -65,7 +66,7 @@ export default function PeriodNav({
             <div className="px-4 pb-3">
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">{picker.dateInput.label || 'Pilih tanggal lain'}</label>
               <input
-                type="date" value={picker.dateInput.value} data-testid="period-date-input"
+                type="date" value={picker.dateInput.value} max={picker.dateInput.max} data-testid="period-date-input"
                 onChange={(e) => { if (e.target.value) { picker.dateInput.onChange(e.target.value); setOpen(false); } }}
                 className="w-full h-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-4 text-sm font-medium outline-none focus:border-accent-500"
               />

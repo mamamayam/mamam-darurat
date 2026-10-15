@@ -19,10 +19,9 @@ export const PERMISSIONS = {
   'penggajian.semua': ['owner'],         // Penggajian penuh (semua karyawan, edit). Staf hanya lihat gaji sendiri lewat PIN karyawan
   'screen.menu': ['owner'],              // layar Manajemen Menu (ubah harga & HPP)
   'screen.riwayat': ['owner'],           // layar Riwayat (daftar semua transaksi)
-  'screen.laporan': ['owner'],           // layar Laporan (Laba Rugi, Rincian Pengeluaran)
+  'screen.laporan': ['owner'],           // layar Laporan (Laba Rugi)
   'screen.hpp': ['owner'],               // tombol HPP di menu Lainnya (membuka /hpp). Pagar tampilan saja; data HPP dijaga RLS
-  'laporan.rincianPengeluaran': ['owner'], // tab Rincian Pengeluaran di Laporan
-  'laporan.labaKotor': ['owner'],        // kartu Laba Kotor di tab Laba Rugi
+  'laporan.labaKotor': ['owner'],        // kartu Laba Kotor di Laporan (Laba Rugi)
   'laporan.hapusTransaksi': ['owner'],   // tombol hapus transaksi di Riwayat
   'beranda.laba': ['owner'],             // kartu Laba Kotor di Beranda
   'tambahan.setujui': ['owner'],         // setujui/tolak pengajuan Tambahan karyawan dari staf (Catat Cepat di Beranda)

@@ -9,6 +9,7 @@ import useBackLayer from '../../hook/useBackLayer';
 import NominalInput from '../../components/ui/NominalInput';
 import Overlay from '../../components/ui/Overlay';
 import Button from '../../components/ui/Button';
+import { Select } from '../../components/ui/Input';
 
 /**
  * PaymentModal — di-port dari mamam-global. Bagian bayar-tunai/QRIS/
@@ -181,11 +182,11 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                   {orderType === 'Delivery' && couriers.length > 0 && (
                     <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
                       <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Diterima Oleh</label>
-                      <select value={deliveryCourierId} onChange={(e) => { setDeliveryCourierId(e.target.value); setDeliveryPaidTo(e.target.value ? 'kurir' : 'kasir'); }}
+                      <Select bare title="Diterima Oleh" value={deliveryCourierId} onChange={(e) => { setDeliveryCourierId(e.target.value); setDeliveryPaidTo(e.target.value ? 'kurir' : 'kasir'); }}
                         className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-accent-500 dark:focus:border-accent-500 transition-colors">
                         {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         <option value="">Kasir</option>
-                      </select>
+                      </Select>
                     </div>
                   )}
                 </div>
@@ -238,11 +239,11 @@ export default function PaymentModal({ menus, customers, vouchers, employees, tr
                   {orderType === 'Delivery' && method === 'Tunai' && couriers.length > 0 && (
                     <div className="pt-1">
                       <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Diterima Oleh</label>
-                      <select value={deliveryCourierId} onChange={(e) => { setDeliveryCourierId(e.target.value); setDeliveryPaidTo(e.target.value ? 'kurir' : 'kasir'); }}
+                      <Select bare title="Diterima Oleh" value={deliveryCourierId} onChange={(e) => { setDeliveryCourierId(e.target.value); setDeliveryPaidTo(e.target.value ? 'kurir' : 'kasir'); }}
                         className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-accent-500 dark:focus:border-accent-500 transition-colors">
                         {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         <option value="">Kasir</option>
-                      </select>
+                      </Select>
                     </div>
                   )}
                   <div className="flex gap-2">

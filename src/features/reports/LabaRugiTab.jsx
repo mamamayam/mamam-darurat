@@ -9,7 +9,8 @@ import ReportGate from './ReportGate';
 /**
  * LabaRugiTab — Laba Rugi: Total Penjualan, Laba Kotor, Pengeluaran.
  *   Laba Kotor = Total Penjualan − Pengeluaran (SEMUA pengeluaran, lihat reportsMath).
- * Di bawahnya: penjualan per metode bayar / tipe pesanan dan menu terlaris.
+ * Di bawahnya: pengeluaran per kategori, penjualan per metode bayar / tipe pesanan, dan menu terlaris.
+ * (Daftar catatan pengeluaran ada di layar Pengeluaran, tidak diulang di sini.)
  * Kartu Laba Kotor hanya untuk yang berizin `laporan.labaKotor`.
  */
 export default function LabaRugiTab({ range }) {
@@ -20,7 +21,8 @@ export default function LabaRugiTab({ range }) {
 
   const summary = useMemo(() => summarizeSales(sales), [sales]);
   const menus = useMemo(() => topMenus(sales, 10), [sales]);
-  const pengeluaran = useMemo(() => summarizeExpenses(expenses).total, [expenses]);
+  const expSummary = useMemo(() => summarizeExpenses(expenses), [expenses]);
+  const pengeluaran = expSummary.total;
   const labaKotor = summary.total - pengeluaran;
 
   return (
@@ -36,6 +38,13 @@ export default function LabaRugiTab({ range }) {
           <Card key={k} padding="md"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">{k}</p><p className="font-heading font-bold text-base text-slate-800 dark:text-slate-100" data-testid={id}>{formatRupiah(v)}</p></Card>
         ))}
       </div>
+
+      <Card className="space-y-1.5">
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Pengeluaran per Kategori</p>
+        {expSummary.byCategory.length === 0 ? <p className="text-xs text-slate-400">Belum ada data.</p> : expSummary.byCategory.map(c => (
+          <div key={c.category} className="flex justify-between text-sm"><span className="text-slate-600 dark:text-slate-300">{c.category} <span className="text-slate-400 text-xs">({c.count})</span></span><span className="font-bold text-slate-800 dark:text-slate-100">{formatRupiah(c.total)}</span></div>
+        ))}
+      </Card>
 
       {[['Per Metode Bayar', summary.byPayment], ['Per Tipe Pesanan', summary.byOrderType]].map(([title, rows]) => (
         <Card key={title} className="space-y-1.5">

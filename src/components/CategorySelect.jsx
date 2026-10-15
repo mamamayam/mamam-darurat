@@ -16,7 +16,7 @@ export default function CategorySelect({ value, onChange, options, onManage, lab
         <button type="button" onClick={onManage} aria-label="Kelola Kategori" title="Kelola Kategori"
           className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-accent-600 dark:hover:text-accent-400 active:scale-90 transition-all"><Settings2 className="w-3.5 h-3.5" /></button>
       </div>
-      <Select value={value} onChange={e => onChange(e.target.value)} data-testid="category-select">
+      <Select title={label} value={value} onChange={e => onChange(e.target.value)} data-testid="category-select">
         <option value="">{placeholder}</option>
         {[...options, ...extra].map(o => <option key={o} value={o}>{o}</option>)}
       </Select>

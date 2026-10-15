@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   summarizeSales, topMenus, summarizeExpenses, expenseDetailText,
   periodRange, dayStartISO, nextDayStartISO, localDateOf, localDateString,
+  shiftMonthKey, monthLabel, dayLabel, shortDateLabel, monthRange, monthOptions, dayOptions, lastDaysRange, shiftDate, reportRange,
 } from './reportsMath.js';
 
 const it_ = (menu, name, qty, price) => ({ menu_item_id: menu, name, qty, price });
@@ -115,5 +116,53 @@ describe('periodRange & batas hari', () => {
     expect(localDateOf(new Date(2026, 8, 30, 0, 30).toISOString())).toBe('2026-09-30');
     expect(localDateOf(new Date(2026, 8, 30, 23, 30).toISOString())).toBe('2026-09-30');
     expect(localDateString(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+});
+
+describe('navigasi periode Laporan', () => {
+  const today = '2026-10-15';
+  it('shiftMonthKey melewati pergantian tahun', () => {
+    expect(shiftMonthKey('2026-01', -1)).toBe('2025-12');
+    expect(shiftMonthKey('2026-12', 1)).toBe('2027-01');
+    expect(shiftMonthKey('2026-10', -13)).toBe('2025-09');
+  });
+  it('label bulan & hari (hari dari tanggal lokal)', () => {
+    expect(monthLabel('2026-09')).toBe('September 2026');
+    expect(dayLabel('2026-10-15')).toBe('Kam, 15 Okt 2026');
+    expect(shortDateLabel('2026-01-05')).toBe('5 Jan 2026');
+  });
+  it('monthRange: bulan berjalan sampai hari ini, bulan lalu penuh (termasuk Februari kabisat)', () => {
+    expect(monthRange('2026-10', today)).toEqual({ fromDate: '2026-10-01', toDate: '2026-10-15' });
+    expect(monthRange('2026-09', today)).toEqual({ fromDate: '2026-09-01', toDate: '2026-09-30' });
+    expect(monthRange('2028-02', today)).toEqual({ fromDate: '2028-02-01', toDate: '2028-02-29' });
+    expect(monthRange('2026-02', today).toDate).toBe('2026-02-28');
+  });
+  it('monthOptions: bulan berjalan di atas bertanda, mundur tanpa bulan depan', () => {
+    const o = monthOptions(today, 14);
+    expect(o).toHaveLength(14);
+    expect(o[0]).toEqual({ value: '2026-10', label: 'Oktober 2026', tag: 'Bulan ini' });
+    expect(o[1].value).toBe('2026-09'); expect(o[1].tag).toBeUndefined();
+    expect(o[13].value).toBe('2025-09');
+  });
+  it('dayOptions & shiftDate', () => {
+    const o = dayOptions(today, 3);
+    expect(o.map(x => x.value)).toEqual(['2026-10-15', '2026-10-14', '2026-10-13']);
+    expect(o[0].tag).toBe('Hari ini');
+    expect(shiftDate('2026-10-01', -1)).toBe('2026-09-30');
+  });
+  it('lastDaysRange termasuk hari ini', () => {
+    expect(lastDaysRange(7, today)).toEqual({ start: '2026-10-09', end: '2026-10-15' });
+    expect(lastDaysRange(1, today)).toEqual({ start: today, end: today });
+  });
+  it('reportRange per mode', () => {
+    expect(reportRange({ mode: 'bulan', month: '2026-09' }, today)).toEqual({ fromDate: '2026-09-01', toDate: '2026-09-30' });
+    expect(reportRange({ mode: 'hari', day: '2026-10-03' }, today)).toEqual({ fromDate: '2026-10-03', toDate: '2026-10-03' });
+    expect(reportRange({ mode: 'semua' }, today)).toEqual({ fromDate: null, toDate: null });
+    expect(reportRange({ mode: 'rentang', start: '2026-10-01', end: '2026-10-09' }, today)).toEqual({ fromDate: '2026-10-01', toDate: '2026-10-09' });
+  });
+  it('rentang: tanpa akhir = satu hari, terbalik ditukar, tanpa awal = null (BUKAN semua data)', () => {
+    expect(reportRange({ mode: 'rentang', start: '2026-10-05', end: '' }, today)).toEqual({ fromDate: '2026-10-05', toDate: '2026-10-05' });
+    expect(reportRange({ mode: 'rentang', start: '2026-10-09', end: '2026-10-01' }, today)).toEqual({ fromDate: '2026-10-01', toDate: '2026-10-09' });
+    expect(reportRange({ mode: 'rentang', start: '', end: '' }, today)).toBeNull();
   });
 });

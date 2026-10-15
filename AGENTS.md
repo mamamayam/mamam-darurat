@@ -41,6 +41,7 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
   menu Lainnya otomatis menyembunyikan layar yang tak boleh dibuka. Ini pagar tampilan (PIN hardcoded di `pins.js`), bukan keamanan data.
 - Uang = integer rupiah. Tanggal pengeluaran = string `YYYY-MM-DD` apa adanya (jangan di-parse sebagai UTC). Rumus murni ditaruh di berkas `*Math.js` / engine dan **dites**.
 - Hapus = hard delete (tanpa recycle bin). Tampilan mengikuti pola komponen di `src/components/ui/` (Card, Select, Badge, SegmentedControl, dst).
+- Dropdown SELALU lewat `Select` dari `components/ui` (tombol yang membuka bottom sheet, gaya sama dengan sheet Periode di FilterBar). Jangan pakai `<select>` bawaan browser; untuk kontrol mungil di baris/header pakai `<Select bare className=...>`.
 - Setelah mengubah kode: `npm test` dan `npm run build` harus lolos. Tambah/ubah tes untuk logika yang berubah.
 - Patch lama yang sudah di-apply diarsipkan di `patches/`. Itu hanya catatan sejarah (isinya sudah ada di kode, sebagian sudah ditimpa
   patch berikutnya): jangan di-apply ulang dan jangan dijadikan acuan. Patch baru dari agent cukup diserahkan lewat chat; pemilik bebas
@@ -62,11 +63,11 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 
 ## Keputusan produk yang sudah ditetapkan pemilik
 
-**Laporan** (`src/features/reports/`) punya dua tab dengan filter periode yang sama (Hari Ini, Kemarin, Bulan Ini, Semua, Tanggal Terpilih):
-- **Laba Rugi**: Total Penjualan, Laba Kotor, Pengeluaran (3 kartu, tanpa HPP), lalu per metode bayar, per tipe pesanan, menu terlaris.
+**Laporan** (`src/features/reports/`) satu layar (tanpa tab) dengan filter periode (Bulanan [default, navigasi `‹ ›` per bulan + daftar bulan, pola `PeriodNav` seperti Absensi/Penggajian], Harian, Semua, Rentang):
+- **Laba Rugi**: Total Penjualan, Laba Kotor, Pengeluaran (3 kartu, tanpa HPP), lalu Pengeluaran per Kategori, per metode bayar, per tipe pesanan, menu terlaris.
   **Laba Kotor = Total Penjualan − Pengeluaran.** Pengeluaran = SEMUA catatan pengeluaran apa pun kategorinya (belanja, bayar ayam, kasbon,
   gaji, dll; tunai dan non-tunai). Tidak ada kategori yang dikecualikan dan tidak ada "laba bersih" di sini.
-- **Rincian Pengeluaran** (owner-only): total, per kategori, dan daftar semua catatan pengeluaran.
+  Tab "Rincian Pengeluaran" sudah dihapus: daftar catatannya kembar dengan layar Pengeluaran, jadi yang dipertahankan hanya total per kategori (kartu di Laba Rugi).
 
 **Pengeluaran**: kolom Kategori adalah dropdown; kategori baru ditambah lewat ikon gerigi (Kelola Kategori).
 

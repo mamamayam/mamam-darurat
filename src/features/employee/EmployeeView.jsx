@@ -94,14 +94,14 @@ export default function EmployeeView() {
           <Card className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
             <h3 className="font-heading font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Briefcase className="w-5 h-5 text-slate-700 dark:text-slate-200" /> Daftar Karyawan</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={filterSelectCls}>
+              <Select bare title="Status Karyawan" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={filterSelectCls}>
                 <option value="semua">Semua Status</option>
                 {EMPLOYEE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className={filterSelectCls}>
+              </Select>
+              <Select bare title="Role" value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className={filterSelectCls}>
                 <option value="semua">Semua Role</option>
                 {EMPLOYEE_ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              </Select>
               <button type="button" onClick={() => setIsSortOpen(true)}
                 className="flex-1 min-w-0 md:flex-none flex items-center justify-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 active:scale-95 transition-all duration-300">
                 <ArrowUpDown className="w-3.5 h-3.5" /> Urutkan

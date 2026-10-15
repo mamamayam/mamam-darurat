@@ -44,6 +44,9 @@
  * Props sama, tambahan:
  *   rows  number  — default: 3
  */
+import { Children, Fragment, isValidElement, useState } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
+import Modal from './Modal';
 
 // ── Shared label + error wrapper ────────────────────────────────────────────
 export function FieldWrapper({ label, error, hint, children }) {
@@ -114,6 +117,29 @@ export function Input({
 }
 
 // ── Select ───────────────────────────────────────────────────────────────────
+// Dropdown = tombol yang membuka bottom sheet (gaya sama dengan sheet Periode di FilterBar),
+// BUKAN <select> bawaan browser, supaya semua pilihan di app tampil seragam.
+// API tetap seperti <select>: children <option value>, value, onChange(e) dengan e.target.value,
+// disabled, id, aria-label, data-testid. Tambahan: `title` (judul sheet; default label / aria-label),
+// `bare` (tanpa pembungkus label; className dipakai apa adanya, untuk kontrol mungil di baris/header).
+const SHEET_OPT_BASE = 'w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 disabled:opacity-40';
+const SHEET_OPT_ON = 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400';
+const SHEET_OPT_OFF = 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800';
+
+/** Kumpulkan <option> dari children (termasuk Fragment, array hasil .map, dan `cond && <option/>`). */
+export function collectSelectOptions(children, out = []) {
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    if (child.type === 'option') {
+      const label = Children.toArray(child.props.children).join('');
+      out.push({ value: String(child.props.value ?? label), label, disabled: Boolean(child.props.disabled) });
+    } else if (child.type === Fragment) {
+      collectSelectOptions(child.props.children, out);
+    }
+  });
+  return out;
+}
+
 export function Select({
   label,
   error,
@@ -121,23 +147,56 @@ export function Select({
   variant = 'default',
   className = '',
   children,
+  value,
+  onChange,
+  disabled,
+  id,
+  title,
+  bare = false,
   ...rest
 }) {
-  return (
-    <FieldWrapper label={label} error={error} hint={hint}>
-      <select
-        className={`
-          ${base(variant)}
-          cursor-pointer appearance-none
-          ${error ? ERROR_BORDER : ''}
-          ${className}
-        `}
-        {...rest}
-      >
-        {children}
-      </select>
-    </FieldWrapper>
+  const [open, setOpen] = useState(false);
+  const options = collectSelectOptions(children);
+  const current = String(value ?? '');
+  const selected = options.find(o => o.value === current);
+  const pick = (o) => {
+    setOpen(false);
+    if (o.value !== current) onChange?.({ target: { value: o.value, id, name: rest.name } });
+  };
+
+  const trigger = (
+    <button
+      type="button" id={id} disabled={disabled} aria-haspopup="listbox" aria-expanded={open}
+      onClick={() => setOpen(true)}
+      className={bare
+        ? `flex items-center justify-between gap-1.5 text-left disabled:opacity-50 ${className}`
+        : `${base(variant)} cursor-pointer flex items-center justify-between gap-2 text-left ${error ? ERROR_BORDER : ''} ${className}`}
+      {...rest}
+    >
+      <span className="truncate">{selected ? selected.label : ''}</span>
+      <ChevronDown className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
+    </button>
   );
+
+  const sheet = (
+    <Modal isOpen={open} onClose={() => setOpen(false)} title={title || label || rest['aria-label'] || 'Pilih'} size="md" sheet maxHeight>
+      <div className="px-2 pb-3" role="listbox">
+        {options.map((o) => {
+          const active = o.value === current;
+          return (
+            <button key={o.value} type="button" role="option" aria-selected={active} disabled={o.disabled}
+              onClick={() => pick(o)} className={`${SHEET_OPT_BASE} ${active ? SHEET_OPT_ON : SHEET_OPT_OFF}`}>
+              <span className="text-left">{o.label}</span>
+              {active && <Check className="w-4 h-4 shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+
+  if (bare) return <>{trigger}{sheet}</>;
+  return <FieldWrapper label={label} error={error} hint={hint}>{trigger}{sheet}</FieldWrapper>;
 }
 
 // ── Textarea ─────────────────────────────────────────────────────────────────

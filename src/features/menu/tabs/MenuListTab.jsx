@@ -271,7 +271,7 @@ const MenuListTab = ({ data }) => {
                 <label htmlFor="menuCategory" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
                 <Button type="button" size="xs" variant="secondary" onClick={() => setIsCategoryModalOpen(true)} icon={<Settings2 className="w-3 h-3" />}>Kelola Kategori</Button>
               </div>
-              <Select id="menuCategory" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+              <Select id="menuCategory" title="Kategori" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                 {categories.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
                 {!categories.includes(formData.category) && formData.category && (
                   <option value={formData.category}>{formData.category}</option>

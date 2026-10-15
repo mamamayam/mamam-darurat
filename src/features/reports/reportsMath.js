@@ -36,6 +36,87 @@ export function periodRange(mode, custom = {}, today = localDateString()) {
   }
 }
 
+// ── Navigasi periode Laporan (bulanan / harian / semua / rentang) ─────
+// Semua fungsi di bawah memakai tanggal lokal 'YYYY-MM-DD' / kunci bulan 'YYYY-MM'.
+const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const MONTH_SHORT = MONTH_NAMES.map(m => m.slice(0, 3));
+const DAY_SHORT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+/** Geser kunci bulan: shiftMonthKey('2026-01', -1) -> '2025-12'. */
+export function shiftMonthKey(key, delta) {
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
+
+/** '2026-09' -> 'September 2026'. */
+export const monthLabel = (key) => `${MONTH_NAMES[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`;
+
+/** '2026-09-30' -> 'Rab, 30 Sep 2026' (nama hari dari tanggal LOKAL, bukan UTC). */
+export function dayLabel(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return `${DAY_SHORT[new Date(y, m - 1, d).getDay()]}, ${d} ${MONTH_SHORT[m - 1]} ${y}`;
+}
+
+/** '2026-09-30' -> '30 Sep 2026'. */
+export const shortDateLabel = (dateStr) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return `${d} ${MONTH_SHORT[m - 1]} ${y}`;
+};
+
+/**
+ * Rentang satu bulan penuh. Bulan berjalan berhenti di hari ini (sama seperti "Bulan Ini"
+ * lama); bulan lalu sampai tanggal terakhirnya.
+ */
+export function monthRange(key, today = localDateString()) {
+  const [y, m] = key.split('-').map(Number);
+  const last = localDateString(new Date(y, m, 0));
+  return { fromDate: `${key}-01`, toDate: key === today.slice(0, 7) ? today : last };
+}
+
+/** Pilihan bulan untuk sheet: bulan berjalan dulu, lalu mundur. Tanpa bulan depan (belum ada data). */
+export function monthOptions(today = localDateString(), count = 24) {
+  const cur = today.slice(0, 7);
+  return Array.from({ length: count }, (_, i) => {
+    const key = shiftMonthKey(cur, -i);
+    return { value: key, label: monthLabel(key), tag: i === 0 ? 'Bulan ini' : undefined };
+  });
+}
+
+/** Pilihan hari untuk sheet: hari ini dulu, lalu mundur. */
+export function dayOptions(today = localDateString(), count = 45) {
+  return Array.from({ length: count }, (_, i) => {
+    const d = addDaysLocal(today, -i);
+    return { value: d, label: dayLabel(d), tag: i === 0 ? 'Hari ini' : undefined };
+  });
+}
+
+/** Tombol cepat rentang: N hari terakhir termasuk hari ini. */
+export const lastDaysRange = (days, today = localDateString()) => ({ start: addDaysLocal(today, -(days - 1)), end: today });
+
+/** Geser tanggal 'YYYY-MM-DD' sejumlah hari (untuk tombol < > pada mode Harian). */
+export const shiftDate = (dateStr, n) => addDaysLocal(dateStr, n);
+
+/**
+ * Pilihan filter Laporan -> rentang tanggal inklusif.
+ *   sel = { mode: 'bulan'|'hari'|'semua'|'rentang', month:'YYYY-MM', day:'YYYY-MM-DD', start, end }
+ * `rentang` tanpa tanggal awal = null (belum bisa dihitung; layar minta pilih tanggal dulu,
+ * BUKAN jatuh ke "semua data"). Tanggal terbalik (akhir < awal) ditukar otomatis.
+ */
+export function reportRange(sel, today = localDateString()) {
+  switch (sel.mode) {
+    case 'bulan': return monthRange(sel.month, today);
+    case 'hari': return { fromDate: sel.day, toDate: sel.day };
+    case 'semua': return { fromDate: null, toDate: null };
+    case 'rentang': {
+      if (!sel.start) return null;
+      const end = sel.end || sel.start;
+      return sel.end && end < sel.start ? { fromDate: end, toDate: sel.start } : { fromDate: sel.start, toDate: end };
+    }
+    default: return { fromDate: null, toDate: null };
+  }
+}
+
 /** Awal hari lokal (00:00) sebagai ISO UTC — untuk filter kolom timestamptz. */
 export const dayStartISO = (dateStr) => { const [y, m, d] = dateStr.split('-').map(Number); return new Date(y, m - 1, d, 0, 0, 0, 0).toISOString(); };
 /** Awal hari BERIKUTNYA — dipakai sebagai batas atas eksklusif (< ). */

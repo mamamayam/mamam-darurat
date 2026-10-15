@@ -271,7 +271,7 @@ const ShiftView = () => {
         <div className="pb-12">
           <div className="flex justify-start mb-6">
             <div className="flex items-center gap-2">
-              <Select value={filterMode} onChange={e => setFilterMode(e.target.value)} className="py-1.5 px-3 text-xs font-bold">
+              <Select title="Periode" value={filterMode} onChange={e => setFilterMode(e.target.value)} className="py-1.5 px-3 text-xs font-bold">
                 <option value="hari-ini">Hari Ini</option>
                 <option value="kemarin">Kemarin</option>
                 <option value="bulan-ini">Bulan Ini</option>
@@ -358,7 +358,7 @@ const ShiftView = () => {
             onChange={e => setInitialCashInput(e.target.value)} placeholder="0" className="text-lg font-bold" />
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">Dibuka Oleh (Opsional)</label>
-            <Select value={openedBy} onChange={e => setOpenedBy(e.target.value)}>
+            <Select title="Dibuka Oleh" value={openedBy} onChange={e => setOpenedBy(e.target.value)}>
               <option value="">-- Pilih Karyawan --</option>
               {activeEmployees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
             </Select>

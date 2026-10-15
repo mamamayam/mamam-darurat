@@ -97,7 +97,7 @@ export default function ExpenseFormSheet({ isOpen, onClose, editing = null, data
           {paymentMethod === 'Tunai' && couriers.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Dibayar Pakai Uang Siapa?</label>
-              <Select value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
+              <Select title="Dibayar Pakai Uang Siapa?" value={cashHolderId} onChange={e => setCashHolderId(e.target.value)}>
                 <option value="kasir">Dompet</option>
                 {couriers.map(c => <option key={c.id} value={c.id}>{c.name} (Kurir)</option>)}
               </Select>

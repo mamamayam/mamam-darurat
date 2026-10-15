@@ -49,7 +49,8 @@ describe('AdjustmentFields: rincian Tambahan', () => {
       { type: 'Bld', name: '', qty: '10', price: '3000' }, { type: 'Lainnya', name: 'Kepala ayam', qty: '2', price: '4500' },
     ] } });
     expect(html).toContain('Detail potong ayam');
-    for (const t of ['Bld', 'Sayap', 'Karkas', 'Lainnya', 'Nama potongan (mis. Kepala ayam)', '12 potong', 'Rp 39.000']) expect(html).toContain(t);
+    // Dropdown jenis sekarang bottom sheet: pilihan lain (Sayap, Karkas) baru dirender saat sheet dibuka; yang terpilih tampil di tombol.
+    for (const t of ['Bld', 'Lainnya', 'Nama potongan (mis. Kepala ayam)', '12 potong', 'Rp 39.000']) expect(html).toContain(t);
   });
 
   it('detail dari kategori lain diabaikan (tidak bocor setelah ganti kategori)', () => {
