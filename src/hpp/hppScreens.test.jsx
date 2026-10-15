@@ -228,21 +228,42 @@ describe('popup HPP: kerangka sama dengan app utama (Overlay)', () => {
   });
 });
 
-describe('notif keluar HPP (Back dari Menu)', () => {
-  it('tampil: pesan "Tekan Back lagi untuk kembali ke POS", role status, tidak menangkap sentuhan, di atas popup', () => {
+describe('notif keluar HPP (Back dari Menu): sama dengan ExitToast app utama', () => {
+  const baca = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
+
+  it('tampil: teks "Ketuk lagi untuk keluar", role status, tidak menangkap sentuhan, z-[400] di atas popup', () => {
     const html = render(<NotifKeluar tampil />);
-    expect(html).toContain('Tekan Back lagi untuk kembali ke POS');
+    expect(html).toContain('Ketuk lagi untuk keluar');
     expect(html).toContain('role="status"');
     expect(html).toContain('pointer-events-none');
-    expect(html).toContain('z-[70]');
+    expect(html).toContain('z-[400]');
   });
 
   it('tidak tampil: tidak merender apa pun', () => {
     expect(render(<NotifKeluar tampil={false} />)).toBe('');
   });
 
+  it('teks, kelas posisi, dan kelas pil identik dengan ExitToast app utama', () => {
+    const utama = baca('../components/ui/ExitToast.jsx');
+    const hpp = render(<NotifKeluar tampil />);
+    expect(utama).toContain('Ketuk lagi untuk keluar');
+    for (const kelas of ['fixed inset-x-0 z-[400] flex justify-center px-4', 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]', 'short:bottom-[calc(4rem+env(safe-area-inset-bottom))]',
+      'rounded-full bg-slate-900/95 px-4 py-2.5 text-sm font-semibold text-white shadow-lg']) {
+      expect(utama, kelas).toContain(kelas);
+      expect(hpp, kelas).toContain(kelas);
+    }
+  });
+
+  it('animasi masuk/keluar 180 ms (sama dengan ExitToast: duration 0.18) dan hormati gerakan dikurangi', () => {
+    const css = baca('./hppAnim.css');
+    expect(baca('../components/ui/ExitToast.jsx')).toMatch(/duration: 0\.18/);
+    expect(css).toMatch(/\.hpp-exit-in \{ animation: hpp-exit-in 180ms/);
+    expect(css).toMatch(/\.hpp-exit-out \{ animation: hpp-exit-out 180ms/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\)[\s\S]*hpp-exit-in/);
+  });
+
   it('HppApp memasang notif di akar (juga saat memuat/galat) dan memakai useExitHint milik HPP', () => {
-    const src = fs.readFileSync(new URL('./HppApp.jsx', import.meta.url), 'utf8');
+    const src = baca('./HppApp.jsx');
     expect(src).toMatch(/useExitHint\(\)/);
     expect(src).toMatch(/<NotifKeluar tampil=\{tampilKeluar\} \/>/);
   });

@@ -5,9 +5,15 @@
 @keyframes hpp-reveal   { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @keyframes hpp-toast-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 
+@keyframes hpp-exit-in  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes hpp-exit-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(12px); } }
+
 .hpp-reveal { animation: hpp-reveal 150ms ease-out; }
 .hpp-toast { animation: hpp-toast-in 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+/* Notif "Ketuk lagi untuk keluar": 180 ms, sama dengan ExitToast app utama. */
+.hpp-exit-in { animation: hpp-exit-in 180ms ease both; }
+.hpp-exit-out { animation: hpp-exit-out 180ms ease both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .hpp-reveal, .hpp-toast { animation: none; }
+  .hpp-reveal, .hpp-toast, .hpp-exit-in, .hpp-exit-out { animation: none; }
 }

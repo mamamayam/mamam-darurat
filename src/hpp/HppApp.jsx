@@ -21,7 +21,7 @@ import { NotifKeluar } from './ui'
  *  - Berkas di src/hpp hanya boleh mengimpor dari src/hpp, `react`, `lucide-react`, `@supabase/supabase-js`,
  *    ditambah dua modul bersama yang murni (tanpa kode POS): `lib/backStack` (hanya `createBackStack`, lewat
  *    `hppBackStack.js`) dan `components/ui/Overlay` (lewat `ui.jsx`). Jangan menyentuh `auth/*`, `app/*`, atau komponen POS lain.
- *  - Stack navigasi: Back menutup popup dulu, lalu tab Harga bahan -> Menu, lalu notif "Tekan Back lagi" dan keluar ke POS (hppBackStack.js).
+ *  - Stack navigasi: Back menutup popup dulu, lalu tab Harga bahan -> Menu, lalu notif "Ketuk lagi untuk keluar" lalu keluar ke POS (hppBackStack.js).
  *  - Data HPP dijaga RLS di database (supabase/migrations/013_hpp.sql). Frontend hanya memakai anon key.
  */
 export default function HppApp() {

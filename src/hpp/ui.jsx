@@ -226,16 +226,24 @@ export function Sheet({ title, onClose, children, full = false }) {
 }
 
 /**
- * Notif mengambang saat Back ditekan di Menu: Back sekali lagi akan keluar dari HPP (kembali ke POS).
+ * Notif mengambang "Ketuk lagi untuk keluar", SAMA dengan `ExitToast` app utama (teks, bentuk, posisi, z-index,
+ * lama animasi 180 ms masuk/keluar). Dibuat ulang tanpa framer-motion (HPP tidak boleh memuat kode POS).
+ * Tampil saat Back ditekan di Menu; Back kedua dalam 2 detik meninggalkan HPP (kembali ke POS).
  * `tampil` dari `useExitHint()` (hppBackStack.js). Tidak menangkap sentuhan dan berada di atas popup.
  */
 export function NotifKeluar({ tampil }) {
-  if (!tampil) return null
+  const [ada, setAda] = useState(tampil)   // tetap terpasang selama animasi keluar
+  useEffect(() => {
+    if (tampil) { setAda(true); return undefined }
+    const t = setTimeout(() => setAda(false), 180)
+    return () => clearTimeout(t)
+  }, [tampil])
+  if (!tampil && !ada) return null
   return (
     <div role="status" aria-live="polite"
-      className="hpp-toast pointer-events-none fixed inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-[70] flex justify-center px-4">
+      className={`${tampil ? 'hpp-exit-in' : 'hpp-exit-out'} pointer-events-none fixed inset-x-0 z-[400] flex justify-center px-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] short:bottom-[calc(4rem+env(safe-area-inset-bottom))]`}>
       <div className="rounded-full bg-slate-900/95 px-4 py-2.5 text-sm font-semibold text-white shadow-lg">
-        Tekan Back lagi untuk kembali ke POS
+        Ketuk lagi untuk keluar
       </div>
     </div>
   )

@@ -600,7 +600,7 @@ describe('stack navigasi HPP — tab dan popup (buatBackStackHpp)', () => {
     expect(urutan).toEqual(['popup', 'tab']);
     expect(b.left).toBe(false);
     expect(bs.snapshot().exitArmed).toBe(false);
-    b.userBack(); await tick();                 // dari Menu: notif "Tekan Back lagi", BELUM keluar
+    b.userBack(); await tick();                 // dari Menu: notif "Ketuk lagi untuk keluar", BELUM keluar
     expect(b.left).toBe(false);
     expect(bs.snapshot().exitArmed).toBe(true);
     b.userBack(); await tick();                 // Back kedua: meninggalkan HPP (kembali ke POS)
