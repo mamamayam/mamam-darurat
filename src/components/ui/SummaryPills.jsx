@@ -11,6 +11,8 @@ import { formatRupiah } from '../../utils/formatters';
  *   tone       'accent' | 'red'          warna tombol terpilih (sama dengan SegmentedControl)
  *   negative   boolean                   tampilkan nominal dengan awalan "-" (pengeluaran)
  *   testIdPrefix string                  data-testid = `${prefix}-${key}`
+ *   maskKeys     string[]                key pil yang nominalnya disensor (mis. ['Karyawan', 'semua']); pilnya tetap bisa diketuk
+ *   maskText     string                  pengganti nominal yang disensor
  */
 
 const ACTIVE = {
@@ -19,7 +21,7 @@ const ACTIVE = {
 };
 const INACTIVE = 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300';
 
-export default function SummaryPills({ items, allTotal, value, onChange, tone = 'accent', negative = false, testIdPrefix = 'pill' }) {
+export default function SummaryPills({ items, allTotal, value, onChange, tone = 'accent', negative = false, testIdPrefix = 'pill', maskKeys = [], maskText = 'Rp •••••' }) {
   const all = [{ key: 'semua', label: 'SEMUA', total: allTotal, wide: true }, ...items];
   return (
     <div className="grid grid-cols-2 gap-2">
@@ -29,7 +31,7 @@ export default function SummaryPills({ items, allTotal, value, onChange, tone = 
           className={`${c.wide ? 'col-span-2' : ''} min-w-0 text-left rounded-2xl px-3.5 py-2.5 border transition-all duration-300 active:scale-95 ${value === c.key ? ACTIVE[tone] ?? ACTIVE.accent : INACTIVE}`}
         >
           <p className="text-xs font-bold tracking-wide opacity-80 truncate">{c.label}</p>
-          <p className="font-heading font-bold text-sm mt-0.5 truncate">{negative ? '-' : ''}{formatRupiah(c.total)}</p>
+          <p className="font-heading font-bold text-sm mt-0.5 truncate">{maskKeys.includes(c.key) ? maskText : `${negative ? '-' : ''}${formatRupiah(c.total)}`}</p>
         </button>
       ))}
     </div>

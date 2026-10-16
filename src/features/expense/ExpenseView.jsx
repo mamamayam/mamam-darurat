@@ -10,7 +10,7 @@ import { useExpenseData } from '../../hook/useExpenseData';
 import { useBulkSelect } from '../../hook/useBulkSelect';
 import { applySort } from '../../utils/sortUtils';
 import { dayHeading, groupByDay, sumByDay } from '../../utils/listFilters';
-import { dayOf, filterByPeriod, filterExpenses, sourceStats, sourceOf, isDateSort, SORT_OPTIONS, DEFAULT_SORT } from './expenseFilter';
+import { dayOf, filterByPeriod, filterExpenses, sourceStats, sourceOf, isDateSort, SORT_OPTIONS, DEFAULT_SORT, WAGE_MASK, isWageHidden, wageMaskPlan } from './expenseFilter';
 
 /**
  * ExpenseView — Pengeluaran. Form, filter, urutkan, pilih-banyak, dan Kelola Kategori
@@ -44,6 +44,7 @@ const ExpenseView = () => {
   const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
   const { can } = useAuth();
   const canChange = can('pengeluaran.ubah');   // edit & hapus; mencatat baru boleh semua peran
+  const canWage = can('karyawan.upah');        // boleh melihat nominal pengeluaran karyawan (gaji, kasbon); staf: disensor seperti di Beranda
   const expenseData = useExpenseData();
   const { expenses, categories, employees, loading, error, reload, deleteExpense, bulkDeleteExpenses } = expenseData;
 
@@ -106,6 +107,9 @@ const ExpenseView = () => {
   const byDay = isDateSort(sortKey);
   const groups = byDay ? groupByDay(shown, e => dayOf(e.date)) : [{ day: null, items: shown }];
   const dayTotals = useMemo(() => sumByDay(sortedExpenses, e => dayOf(e.date), e => e.amount), [sortedExpenses]);
+  // Sensor untuk staf: nominal karyawan + semua total yang mencampurnya (pil Karyawan/Semua, total harian).
+  const pillMask = useMemo(() => wageMaskPlan(base, canWage).pillKeys, [base, canWage]);
+  const maskedDays = useMemo(() => wageMaskPlan(sortedExpenses, canWage).days, [sortedExpenses, canWage]);
   const showHeads = byDay && groups.length > 1;
 
   const openNew = () => { setEditing(null); setIsFormOpen(true); };
@@ -169,7 +173,9 @@ const ExpenseView = () => {
             <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{sub}</span>
           </span>
           <span className="flex flex-col items-end gap-1 shrink-0 max-w-[45%]">
-            <span className="font-heading font-bold text-sm text-red-600 dark:text-red-400 truncate max-w-full">-{formatRupiah(exp.amount)}</span>
+            {isWageHidden(exp, canWage)
+              ? <span className="font-heading font-bold text-sm text-slate-400 truncate max-w-full">{WAGE_MASK}</span>
+              : <span className="font-heading font-bold text-sm text-red-600 dark:text-red-400 truncate max-w-full">-{formatRupiah(exp.amount)}</span>}
             {(exp.employeeId || exp.paymentMethod === 'Non-Tunai' || exp.cashHolderName) && (
               <span className="flex flex-wrap justify-end gap-1">
                 {exp.employeeId && <Badge variant="orange">Karyawan</Badge>}
@@ -199,7 +205,7 @@ const ExpenseView = () => {
         <SummaryPills
           tone="red" negative testIdPrefix="source"
           items={sources.map(s => ({ key: s.key, label: `${s.key.toUpperCase()} · ${s.count}X`, total: s.total }))}
-          allTotal={baseTotal} value={activeSource}
+          allTotal={baseTotal} value={activeSource} maskKeys={pillMask}
           onChange={(k) => { setSourceFilter(k); resetPaging(); }}
         />
 
@@ -232,7 +238,9 @@ const ExpenseView = () => {
                 {showHeads && (
                   <div className="flex items-baseline justify-between gap-3 px-1">
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{dayHeading(g.day)}</p>
-                    <p className="font-heading font-bold text-xs text-red-600 dark:text-red-400">-{formatRupiah(dayTotals.get(g.day))}</p>
+                    {maskedDays.has(g.day)
+                      ? <p className="font-heading font-bold text-xs text-slate-400">{WAGE_MASK}</p>
+                      : <p className="font-heading font-bold text-xs text-red-600 dark:text-red-400">-{formatRupiah(dayTotals.get(g.day))}</p>}
                   </div>
                 )}
                 {g.items.map(renderRow)}
@@ -274,7 +282,9 @@ const ExpenseView = () => {
           { label: 'Dicatat dari', value: detail?.deviceName },
           { label: 'Catatan', value: detail ? noteLines(detail.note).join('\n') : '', type: 'multiline' },
         ] }]}
-        highlight={{ label: 'Nominal', value: detail?.amount, tone: 'danger' }}
+        highlight={isWageHidden(detail, canWage)
+          ? { label: 'Nominal', value: WAGE_MASK, type: 'text', tone: 'danger' }
+          : { label: 'Nominal', value: detail?.amount, tone: 'danger' }}
         actions={detail && canChange ? [
           // Pengeluaran karyawan (dari potongan) juga bisa diubah: membuka form Potongan yang sama (lihat handleEditClick).
           { label: 'Edit', icon: <Pencil className="w-4 h-4" />, variant: 'secondary', onClick: () => handleEditClick(detail) },

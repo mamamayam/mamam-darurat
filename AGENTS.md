@@ -90,6 +90,8 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 - **Kasbon hanya lewat Potongan karyawan**: kategori yang berawalan "Kasbon" tidak ditawarkan di dropdown form Pengeluaran (toko), tapi pengeluaran karyawan hasil Potongan tetap tampil di daftar Pengeluaran
   (badge Karyawan) dan dihitung di Laporan dan Dompet.
 - Staf tidak melihat nominal Tambah/Potongan (izin `karyawan.upah`), hanya nominal toko.
+  Berlaku juga di layar **Pengeluaran**: nominal pengeluaran karyawan (gaji, kasbon) tampil `Rp •••••` di baris dan Detail, dan total yang mencampurnya (pil Karyawan + Semua, total per hari) ikut disensor
+  supaya selisihnya tidak membuka angka karyawan (`isWageHidden` / `wageMaskPlan` di `expenseFilter.js`, prop `maskKeys` di `SummaryPills`). Tampilan baru yang memuat pengeluaran karyawan wajib memakai aturan yang sama.
 - **Ubah dari Beranda (owner, izin `catatan.ubah`)**: ketuk satu baris "Catatan Hari Ini" membuka form yang SAMA dalam mode ubah: Pengeluaran toko = `ExpenseFormSheet` (`editing`), Tambah dan Potongan = `QuickAdjustmentSheet` (`editing`, `item.type` = `tambahan`/`potongan`).
   Tambah diubah lewat `useQuickEntries.updateAddition` (`additionUpdateRow`, status/persetujuan tidak berubah). Potongan lewat RPC `ubah_potongan` (`src/hook/deductionEdit.js`).
   **Pengeluaran karyawan (expenses.employee_id) tidak pernah diubah lewat form Pengeluaran biasa**, di layar mana pun: Edit di Detail Pengeluaran mencari potongan tertaut (`payroll_deductions.expense_id`) dan membuka form Potongan. Hanya pengeluaran karyawan yatim (tanpa potongan tertaut) yang jatuh ke form Pengeluaran biasa.

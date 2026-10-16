@@ -45,6 +45,25 @@ export function filterExpenses(expenses, { category = 'semua', query = '', emplo
   });
 }
 
+/** Teks sensor nominal (sama dengan MASK di Beranda > Catat Cepat). */
+export const WAGE_MASK = 'Rp •••••';
+
+/** Nominal pengeluaran karyawan disembunyikan untuk yang tanpa izin 'karyawan.upah' (staf). Nominal toko tidak pernah. */
+export const isWageHidden = (e, canWage) => !canWage && !!e?.employeeId;
+
+/**
+ * Rencana sensor untuk satu daftar pengeluaran (staf): total yang MENCAMPUR nominal karyawan ikut disensor,
+ * karena kalau tidak, selisihnya membuka angka karyawan.
+ *  - pillKeys: kunci pil ringkasan yang disensor (Karyawan + Semua, hanya kalau daftar memuat pengeluaran karyawan)
+ *  - days: tanggal yang total hariannya memuat pengeluaran karyawan
+ * Pemilik (canWage) tidak menyensor apa pun.
+ */
+export function wageMaskPlan(expenses, canWage) {
+  if (canWage) return { pillKeys: [], days: new Set() };
+  const emp = expenses.filter((e) => e.employeeId);
+  return { pillKeys: emp.length ? ['Karyawan', 'semua'] : [], days: new Set(emp.map((e) => dayOf(e.date))) };
+}
+
 /** Ringkasan per sumber (hanya yang ada isinya). -> [{ key:'Toko'|'Karyawan', count, total }] */
 export function sourceStats(expenses) {
   const stat = { Toko: { key: 'Toko', count: 0, total: 0 }, Karyawan: { key: 'Karyawan', count: 0, total: 0 } };

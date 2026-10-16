@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { inPeriod, filterByPeriod, filterExpenses, sourceStats, sourceOf, isDateSort } from './expenseFilter';
+import { inPeriod, filterByPeriod, filterExpenses, sourceStats, sourceOf, isDateSort, isWageHidden, wageMaskPlan, WAGE_MASK } from './expenseFilter';
 
 const TODAY = '2026-10-10';
 const E = [
@@ -58,4 +58,25 @@ describe('expenseFilter', () => {
     expect(isDateSort('date-desc')).toBe(true);
     expect(isDateSort('amount-desc')).toBe(false);
   });
+});
+
+describe('sensor nominal karyawan (staf tanpa izin karyawan.upah)', () => {
+  it('hanya pengeluaran karyawan yang disensor; nominal toko tetap tampil', () => {
+    expect(isWageHidden(E[2], false)).toBe(true);
+    expect(isWageHidden(E[0], false)).toBe(false);
+    expect(isWageHidden(null, false)).toBe(false);
+  });
+  it('owner (izin karyawan.upah) tidak menyensor apa pun', () => {
+    expect(isWageHidden(E[2], true)).toBe(false);
+    expect(wageMaskPlan(E, true)).toEqual({ pillKeys: [], days: new Set() });
+  });
+  it('total yang mencampur karyawan ikut disensor: pil Karyawan + Semua, dan tanggal yang memuat karyawan', () => {
+    const plan = wageMaskPlan(E, false);
+    expect(plan.pillKeys).toEqual(['Karyawan', 'semua']);
+    expect([...plan.days]).toEqual(['2026-10-02']);
+  });
+  it('daftar tanpa pengeluaran karyawan: tidak ada yang disensor (total toko tetap terlihat)', () => {
+    expect(wageMaskPlan([E[0], E[1], E[3]], false)).toEqual({ pillKeys: [], days: new Set() });
+  });
+  it('teks sensor sama dengan Beranda', () => { expect(WAGE_MASK).toBe('Rp •••••'); });
 });
