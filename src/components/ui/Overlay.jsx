@@ -30,6 +30,11 @@ import { useEffect, useRef, useState } from 'react';
  *   swipe          boolean — izinkan swipe-turun (default: true untuk sheet & responsive)
  *   closeOnBackdrop boolean (default true)
  *   ignoreKeyboard boolean — jangan ikut memendek saat keypad nominal terpasang (mis. kalkulator)
+ *
+ * KEYBOARD HP: saat keyboard terbuka, lapisan dipendekkan setinggi keyboard (tepi bawahnya naik ke atas
+ * keyboard) dan tinggi panel dibatasi area yang terlihat, supaya sheet yang berisi kolom cari/isian
+ * (pemilih pelanggan, form) tidak ketutup keyboard; isi panel yang bisa digulir menyusut sendiri.
+ * Lihat keyboardInset di bawah (Chrome Android hanya mengecilkan visual viewport, bukan layout viewport).
  */
 const MOTION = {
   sheet: { on: 'translate-none', off: 'translate-y-full', tr: 'transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]', ms: 300 },
@@ -46,6 +51,48 @@ const LAYOUT = {
   top: 'flex-col',
 };
 const DEFAULT_BACKDROP = 'bg-black/60 backdrop-blur-sm';
+
+/**
+ * keyboardInset — seberapa tinggi keyboard HP menutupi bagian bawah layar. FUNGSI MURNI (dites).
+ *
+ * Di Chrome Android (dan iOS) keyboard hanya mengecilkan VISUAL viewport; layout viewport (acuan
+ * `fixed inset-0`) tetap penuh, jadi sheet yang menempel di dasar layar ikut ketutup keyboard.
+ * Selisihnya = tinggi yang harus disisihkan di bawah lapisan overlay.
+ *
+ *   innerHeight : window.innerHeight (layout viewport)
+ *   vv          : window.visualViewport ({ height, offsetTop, scale })
+ *
+ * -> { inset, height }  inset = px yang tertutup (0 = tidak ada keyboard), height = tinggi area terlihat.
+ * Selisih kecil (< MIN_KEYBOARD, mis. bar alamat browser naik-turun) dan layar yang sedang di-zoom
+ * (pinch) bukan keyboard, jadi dianggap 0.
+ */
+export const MIN_KEYBOARD = 100;
+export const NO_KEYBOARD = { inset: 0, height: 0 };
+
+export function keyboardInset(innerHeight, vv) {
+  if (!vv || !Number.isFinite(innerHeight) || !Number.isFinite(vv.height)) return NO_KEYBOARD;
+  if ((vv.scale || 1) > 1.01) return NO_KEYBOARD;
+  const inset = Math.round(innerHeight - vv.height - (vv.offsetTop || 0));
+  return inset >= MIN_KEYBOARD ? { inset, height: Math.round(vv.height) } : NO_KEYBOARD;
+}
+
+/** Tinggi keyboard HP yang menutupi layar selama `active` (visualViewport). */
+function useKeyboardInset(active) {
+  const [kb, setKb] = useState(NO_KEYBOARD);
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!active || !vv) { setKb(NO_KEYBOARD); return undefined; }
+    const update = () => setKb((prev) => {
+      const next = keyboardInset(window.innerHeight, vv);
+      return next.inset === prev.inset && next.height === prev.height ? prev : next;
+    });
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); setKb(NO_KEYBOARD); };
+  }, [active]);
+  return kb;
+}
 
 function swipeBlocked(target, panel) {
   for (let el = target; el && el !== panel; el = el.parentElement) {
@@ -141,6 +188,7 @@ export default function Overlay(props) {
   const [entered, setEntered] = useState(false);
   const panelRef = useRef(null);
   const backdropRef = useRef(null);
+  const kb = useKeyboardInset(open);
 
   useEffect(() => {
     if (open) {
@@ -166,6 +214,7 @@ export default function Overlay(props) {
     <div
       className={`fixed inset-0 ${z} flex ${containerClass ?? LAYOUT[variant] ?? LAYOUT.center} ${open ? '' : 'pointer-events-none'}`}
       data-kb-ignore={ignoreKeyboard ? '' : undefined}
+      style={kb.inset ? { bottom: kb.inset } : undefined}
       onClick={(e) => e.stopPropagation()}
     >
       <div
@@ -173,7 +222,7 @@ export default function Overlay(props) {
         onClick={() => { if (closeOnBackdrop && onClose) onClose(); }}
         className={`absolute inset-0 transition-opacity duration-300 ${backdropClass} ${entered ? 'opacity-100' : 'opacity-0'}`}
       />
-      <div ref={panelRef} className={`relative ${motion.tr} ${entered ? motion.on : motion.off} ${panelClass}`}>
+      <div ref={panelRef} style={kb.inset ? { maxHeight: kb.height } : undefined} className={`relative ${motion.tr} ${entered ? motion.on : motion.off} ${panelClass}`}>
         {children}
       </div>
     </div>
