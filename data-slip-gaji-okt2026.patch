@@ -1,0 +1,222 @@
+From 624015df9d1f7c283c401b716770fc17697f5ff0 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 15 Oct 2026 22:35:00 +0000
+Subject: [PATCH] chore: data slip gaji Nurlaila Apsari & Sri Depi Okt 2026 +
+ pengeluaran karyawan (migrasi 015)
+
+---
+ .../migrations/015_data_slip_gaji_okt2026.sql | 202 ++++++++++++++++++
+ 1 file changed, 202 insertions(+)
+ create mode 100644 supabase/migrations/015_data_slip_gaji_okt2026.sql
+
+diff --git a/supabase/migrations/015_data_slip_gaji_okt2026.sql b/supabase/migrations/015_data_slip_gaji_okt2026.sql
+new file mode 100644
+index 0000000..cb0d70c
+--- /dev/null
++++ b/supabase/migrations/015_data_slip_gaji_okt2026.sql
+@@ -0,0 +1,202 @@
++-- =====================================================================
++-- Migrasi 015 — Data gaji Okt 2026 (1–15 Okt) dari slip PDF: Nurlaila Apsari & Sri Depi.
++-- Jalankan SEKALI di SQL Editor project C. Aman diulang (id baris tetap, tidak dobel).
++--
++-- Yang dimasukkan (sesuai model di migrasi 004/005/009/012):
++--  * employees                 : dicari lewat NAMA; kalau belum ada, dibuat dengan tarif dari slip.
++--                                Kalau sudah ada, tarifnya TIDAK diubah (lihat hasil cek di bawah).
++--  * payroll_additions         : Ongkir dan Potong Ayam (nominal total per hari, tanpa rincian
++--                                karena slip tidak memuat rinciannya).
++--  * payroll_deductions        : Kasbon Karyawan (kategori 'Kasbon') dan Ambil Gaji Mingguan
++--                                (kategori 'Kasbon Gaji Mingguan').
++--  * payroll_opening_balances  : "Sisa Bulan Lalu" untuk bulan 2026-10
++--                                (positif = karyawan berutang ke toko; negatif = toko berutang).
++--  * expenses                  : tiap potongan juga dicatat sebagai Pengeluaran karyawan (seperti
++--                                Catat Cepat) supaya masuk Laporan, dan ditautkan lewat
++--                                payroll_deductions.expense_id (hapus/ubah tetap sinkron).
++--
++-- DOMPET TIDAK TERSENTUH: Dompet menghitung pengeluaran Tunai berdasarkan expenses.created_at yang
++-- jatuh di dalam rentang shift (lihat useShiftData.js). Karena itu created_at pengeluaran impor ini
++-- diset SEBELUM shift mana pun dibuka (metode bayar tetap 'Tunai', apa adanya). Laporan memakai
++-- transaction_date, jadi tetap masuk ke Oktober 2026. Kalau nanti mau dihitung di Dompet,
++-- created_at-nya yang perlu digeser (jangan ubah metode bayarnya).
++--
++-- TIDAK dimasukkan:
++--  * Absensi / upah jam / bonus full time / lembur — itu dihitung otomatis dari sistem absensi
++--    (tidak disimpan di C). Id karyawan di sistem absensi (EMP-xxxx) harus ada di kolom
++--    employees.external_id supaya jam kerjanya terbaca; slip tidak memuat id itu.
++--
++-- Pengaman: kalau karyawan itu SUDAH punya tambahan/potongan/pengeluaran karyawan bertanggal 1–15 Okt
++-- 2026 yang bukan dari migrasi ini, atau saldo awal 2026-10 yang nilainya beda, migrasi berhenti dengan
++-- pesan jelas (tidak menimpa dan tidak menggandakan). Periode gaji yang sudah ditutup juga
++-- menolak lewat trigger migrasi 006.
++-- =====================================================================
++
++begin;
++
++drop table if exists _slip_emp, _slip_add, _slip_ded;
++
++create temp table _slip_emp as
++select * from (values
++    ('nurlaila', 'Nurlaila Apsari', 5500, 15000, 5000, 881805),
++    ('depi', 'Sri Depi', 5000, 10000, 5000, -250250)
++) as t(k, nama, upah, bonus, lembur, saldo_awal);
++
++create temp table _slip_add as
++select md5('mamam-slip-2026-10|add|' || v.k || '|' || v.tgl || '|' || v.kat)::uuid as id, v.k, v.tgl::date as tgl, v.kat, v.jml
++from (values
++    ('nurlaila', '2026-10-01', 'Ongkir', 6000),
++    ('nurlaila', '2026-10-06', 'Ongkir', 3000),
++    ('nurlaila', '2026-10-06', 'Potong Ayam', 4000),
++    ('nurlaila', '2026-10-09', 'Ongkir', 9000),
++    ('nurlaila', '2026-10-10', 'Ongkir', 6000),
++    ('nurlaila', '2026-10-11', 'Ongkir', 66000),
++    ('nurlaila', '2026-10-12', 'Ongkir', 3000),
++    ('nurlaila', '2026-10-12', 'Potong Ayam', 8000),
++    ('nurlaila', '2026-10-15', 'Ongkir', 3000)
++) as v(k, tgl, kat, jml);
++
++create temp table _slip_ded as
++select md5('mamam-slip-2026-10|ded|' || v.k || '|' || v.tgl || '|' || v.kat || '|' || v.lab)::uuid as id, v.k, v.tgl::date as tgl, v.kat, v.lab, v.jml
++from (values
++    ('nurlaila', '2026-10-01', 'Kasbon Gaji Mingguan', 'Ambil Gaji Mingguan', 314000),
++    ('nurlaila', '2026-10-01', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('nurlaila', '2026-10-02', 'Kasbon', 'Kasbon Karyawan', 40000),
++    ('nurlaila', '2026-10-06', 'Kasbon', 'Kasbon Karyawan', 50000),
++    ('nurlaila', '2026-10-07', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('nurlaila', '2026-10-08', 'Kasbon Gaji Mingguan', 'Ambil Gaji Mingguan', 125000),
++    ('nurlaila', '2026-10-09', 'Kasbon Gaji Mingguan', 'Ambil Gaji Mingguan', 125000),
++    ('nurlaila', '2026-10-09', 'Kasbon', 'Kasbon Karyawan', 15000),
++    ('nurlaila', '2026-10-10', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('nurlaila', '2026-10-11', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('nurlaila', '2026-10-12', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('nurlaila', '2026-10-13', 'Kasbon', 'Kasbon Karyawan', 15000),
++    ('nurlaila', '2026-10-14', 'Kasbon', 'Kasbon Karyawan', 20000),
++    ('nurlaila', '2026-10-15', 'Kasbon', 'Kasbon Karyawan', 50000),
++    ('depi', '2026-10-01', 'Kasbon Gaji Mingguan', 'Ambil Gaji Mingguan', 300000),
++    ('depi', '2026-10-01', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-02', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-04', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-05', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-06', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-07', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-08', 'Kasbon Gaji Mingguan', 'Ambil Gaji Mingguan', 342500),
++    ('depi', '2026-10-08', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-09', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-10', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-11', 'Kasbon', 'Kasbon Karyawan', 15000),
++    ('depi', '2026-10-12', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-13', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-14', 'Kasbon', 'Kasbon Karyawan', 10000),
++    ('depi', '2026-10-15', 'Kasbon', 'Kasbon Karyawan', 10000)
++) as v(k, tgl, kat, lab, jml);
++
++do $$
++declare
++  r record; v_cnt int; v_id uuid;
++begin
++  -- 1) Karyawan: cari lewat nama (tanpa peduli huruf besar/kecil dan spasi tepi); buat kalau belum ada.
++  for r in select * from _slip_emp loop
++    select count(*) into v_cnt from employees where lower(btrim(name)) = lower(r.nama);
++    if v_cnt > 1 then
++      raise exception 'Ada % karyawan bernama "%". Rapikan dulu (sisakan satu) lalu jalankan ulang.', v_cnt, r.nama;
++    end if;
++    if v_cnt = 0 then
++      insert into employees (id, name, role, status, wage_per_hour, bonus_full_time, overtime_rate_per_30_min)
++      values (md5('mamam-slip-2026-10|emp|' || r.k)::uuid, r.nama, 'kasir', 'aktif', r.upah, r.bonus, r.lembur);
++    end if;
++  end loop;
++
++  -- 2) Pengaman: jangan menggandakan data Okt yang sudah ada di C.
++  for r in select e.k, e.nama, m.id as emp_id from _slip_emp e join employees m on lower(btrim(m.name)) = lower(e.nama) loop
++    select count(*) into v_cnt from payroll_additions a
++      where a.employee_id = r.emp_id and a.date between '2026-10-01' and '2026-10-15'
++        and a.id not in (select id from _slip_add);
++    if v_cnt > 0 then
++      raise exception '% sudah punya % tambahan gaji 1–15 Okt 2026 di database. Dibatalkan supaya tidak dobel; cek dulu datanya.', r.nama, v_cnt;
++    end if;
++    select count(*) into v_cnt from payroll_deductions d
++      where d.employee_id = r.emp_id and d.date between '2026-10-01' and '2026-10-15'
++        and d.id not in (select id from _slip_ded);
++    if v_cnt > 0 then
++      raise exception '% sudah punya % potongan gaji 1–15 Okt 2026 di database. Dibatalkan supaya tidak dobel; cek dulu datanya.', r.nama, v_cnt;
++    end if;
++    select count(*) into v_cnt from expenses x
++      where x.employee_id = r.emp_id and x.transaction_date between '2026-10-01' and '2026-10-15'
++        and x.id not in (select md5('mamam-slip-2026-10|exp|' || id::text)::uuid from _slip_ded);
++    if v_cnt > 0 then
++      raise exception '% sudah punya % pengeluaran karyawan 1–15 Okt 2026 di database. Dibatalkan supaya tidak dobel; cek dulu datanya.', r.nama, v_cnt;
++    end if;
++    select o.amount into v_cnt from payroll_opening_balances o
++      where o.employee_id = r.emp_id and o.month = '2026-10';
++    if found and v_cnt <> (select saldo_awal from _slip_emp where k = r.k) then
++      raise exception '% sudah punya saldo awal 2026-10 sebesar % (slip: %). Dibatalkan; samakan dulu.', r.nama, v_cnt, (select saldo_awal from _slip_emp where k = r.k);
++    end if;
++  end loop;
++end $$;
++
++-- 3) Tambahan (Ongkir, Potong Ayam)
++insert into payroll_additions (id, employee_id, label, amount, date, category)
++select a.id, m.id, a.kat, a.jml, a.tgl, a.kat
++from _slip_add a
++join _slip_emp e on e.k = a.k
++join employees m on lower(btrim(m.name)) = lower(e.nama)
++on conflict (id) do nothing;
++
++-- 4) Potongan (Kasbon, Ambil Gaji Mingguan)
++insert into payroll_deductions (id, employee_id, label, amount, date, category)
++select d.id, m.id, d.lab, d.jml, d.tgl, d.kat
++from _slip_ded d
++join _slip_emp e on e.k = d.k
++join employees m on lower(btrim(m.name)) = lower(e.nama)
++on conflict (id) do nothing;
++
++-- 4b) Pengeluaran karyawan untuk tiap potongan (bentuk sama dengan catat_potongan, migrasi 009).
++--     Trigger stamp_perangkat dimatikan sebentar: kalau "wajib perangkat terdaftar" aktif, insert dari
++--     SQL Editor (tanpa perangkat) akan ditolak. Dinyalakan lagi di bawah dalam transaksi yang sama.
++alter table expenses disable trigger trg_stamp_perangkat;
++
++insert into expenses (id, direction, category, amount, transaction_date, store_or_supplier_name, detail,
++                      payment_method, employee_id, employee_name, created_at, created_by)
++select md5('mamam-slip-2026-10|exp|' || d.id::text)::uuid, 'pengeluaran', d.kat, d.jml, d.tgl, m.name, d.lab,
++       'Tunai', m.id, m.name,
++       least((d.tgl::text || ' 12:00:00+07')::timestamptz,
++             coalesce((select min(opened_at) from shifts), 'infinity'::timestamptz) - interval '1 second'),
++       'Import slip gaji Okt 2026'
++from _slip_ded d
++join _slip_emp e on e.k = d.k
++join employees m on lower(btrim(m.name)) = lower(e.nama)
++on conflict (id) do nothing;
++
++alter table expenses enable trigger trg_stamp_perangkat;
++
++-- Tautkan potongan <-> pengeluaran (juga membenahi potongan hasil jalan sebelumnya yang belum bertaut).
++update payroll_deductions p
++   set expense_id = md5('mamam-slip-2026-10|exp|' || p.id::text)::uuid
++ where p.id in (select id from _slip_ded) and p.expense_id is null;
++
++-- 5) Saldo awal bulan Okt 2026
++insert into payroll_opening_balances (employee_id, month, amount)
++select m.id, '2026-10', e.saldo_awal
++from _slip_emp e
++join employees m on lower(btrim(m.name)) = lower(e.nama)
++on conflict (employee_id, month) do nothing;
++
++commit;
++
++-- 6) CEK HASIL (tampil di SQL Editor). Bandingkan dengan angka di slip:
++--    Nurlaila: tambahan_non_lembur 108000 | ambil_gaji 564000 | kasbon 240000 | saldo_awal 881805
++--    Sri Depi: tambahan_non_lembur 0      | ambil_gaji 642500 | kasbon 145000 | saldo_awal -250250
++--    pengeluaran_okt = ambil_gaji + kasbon (Nurlaila 804000, Sri Depi 787500); masuk_dompet HARUS 0.
++--    (upah/bonus/lembur tidak ada di sini: dihitung dari absensi.) Tarif harus 5500/15000/5000 dan 5000/10000/5000.
++select m.name, m.external_id, m.wage_per_hour, m.bonus_full_time, m.overtime_rate_per_30_min,
++  (select coalesce(sum(amount), 0) from payroll_additions a where a.employee_id = m.id and a.date between '2026-10-01' and '2026-10-15') as tambahan_non_lembur,
++  (select coalesce(sum(amount), 0) from payroll_deductions d where d.employee_id = m.id and d.category = 'Kasbon Gaji Mingguan' and d.date between '2026-10-01' and '2026-10-15') as ambil_gaji,
++  (select coalesce(sum(amount), 0) from payroll_deductions d where d.employee_id = m.id and d.category = 'Kasbon' and d.date between '2026-10-01' and '2026-10-15') as kasbon,
++  (select amount from payroll_opening_balances o where o.employee_id = m.id and o.month = '2026-10') as saldo_awal,
++  (select coalesce(sum(amount), 0) from expenses x where x.employee_id = m.id and x.created_by = 'Import slip gaji Okt 2026') as pengeluaran_okt,
++  (select count(*) from expenses x join shifts s on x.created_at >= s.opened_at and (s.closed_at is null or x.created_at <= s.closed_at)
++    where x.employee_id = m.id and x.created_by = 'Import slip gaji Okt 2026') as masuk_dompet
++from employees m
++where lower(btrim(m.name)) in (select lower(nama) from _slip_emp)
++order by m.name;
+-- 
+2.43.0
+
