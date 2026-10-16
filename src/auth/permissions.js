@@ -26,6 +26,7 @@ export const PERMISSIONS = {
   'beranda.laba': ['owner'],             // kartu Laba Kotor di Beranda
   'tambahan.setujui': ['owner'],         // setujui/tolak pengajuan Tambahan karyawan dari staf (Catat Cepat di Beranda)
   'pengeluaran.ubah': ['owner'],         // edit & hapus pengeluaran (mencatat baru boleh semua)
+  'catatan.ubah': ['owner'],             // ubah catatan dari daftar "Catatan Hari Ini" di Beranda (Tambah, Potongan, Pengeluaran)
   'karyawan.kelola': ['owner'],          // tambah/edit/hapus/impor karyawan
   'karyawan.upah': ['owner'],            // melihat upah, bonus, tarif lembur
   'absensi.edit': ['owner'],             // mengoreksi jam absen (disimpan di C, bukan di sistem absensi)

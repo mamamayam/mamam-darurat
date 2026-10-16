@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Minus, ShoppingBag, Users, Check, X, Clock, Wallet } from 'lucide-react';
+import { Plus, Minus, ShoppingBag, Users, Check, X, Clock, Wallet, Pencil } from 'lucide-react';
 import { Badge, Button, Input, EmptyState, PillTabs } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -19,6 +19,10 @@ import { detailSubRows } from '../payroll/additionDetail';
  * Hanya Tambah dari staf yang butuh persetujuan owner. Potongan & pengeluaran langsung dicatat
  * (potongan otomatis jadi pengeluaran karyawan; tunai mengurangi saldo Dompet).
  * Nominal Tambah/Potongan disamarkan untuk yang tidak boleh melihat upah (izin 'karyawan.upah').
+ *
+ * Owner (izin 'catatan.ubah') bisa mengetuk satu baris "Catatan Hari Ini" untuk MENGUBAHNYA, dengan form yang
+ * SAMA dengan saat mencatat: Pengeluaran toko = ExpenseFormSheet, Tambah/Potongan = QuickAdjustmentSheet (mode ubah).
+ * Potongan = pengeluaran karyawan, jadi mengubahnya lewat RPC ubah_potongan (potongan + pengeluaran satu transaksi).
  */
 
 const GROUP = 'text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2';
@@ -39,11 +43,14 @@ export default function QuickEntrySection({ onChanged }) {
   const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
   const canApprove = can('tambahan.setujui');
   const canWage = can('karyawan.upah');            // boleh melihat nominal catatan karyawan
+  const canEdit = can('catatan.ubah');             // ketuk baris catatan = ubah (owner)
 
   const quick = useQuickEntries({ canApprove, onChanged });
   const expenseData = useExpenseData({ withExpenses: false });
 
   const [sheet, setSheet] = useState(null);        // null | 'pengeluaran' | 'tambahan' | 'potongan'
+  const [editExpense, setEditExpense] = useState(null);   // pengeluaran toko yang sedang diubah; null = catatan baru
+  const [editAdj, setEditAdj] = useState(null);     // { item, onSave } Tambah/Potongan yang sedang diubah
   const [tab, setTab] = useState('semua');
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -59,6 +66,29 @@ export default function QuickEntrySection({ onChanged }) {
   const feed = useMemo(() => filterFeed(quick.feed, tab), [quick.feed, tab]);
   const money = (n, masked) => (masked ? MASK : formatRupiah(n));
 
+  const openNewExpense = () => { setEditExpense(null); setSheet('pengeluaran'); };
+  const closeExpenseSheet = () => { setSheet(null); setEditExpense(null); };
+
+  // Ketuk baris catatan -> buka form yang sama dalam mode ubah, terisi data catatan itu.
+  const openEdit = (item) => run(async () => {
+    const s = item.source;
+    if (item.kind === 'pengeluaran') {
+      setEditExpense({ id: s.id, amount: s.amount, category: s.category, supplier: s.supplier, note: s.note, date: s.date, paymentMethod: s.paymentMethod, cashHolderEmployeeId: s.cashHolderEmployeeId });
+      setSheet('pengeluaran');
+    } else if (item.kind === 'potongan') {
+      const paymentMethod = await quick.deductionPayment(s);   // null = potongan lama tanpa pengeluaran terhubung
+      setEditAdj({
+        item: { id: s.id, type: 'potongan', employeeId: s.employeeId, employeeName: s.employeeName, category: s.category, label: s.label, amount: s.amount, date: s.date, paymentMethod },
+        onSave: quick.updateDeduction,
+      });
+    } else {
+      setEditAdj({
+        item: { id: s.id, type: 'tambahan', employeeId: s.employeeId, employeeName: s.employeeName, category: s.category, label: s.label, amount: s.amount, date: s.date, detail: s.detail },
+        onSave: (id, form) => quick.updateAddition(id, form, !!s.detail),
+      });
+    }
+  });
+
   const approve = (r) => run(() => quick.decide(r.id, true));
   const reject = (r) => run(async () => { await quick.decide(r.id, false, rejectReason); setRejectingId(null); setRejectReason(''); });
   const cancel = (item) => triggerConfirm(`Batalkan pengajuan ${item.tag} untuk ${item.title}?`, () => run(() => quick.cancelRequest(item.id)));
@@ -69,7 +99,7 @@ export default function QuickEntrySection({ onChanged }) {
 
       {/* Standar tombol (lihat Button.jsx): Pengeluaran = aksi utama (primary), Tambah/Potongan = pendukung (secondary). */}
       <p className={GROUP}>Operasional toko</p>
-      <Button size="full" className="mb-4" icon={<ShoppingBag className="w-4 h-4" />} onClick={() => setSheet('pengeluaran')} data-testid="tile-pengeluaran">
+      <Button size="full" className="mb-4" icon={<ShoppingBag className="w-4 h-4" />} onClick={openNewExpense} data-testid="tile-pengeluaran">
         Pengeluaran
       </Button>
 
@@ -165,7 +195,9 @@ export default function QuickEntrySection({ onChanged }) {
           const masked = item.kind !== 'pengeluaran' && !canWage;
           const badge = item.kind === 'tambah' ? STATUS_BADGE[item.status] : null;
           return (
-            <div key={item.key} className="flex gap-3 px-4 py-3 border-t border-slate-100 dark:border-slate-800" data-testid="catatan">
+            <div key={item.key} data-testid="catatan"
+              {...(canEdit ? { role: 'button', tabIndex: 0, 'aria-label': `Ubah catatan ${item.title}`, onClick: () => openEdit(item), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEdit(item); } } } : {})}
+              className={`flex gap-3 px-4 py-3 border-t border-slate-100 dark:border-slate-800 ${canEdit ? 'cursor-pointer active:bg-slate-50 dark:active:bg-slate-800/50 transition-colors' : ''}`}>
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${cls}`}><Icon className="w-4 h-4" /></div>
               <div className="min-w-0 flex-1">
                 <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{item.title}{item.tag && <span className="font-medium text-slate-500 dark:text-slate-400"> · {item.tag}</span>}</p>
@@ -179,15 +211,19 @@ export default function QuickEntrySection({ onChanged }) {
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <p className={`font-bold text-sm ${masked ? 'text-slate-400' : amt}`}>{masked ? MASK : `${sign}${formatRupiah(item.amount)}`}</p>
                 {badge && <Badge variant={badge[0]} dot>{badge[1]}</Badge>}
+                {canEdit && <Pencil className="w-3 h-3 text-slate-300 dark:text-slate-600" aria-hidden="true" />}
               </div>
             </div>
           );
         })}
       </div>
 
-      <ExpenseFormSheet isOpen={sheet === 'pengeluaran'} onClose={() => setSheet(null)} data={expenseData} onSaved={quick.afterExpenseSaved} />
+      <ExpenseFormSheet isOpen={sheet === 'pengeluaran'} onClose={closeExpenseSheet} editing={editExpense} data={expenseData} onSaved={quick.afterExpenseSaved} />
       <QuickAdjustmentSheet isOpen={sheet === 'tambahan' || sheet === 'potongan'} kind={sheet === 'potongan' ? 'potongan' : 'tambahan'}
         onClose={() => setSheet(null)} quick={quick} canApprove={canApprove} />
+      {editAdj && (
+        <QuickAdjustmentSheet isOpen kind={editAdj.item.type} editing={editAdj} onClose={() => setEditAdj(null)} quick={quick} canApprove={canApprove} />
+      )}
     </section>
   );
 }

@@ -90,6 +90,10 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 - **Kasbon hanya lewat Potongan karyawan**: kategori yang berawalan "Kasbon" tidak ditawarkan di dropdown form Pengeluaran (toko), tapi pengeluaran karyawan hasil Potongan tetap tampil di daftar Pengeluaran
   (badge Karyawan) dan dihitung di Laporan dan Dompet.
 - Staf tidak melihat nominal Tambah/Potongan (izin `karyawan.upah`), hanya nominal toko.
+- **Ubah dari Beranda (owner, izin `catatan.ubah`)**: ketuk satu baris "Catatan Hari Ini" membuka form yang SAMA dalam mode ubah: Pengeluaran toko = `ExpenseFormSheet` (`editing`), Tambah dan Potongan = `QuickAdjustmentSheet` (`editing`, `item.type` = `tambahan`/`potongan`).
+  Tambah diubah lewat `useQuickEntries.updateAddition` (`additionUpdateRow`, status/persetujuan tidak berubah). Potongan lewat RPC `ubah_potongan` (`src/hook/deductionEdit.js`).
+  **Pengeluaran karyawan (expenses.employee_id) tidak pernah diubah lewat form Pengeluaran biasa**, di layar mana pun: Edit di Detail Pengeluaran mencari potongan tertaut (`payroll_deductions.expense_id`) dan membuka form Potongan. Hanya pengeluaran karyawan yatim (tanpa potongan tertaut) yang jatuh ke form Pengeluaran biasa.
+  Sumber dana potongan yang diubah dibaca dari pengeluarannya (`deductionPayment`), tidak ditebak; kalau ditebak 'Tunai', ubah_potongan bisa diam-diam menimpa Non-Tunai.
 
 **Perangkat terdaftar** (migrasi `011_perangkat.sql`; `src/hook/deviceLogic.js`, `useDevice.js`, `useDevices.js`, `src/lib/deviceId.js`, `src/features/settings/DeviceSettings.jsx`):
 - Login hanya membawa peran, jadi "siapa yang mencatat" dilacak lewat **HP**: tiap HP punya UUID acak di localStorage (bukan ID perangkat keras; hapus data browser = HP baru). HP baru otomatis masuk tabel `devices` dengan status `menunggu` dan kode pendek (`XXXX-XXXX`); owner memberi **nama saja** di Pengaturan > Perangkat (= terdaftar). Tidak ada kolom "karyawan" atau "dipakai gantian" di sini, sengaja.

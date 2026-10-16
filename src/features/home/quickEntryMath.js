@@ -55,6 +55,26 @@ export function newAdditionRow(form, { canApprove, nowISO }) {
   };
 }
 
+/**
+ * Perubahan baris payroll_additions saat owner MENGUBAH Tambah dari Beranda. Aturan isian SAMA dengan
+ * newAdditionRow (validasi, rincian, keterangan otomatis), tapi status/persetujuan TIDAK disentuh.
+ * `hadDetail` = Tambah itu sebelumnya punya rincian: kalau rinciannya dibuang, kolom `detail` dikosongkan.
+ * Kolom `detail` hanya ikut dikirim bila perlu (aman sebelum migrasi 012).
+ */
+export function additionUpdateRow(form, { hadDetail = false } = {}) {
+  const detail = cleanDetail(form.detail);
+  if (detail && detail.kind !== detailKindForCategory(form.category)) throw new Error('Rincian tidak cocok dengan kategori.');
+  const amount = validateAdjustment(detail ? { ...form, amount: detailTotal(detail) } : form);
+  const category = form.category.trim();
+  return {
+    label: String(form.label || '').trim() || (detail ? detailLabel(detail) : adjustmentLabel(form.label, category)),
+    amount,
+    date: form.date,
+    category,
+    ...(detail ? { detail } : hadDetail ? { detail: null } : {}),
+  };
+}
+
 /** Argumen RPC catat_potongan (potongan gaji + pengeluaran karyawan, satu transaksi). */
 export function deductionRpcArgs(form) {
   const amount = validateAdjustment(form);
@@ -118,6 +138,7 @@ export const mapExpenseRow = (r) => ({
   id: r.id, category: r.category, supplier: r.store_or_supplier_name || '', note: r.detail || '',
   amount: r.amount, date: dayOf(r.transaction_date), paymentMethod: r.payment_method,
   employeeId: r.employee_id || null, createdAt: r.created_at || '',
+  cashHolderEmployeeId: r.cash_holder_employee_id || null, cashHolderName: r.cash_holder_name || null,
 });
 
 /** "HH:mm" lokal dari timestamp ISO; kosong kalau tidak valid. */
@@ -131,6 +152,7 @@ const firstLine = (text) => String(text || '').split(/\r?\n/).map((t) => t.trim(
 
 /**
  * Daftar "Catatan hari ini": Tambah + Potongan + Pengeluaran toko, terbaru dulu.
+ * Tiap item membawa baris aslinya di `source` (dipakai owner untuk mengubah catatan dari Beranda).
  * Pengeluaran yang terhubung ke karyawan TIDAK ditampilkan lagi di sini (sudah
  * diwakili baris Potongannya) supaya tidak muncul dobel.
  */
@@ -138,15 +160,15 @@ export function buildFeed({ additions = [], deductions = [], expenses = [] }) {
   const items = [
     ...additions.map((a) => ({
       key: `tambah-${a.id}`, id: a.id, kind: 'tambah', title: a.employeeName, tag: a.category, note: a.label,
-      amount: a.amount, status: a.status, reason: a.rejectReason, by: a.requestedBy, createdAt: a.createdAt,
+      amount: a.amount, status: a.status, reason: a.rejectReason, by: a.requestedBy, createdAt: a.createdAt, source: a,
     })),
     ...deductions.map((d) => ({
       key: `potongan-${d.id}`, id: d.id, kind: 'potongan', title: d.employeeName, tag: d.category, note: d.label,
-      amount: d.amount, status: 'tercatat', reason: '', by: '', createdAt: d.createdAt,
+      amount: d.amount, status: 'tercatat', reason: '', by: '', createdAt: d.createdAt, source: d,
     })),
     ...expenses.filter((e) => !e.employeeId).map((e) => ({
       key: `pengeluaran-${e.id}`, id: e.id, kind: 'pengeluaran', title: e.category, tag: e.supplier, note: firstLine(e.note),
-      amount: e.amount, status: 'tercatat', reason: '', by: '', createdAt: e.createdAt,
+      amount: e.amount, status: 'tercatat', reason: '', by: '', createdAt: e.createdAt, source: e,
     })),
   ];
   return items

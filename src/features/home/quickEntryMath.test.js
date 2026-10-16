@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   validateAdjustment, adjustmentLabel, newAdditionRow, deductionRpcArgs, deductionUpdateArgs, summarizeTodayExpenses,
-  mapAdditionRow, mapDeductionRow, mapExpenseRow, buildFeed, filterFeed, pendingRequests, formatClock, startOfLocalDayISO,
+  mapAdditionRow, mapDeductionRow, mapExpenseRow, additionUpdateRow, buildFeed, filterFeed, pendingRequests, formatClock, startOfLocalDayISO,
 } from './quickEntryMath.js';
 
 const form = (over = {}) => ({ employeeId: 'e1', category: 'Ongkir', label: '', amount: '15000', date: '2026-10-08', requestedBy: 'Andi', ...over });
@@ -182,5 +182,55 @@ describe('newAdditionRow — rincian Ongkir / Potong Ayam', () => {
     expect(mapAdditionRow({ ...base, detail: { kind: 'ongkir', rows: [{ customer: 'A', amount: 9000 }] } }).detail.rows).toHaveLength(1);
     expect(mapAdditionRow(base).detail).toBeNull();
     expect(mapAdditionRow({ ...base, detail: 'rusak' }).detail).toBeNull();
+  });
+});
+describe('additionUpdateRow (owner mengubah Tambah dari Beranda)', () => {
+  const base = { employeeId: 'e1', category: 'Bonus', label: ' Target ', amount: '150000', date: '2026-10-16' };
+
+  it('hanya memuat kolom yang boleh berubah; status/persetujuan tidak disentuh', () => {
+    const row = additionUpdateRow(base);
+    expect(row).toEqual({ label: 'Target', amount: 150000, date: '2026-10-16', category: 'Bonus' });
+    expect(row).not.toHaveProperty('status');
+    expect(row).not.toHaveProperty('approved_by');
+  });
+  it('keterangan kosong = nama kategori', () => {
+    expect(additionUpdateRow({ ...base, label: '' }).label).toBe('Bonus');
+  });
+  it('validasi sama dengan Tambah baru', () => {
+    expect(() => additionUpdateRow({ ...base, amount: '0' })).toThrow('Nominal');
+    expect(() => additionUpdateRow({ ...base, date: '' })).toThrow('tanggal');
+    expect(() => additionUpdateRow({ ...base, category: ' ' })).toThrow('kategori');
+  });
+  it('rincian Ongkir: nominal = total rincian, keterangan kosong = ringkasan; kolom detail ikut dikirim', () => {
+    const detail = { kind: 'ongkir', rows: [{ customer: 'Budi', amount: 3000 }, { customer: 'Sari', amount: 6000 }] };
+    const row = additionUpdateRow({ ...base, category: 'Ongkir', label: '', amount: '1', detail }, { hadDetail: true });
+    expect(row.amount).toBe(9000);
+    expect(row.label).toBe('Ongkir (2 customer)');
+    expect(row.detail).toEqual(detail);
+  });
+  it('rincian dibuang: detail dikosongkan hanya kalau sebelumnya ada', () => {
+    expect(additionUpdateRow({ ...base, category: 'Ongkir', detail: null }, { hadDetail: true }).detail).toBeNull();
+    expect(additionUpdateRow({ ...base, category: 'Ongkir', detail: null }, { hadDetail: false })).not.toHaveProperty('detail');
+  });
+  it('rincian yang tidak cocok dengan kategori ditolak', () => {
+    const detail = { kind: 'ongkir', rows: [{ customer: 'Budi', amount: 3000 }] };
+    expect(() => additionUpdateRow({ ...base, category: 'Bonus', detail })).toThrow('tidak cocok');
+  });
+});
+
+describe('data untuk mengubah catatan dari Beranda', () => {
+  it('mapExpenseRow membawa pemegang kas (kurir), supaya mengubah pengeluaran tidak menghapusnya diam-diam', () => {
+    const e = mapExpenseRow({ id: 'x1', category: 'Belanja', amount: 5000, transaction_date: '2026-10-16', payment_method: 'Tunai', cash_holder_employee_id: 'k1', cash_holder_name: 'Andi', created_at: '2026-10-16T01:00:00.000Z' });
+    expect(e).toMatchObject({ cashHolderEmployeeId: 'k1', cashHolderName: 'Andi' });
+    expect(mapExpenseRow({ id: 'x2', category: 'Belanja', amount: 1, transaction_date: '2026-10-16' })).toMatchObject({ cashHolderEmployeeId: null });
+  });
+  it('tiap item feed membawa baris aslinya (source)', () => {
+    const names = { e1: 'Budi' };
+    const a = mapAdditionRow({ id: 'a1', employee_id: 'e1', category: 'Bonus', label: 'x', amount: 1000, date: '2026-10-16', created_at: '2026-10-16T03:00:00.000Z' }, names);
+    const d = mapDeductionRow({ id: 'd1', employee_id: 'e1', category: 'Kasbon', label: 'y', amount: 2000, date: '2026-10-16', expense_id: 'x1', created_at: '2026-10-16T02:00:00.000Z' }, names);
+    const x = mapExpenseRow({ id: 'x9', category: 'Belanja', amount: 3000, transaction_date: '2026-10-16', created_at: '2026-10-16T01:00:00.000Z' });
+    const feed = buildFeed({ additions: [a], deductions: [d], expenses: [x] });
+    expect(feed.map((i) => i.source.id)).toEqual(['a1', 'd1', 'x9']);
+    expect(feed[1].source.expenseId).toBe('x1');
   });
 });

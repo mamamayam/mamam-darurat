@@ -55,7 +55,7 @@ export function useExpenseData({ withExpenses = true } = {}) {
       date: e.transaction_date, paymentMethod: e.payment_method,
       cashHolderEmployeeId: e.cash_holder_employee_id, cashHolderName: e.cash_holder_name,
       deviceId: e.device_id, deviceName: e.device_name,
-      employeeId: e.employee_id || null,   // terisi = pengeluaran karyawan dari potongan (Catat Cepat), diubah lewat Penggajian
+      employeeId: e.employee_id || null,   // terisi = pengeluaran karyawan dari potongan (Catat Cepat): diubah lewat form Potongan (ubah_potongan)
     })));
     setError(null);
     setLoading(false);

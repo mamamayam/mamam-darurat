@@ -6,6 +6,7 @@ import { usePayrollCategories } from '../../hook/usePayrollCategories';
 import { useAppContext } from '../../context/AppContext';
 import { toLocalDateString } from '../../utils/formatters';
 import { PAYMENT_METHODS } from './quickEntryMath';
+import { detailLabel } from '../payroll/additionDetail';
 
 /**
  * QuickAdjustmentSheet — form Tambah / Potongan karyawan dari Beranda (bottom sheet).
@@ -17,10 +18,12 @@ import { PAYMENT_METHODS } from './quickEntryMath';
  *  - Tambah: owner langsung disetujui; staf = pengajuan, menunggu persetujuan owner.
  *  - Potongan: langsung dicatat, sekaligus jadi pengeluaran karyawan; tunai mengurangi Dompet.
  *
- * Mode UBAH (prop `editing`, dipakai Penggajian untuk mengubah Potongan): form yang SAMA, terisi data
- * potongan, karyawan dikunci, jenis dikunci (Potongan). `editing = { item, onSave(id, form) }`;
- * `item` = { id, employeeId, employeeName, category, label, amount, date, paymentMethod }.
+ * Mode UBAH (prop `editing`; dipakai Penggajian & Pengeluaran untuk mengubah Potongan, dan Beranda untuk
+ * Tambah maupun Potongan): form yang SAMA, terisi data catatan, karyawan dikunci, jenis dikunci.
+ * `editing = { item, onSave(id, form) }`; `item` = { id, type ('potongan' bawaan | 'tambahan'), employeeId,
+ * employeeName, category, label, amount, date, paymentMethod, detail }.
  * `paymentMethod` null = potongan lama tanpa pengeluaran terhubung (Sumber Dana disembunyikan).
+ * `detail` = rincian Tambah (Ongkir / Potong Ayam), kalau ada.
  *
  * Sheet memakai Modal bersama: tombol Back HP menutupnya dan bisa di-swipe turun.
  */
@@ -43,7 +46,9 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
     if (!isOpen) return;
     if (editing) {
       const it = editing.item;
-      setForm({ type: 'potongan', label: it.label === it.category ? '' : it.label, amount: String(it.amount), date: it.date, category: it.category });
+      // Keterangan otomatis (= nama kategori / ringkasan rincian) dikosongkan supaya ikut berubah bersama isiannya.
+      const autoLabel = it.label === it.category || (it.detail && it.label === detailLabel(it.detail));
+      setForm({ type: it.type === 'tambahan' ? 'tambahan' : 'potongan', label: autoLabel ? '' : it.label, amount: String(it.amount), date: it.date, category: it.category, detail: it.detail || null });
       setEmployeeId(it.employeeId); setPaymentMethod(it.paymentMethod || 'Tunai'); setRequestedBy('');
       return;
     }
@@ -87,7 +92,7 @@ export default function QuickAdjustmentSheet({ isOpen, kind, onClose, quick, can
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight title={editing ? 'Ubah Potongan' : isAddition ? 'Catat Tambahan' : 'Catat Potongan'}>
+      <Modal isOpen={isOpen} onClose={onClose} sheet size="lg" maxHeight title={editing ? (isAddition ? 'Ubah Tambahan' : 'Ubah Potongan') : isAddition ? 'Catat Tambahan' : 'Catat Potongan'}>
         <div className="p-5 pt-2 space-y-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <Select label="Karyawan" value={employeeId} onChange={e => setEmployeeId(e.target.value)} disabled={!!editing}>
             {editing

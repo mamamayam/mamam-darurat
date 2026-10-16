@@ -3,10 +3,11 @@ import { supabase } from '../lib/supabase';
 import { deviceRpcArg } from '../lib/deviceId';
 import { toLocalDateString } from '../utils/formatters';
 import {
-  newAdditionRow, deductionRpcArgs, summarizeTodayExpenses, buildFeed, pendingRequests, startOfLocalDayISO,
+  newAdditionRow, additionUpdateRow, deductionRpcArgs, summarizeTodayExpenses, buildFeed, pendingRequests, startOfLocalDayISO,
   mapAdditionRow, mapDeductionRow, mapExpenseRow,
 } from '../features/home/quickEntryMath';
 import { setPendingApprovals } from './usePendingApprovals';
+import { updateDeduction as updateDeductionRpc, fetchExpensePayment } from './deductionEdit';
 
 /**
  * useQuickEntries — data "Catat Cepat" di Beranda, ONLINE-FIRST.
@@ -15,6 +16,8 @@ import { setPendingApprovals } from './usePendingApprovals';
  *  - Potongan: RPC catat_potongan = potongan gaji + pengeluaran karyawan dalam SATU
  *    transaksi (tunai otomatis mengurangi saldo Dompet).
  *  - Pengeluaran toko: disimpan form Pengeluaran biasa (ExpenseFormSheet); di sini hanya dibaca.
+ *  - Owner bisa MENGUBAH catatan dari daftar Beranda: Tambah (updateAddition), Potongan (updateDeduction,
+ *    RPC ubah_potongan), Pengeluaran toko (form Pengeluaran + afterExpenseSaved).
  *
  * Kalau migrasi 009 belum dijalankan, Beranda tetap tampil (kolom baru dianggap kosong),
  * dan menyimpan memberi pesan jelas untuk menjalankan migrasinya.
@@ -27,7 +30,7 @@ const fail = (error, aksi) => {
   throw new Error(`${aksi}: ${error.message}`);
 };
 
-const EXPENSE_COLUMNS = 'id, category, amount, transaction_date, store_or_supplier_name, detail, payment_method, created_at';
+const EXPENSE_COLUMNS = 'id, category, amount, transaction_date, store_or_supplier_name, detail, payment_method, cash_holder_employee_id, cash_holder_name, created_at';
 
 export function useQuickEntries({ canApprove, onChanged }) {
   const [employees, setEmployees] = useState([]);
@@ -131,6 +134,34 @@ export function useQuickEntries({ canApprove, onChanged }) {
     onChangedRef.current?.();
   };
 
+  /**
+   * Owner: ubah Tambah (apa pun statusnya; status/persetujuan tidak berubah). Periode gaji yang sudah
+   * ditutup ditolak oleh database (trigger migrasi 006).
+   */
+  const updateAddition = async (id, form, hadDetail = false) => {
+    const patch = additionUpdateRow(form, { hadDetail });
+    const { data, error: e } = await supabase.from('payroll_additions').update(patch).eq('id', id).select('id');
+    if (e) fail(e, 'Gagal mengubah tambahan');
+    if (!data || data.length === 0) { await reload(); throw new Error('Tambahan ini sudah tidak ada (mungkin dihapus). Tampilan sudah diperbarui.'); }
+    await reload();
+    onChangedRef.current?.();
+  };
+
+  /** Owner: ubah Potongan + pengeluaran karyawannya dalam satu transaksi (RPC ubah_potongan). */
+  const updateDeduction = async (id, form) => {
+    await updateDeductionRpc(id, form);
+    await reload();
+    onChangedRef.current?.();
+  };
+
+  /** Sumber dana (Tunai/Non-Tunai) pengeluaran yang tertaut ke potongan; null = potongan lama tanpa pengeluaran. */
+  const deductionPayment = async (deduction) => {
+    if (!deduction?.expenseId) return null;
+    const known = expenses.find(x => x.id === deduction.expenseId);
+    if (known) return known.paymentMethod === 'Non-Tunai' ? 'Non-Tunai' : 'Tunai';
+    return fetchExpensePayment(deduction.expenseId);   // pengeluaran tidak ada di daftar hari ini: tanya database, jangan menebak
+  };
+
   /** Setelah form Pengeluaran biasa menyimpan. */
   const afterExpenseSaved = async () => { await reload(); onChangedRef.current?.(); };
 
@@ -141,5 +172,6 @@ export function useQuickEntries({ canApprove, onChanged }) {
   return {
     employees, pending: pendingList, feed, totals, today, loading, error, reload,
     submitAddition, submitDeduction, decide, cancelRequest, afterExpenseSaved, lastRequester,
+    updateAddition, updateDeduction, deductionPayment,
   };
 }

@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { TrendingDown, Pencil, Trash2, Plus, Store, User } from 'lucide-react';
 import { Button, Badge, EmptyState, DetailModal, BulkSelectBar, FilterBar, SummaryPills } from '../../components/ui';
 import ExpenseFormSheet from './ExpenseFormSheet';
+import QuickAdjustmentSheet from '../home/QuickAdjustmentSheet';
+import { updateDeduction, fetchDeductionByExpense } from '../../hook/deductionEdit';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useExpenseData } from '../../hook/useExpenseData';
@@ -14,7 +16,9 @@ import { dayOf, filterByPeriod, filterExpenses, sourceStats, sourceOf, isDateSor
  * ExpenseView — Pengeluaran. Form, filter, urutkan, pilih-banyak, dan Kelola Kategori
  * di-port dari mamam-global, dengan BEDA yang disengaja:
  *   - Kasbon & potongan karyawan dicatat lewat "Catat Cepat" di Beranda (jadi pengeluaran karyawan di sini,
- *     angkanya terhubung ke gaji, jadi tidak diedit dari layar ini; menghapusnya ikut menghapus potongannya)
+ *     angkanya terhubung ke gaji). Mengubahnya membuka form Potongan yang sama dengan Catat Cepat/Penggajian
+ *     (RPC ubah_potongan: potongan + pengeluaran satu transaksi), BUKAN form Pengeluaran biasa, supaya angka
+ *     gaji dan pengeluaran tidak pernah beda. Menghapusnya ikut menghapus potongannya.
  *   - Form-nya komponen bersama ExpenseFormSheet (dipakai juga tombol Pengeluaran di Beranda)
  *   - HARD DELETE (tanpa RecycleBin)
  *   - Data langsung ke Supabase; kalau gagal, user diberi tahu jelas
@@ -52,6 +56,7 @@ const ExpenseView = () => {
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE);
   const [detail, setDetail] = useState(null);
+  const [editDeduction, setEditDeduction] = useState(null);   // { item, onSave } potongan (pengeluaran karyawan) yang diubah
   const [isSelecting, setIsSelecting] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -106,7 +111,19 @@ const ExpenseView = () => {
   const openNew = () => { setEditing(null); setIsFormOpen(true); };
   const closeForm = () => { setIsFormOpen(false); setEditing(null); };
 
-  const handleEditClick = (exp) => { setDetail(null); setEditing(exp); setIsFormOpen(true); };
+  const handleEditClick = (exp) => {
+    if (!exp.employeeId) { setDetail(null); setEditing(exp); setIsFormOpen(true); return; }
+    // Pengeluaran karyawan = potongan gaji: diubah lewat form Potongan (RPC ubah_potongan), bukan form Pengeluaran biasa.
+    run(async () => {
+      const ded = await fetchDeductionByExpense(exp.id);
+      setDetail(null);
+      if (!ded) { setEditing(exp); setIsFormOpen(true); return; }   // tidak tertaut ke potongan mana pun: aman diubah sebagai pengeluaran biasa
+      setEditDeduction({
+        item: { id: ded.id, type: 'potongan', employeeId: exp.employeeId, employeeName: employeeName(exp), category: exp.category, label: ded.label, amount: exp.amount, date: dayOf(exp.date), paymentMethod: exp.paymentMethod === 'Non-Tunai' ? 'Non-Tunai' : 'Tunai' },
+        onSave: async (id, form) => { await updateDeduction(id, form); await reload(); },
+      });
+    });
+  };
 
   const handleDelete = (exp) => {
     triggerConfirm('Yakin ingin menghapus catatan pengeluaran ini? Data akan hilang permanen.', () =>
@@ -237,6 +254,10 @@ const ExpenseView = () => {
 
       <ExpenseFormSheet isOpen={isFormOpen} onClose={closeForm} editing={editing} data={expenseData} />
 
+      {editDeduction && (
+        <QuickAdjustmentSheet isOpen kind="potongan" canApprove editing={editDeduction} onClose={() => setEditDeduction(null)} />
+      )}
+
       <DetailModal
         isOpen={!!detail} onClose={() => setDetail(null)}
         icon={detail?.employeeId ? <User className="w-4 h-4 text-accent-500 dark:text-accent-400" /> : <Store className="w-4 h-4 text-accent-500 dark:text-accent-400" />}
@@ -255,8 +276,8 @@ const ExpenseView = () => {
         ] }]}
         highlight={{ label: 'Nominal', value: detail?.amount, tone: 'danger' }}
         actions={detail && canChange ? [
-          // Pengeluaran karyawan (dari potongan) angkanya terhubung ke gaji: diubah lewat Penggajian, bukan di sini.
-          { label: 'Edit', icon: <Pencil className="w-4 h-4" />, variant: 'secondary', hide: !!detail.employeeId, onClick: () => handleEditClick(detail) },
+          // Pengeluaran karyawan (dari potongan) juga bisa diubah: membuka form Potongan yang sama (lihat handleEditClick).
+          { label: 'Edit', icon: <Pencil className="w-4 h-4" />, variant: 'secondary', onClick: () => handleEditClick(detail) },
           { label: 'Hapus', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => handleDelete(detail) },
         ] : []}
       />
