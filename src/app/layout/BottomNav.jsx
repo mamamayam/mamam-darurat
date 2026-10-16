@@ -58,8 +58,15 @@ export default function BottomNav({
                 </button>
 
                 {/* Tombol Menu — buka BottomSheetMenu */}
-                <button onClick={onOpenMenu} aria-label="Menu" className={tabClass(false)}>
-                    <Menu className="w-6 h-6 short:w-5 short:h-5" />
+                <button onClick={onOpenMenu} aria-label={pendingCount > 0 ? `Menu, ${pendingCount} pengajuan menunggu persetujuan` : 'Menu'} className={tabClass(false)}>
+                    <span className="relative">
+                        <Menu className="w-6 h-6 short:w-5 short:h-5" />
+                        {pendingCount > 0 && (
+                            <span data-testid="badge-menu" className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center ring-2 ring-white dark:ring-slate-950">
+                                {pendingCount > 9 ? '9+' : pendingCount}
+                            </span>
+                        )}
+                    </span>
                 </button>
 
             </div>

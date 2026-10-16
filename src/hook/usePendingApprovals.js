@@ -2,13 +2,13 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { supabase } from '../lib/supabase';
 
 /**
- * usePendingApprovals — jumlah pengajuan Tambahan yang menunggu keputusan owner,
- * dipakai badge merah di ikon Beranda (BottomNav) supaya owner tahu ada laporan masuk
- * walau sedang di layar lain.
+ * usePendingApprovals — jumlah pengajuan yang menunggu keputusan owner (Tambahan karyawan +
+ * hapus transaksi), dipakai badge merah di BottomNav (ikon Beranda dan Menu) dan di tile
+ * Persetujuan, supaya owner tahu ada laporan masuk walau sedang di layar lain.
  *
  * Toko kecil, jadi cukup polling ringan (tiap 60 detik + saat aplikasi dibuka kembali),
- * bukan realtime. Kalau migrasi 009 belum dijalankan, kolom `status` tidak ada:
- * hitungannya diam-diam 0 (tidak mengganggu layar lain).
+ * bukan realtime. Kalau migrasi 009 / 016 belum dijalankan, bagian itu diam-diam dihitung 0
+ * (tidak mengganggu layar lain).
  */
 let count = 0;
 const listeners = new Set();
@@ -25,12 +25,30 @@ const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn)
 /** Jumlah saat ini (untuk badge). */
 export const usePendingApprovals = () => useSyncExternalStore(subscribe, () => count, () => 0);
 
-/** Hitung ulang dari database. */
+/** Hitung ulang dari database: Tambahan menunggu + pengajuan hapus transaksi menunggu. */
 export async function refreshPendingApprovals() {
-  const { count: n, error } = await supabase.from('payroll_additions')
-    .select('id', { count: 'exact', head: true }).eq('status', 'menunggu');
-  setPendingApprovals(error ? 0 : n);
+  const countOf = async (table) => {
+    const { count: n, error } = await supabase.from(table).select('id', { count: 'exact', head: true }).eq('status', 'menunggu');
+    return error ? 0 : (n || 0);
+  };
+  const [tambahan, hapus] = await Promise.all([countOf('payroll_additions'), countOf('transaction_delete_requests')]);
+  setPendingApprovals(tambahan + hapus);
 }
+
+/**
+ * Sinyal "keputusan persetujuan baru saja dibuat" (dari sheet Persetujuan): layar yang datanya ikut
+ * berubah (mis. Catat Cepat di Beranda) memuat ulang tanpa menunggu polling.
+ */
+const CHANGED_EVENT = 'mamam-approvals-changed';
+export const notifyApprovalsChanged = () => {
+  refreshPendingApprovals();
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(CHANGED_EVENT));
+};
+export const onApprovalsChanged = (fn) => {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener(CHANGED_EVENT, fn);
+  return () => window.removeEventListener(CHANGED_EVENT, fn);
+};
 
 /** Pasang sekali di App: poll hanya kalau yang login boleh menyetujui (owner). */
 export function usePendingApprovalsPoller(enabled) {

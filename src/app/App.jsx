@@ -3,6 +3,7 @@ import { Modal, Button } from '../components/ui';
 import AppRoutes, { VIEWS } from './AppRoutes';
 import { readSavedNav, saveNav, clearNav } from './navPersist';
 import BottomSheetMenu from './layout/BottomSheetMenu';
+import ApprovalSheet from '../features/approvals/ApprovalSheet';
 import Header from './layout/Header';
 import BottomNav from './layout/BottomNav';
 import { AppContext } from '../context/AppContext';
@@ -24,6 +25,7 @@ import {
   Fingerprint,
   List,
   ShoppingCart,
+  ClipboardCheck,
   TrendingDown,
   BarChart3,
   History,
@@ -63,9 +65,11 @@ export default function App() {
   // Perangkat terdaftar: HP staf yang belum didaftarkan owner terkunci (lihat docs di AGENTS.md).
   const device = useDeviceStatus(Boolean(role) && ready);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isApprovalOpen, setIsApprovalOpen] = useState(false);   // sheet Persetujuan (owner)
 
-  // Owner: badge merah di ikon Beranda kalau ada pengajuan Tambahan karyawan yang menunggu keputusan.
-  usePendingApprovalsPoller(allowed('tambahan.setujui'));
+  // Owner: badge merah (Beranda, Menu, tile Persetujuan) kalau ada pengajuan yang menunggu keputusan:
+  // Tambahan karyawan dan hapus transaksi dari staf.
+  usePendingApprovalsPoller(allowed('persetujuan.kelola'));
   const pendingApprovals = usePendingApprovals();
 
   // Modal konfirmasi generik — dipakai BottomSheetMenu (logout admin) dan
@@ -156,9 +160,10 @@ export default function App() {
   // Diletakkan SETELAH navigate/navigateToSub/navigateBack didefinisikan
   // (bug yang pernah terjadi: dideklarasikan sebelum navigate ada, sehingga
   // View yang memanggil navigate() dari context diam-diam gagal).
+  const openApprovals = useCallback(() => { setIsMenuOpen(false); setIsApprovalOpen(true); }, []);
   const appContextValue = useMemo(
-    () => ({ triggerAlert, triggerConfirm, formatRupiah, navigate, navigateToSub, navigateBack }),
-    [triggerAlert, triggerConfirm, navigate, navigateToSub, navigateBack]
+    () => ({ triggerAlert, triggerConfirm, formatRupiah, navigate, navigateToSub, navigateBack, openApprovals }),
+    [triggerAlert, triggerConfirm, navigate, navigateToSub, navigateBack, openApprovals]
   );
 
   // --- Menu untuk BottomSheetMenu — fitur gelombang 1 Mamam POS + Pengaturan ---
@@ -175,6 +180,8 @@ export default function App() {
     { id: 'penggajian',  icon: Briefcase,    label: 'Penggajian' },
     { id: 'riwayat',     icon: History,      label: 'Riwayat' },
     { id: 'laporan',     icon: BarChart3,    label: 'Laporan' },
+    // Bukan layar: membuka sheet Persetujuan (hapus transaksi + Tambahan dari staf). Owner saja (VIEW_PERMISSION).
+    { id: 'persetujuan', icon: ClipboardCheck, label: 'Persetujuan', action: 'persetujuan' },
     { id: 'pengaturan',  icon: Settings,     label: 'Pengaturan' },
     // HPP bukan layar POS: pindah ke halaman /hpp di tab yang sama (lihat src/hpp, PRD Routing).
     { id: 'hpp',         icon: Calculator,   label: 'HPP', href: '/hpp' },
@@ -244,7 +251,11 @@ export default function App() {
         navigate={navigate}
         role={role}
         onLogout={() => triggerConfirm('Yakin ingin keluar?', handleLogout)}
+        onAction={(action) => { if (action === 'persetujuan') openApprovals(); }}
+        badges={{ persetujuan: pendingApprovals }}
       />
+
+      <ApprovalSheet isOpen={isApprovalOpen} onClose={() => setIsApprovalOpen(false)} />
 
       <Modal isOpen={confirmModal.isOpen} onClose={closeConfirm} size="sm" zLevel="top">
         <div className="p-5">

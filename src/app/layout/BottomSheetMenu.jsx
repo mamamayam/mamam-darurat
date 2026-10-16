@@ -24,17 +24,22 @@ import { versionLabel } from '../../lib/appVersion';
  * urutan lokal tetap dipakai dan dikirim saat tersambung. "Reset" mengembalikan urutan bawaan.
  */
 
-function MenuTile({ item, isActive, ghost = false }) {
+function MenuTile({ item, isActive, ghost = false, badge = 0 }) {
   return (
     <>
       <div
-        className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform duration-200 ${ghost ? 'scale-110 shadow-xl' : 'group-active:scale-90'} ${
+        className={`relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform duration-200 ${ghost ? 'scale-110 shadow-xl' : 'group-active:scale-90'} ${
           isActive
             ? 'bg-gradient-to-br from-accent-600 to-accent-500 dark:from-accent-500 dark:to-accent-600'
             : 'bg-slate-100 dark:bg-slate-800'
         }`}
       >
         <item.icon className={`w-[22px] h-[22px] ${isActive ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`} />
+        {badge > 0 && (
+          <span data-testid={`badge-${item.id}`} className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold leading-5 text-center ring-2 ring-white dark:ring-slate-900">
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
       </div>
       <span className={`text-xs font-semibold text-center leading-tight ${isActive ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
         {item.label}
@@ -50,6 +55,8 @@ export default function BottomSheetMenu({
   navigate,
   role,
   onLogout,
+  onAction,
+  badges = {},
 }) {
   const [editing, setEditing] = useState(false);
   const [savedIds, setSavedIds] = useState(() => readMenuOrder(role));
@@ -97,6 +104,11 @@ export default function BottomSheetMenu({
   const handleSelect = (id) => {
     if (editing) return;
     const item = ordered.find((m) => m.id === id);
+    if (item?.action) {   // tile aksi (mis. Persetujuan): membuka sheet, bukan pindah layar
+      onClose();
+      onAction?.(item.action);
+      return;
+    }
     if (item?.href) {   // menu tautan (mis. HPP): pindah halaman di tab yang sama, Back kembali ke POS
       leaveForHref(item.href);   // laci TIDAK ditutup manual: halaman ini akan diganti
       return;
@@ -140,7 +152,7 @@ export default function BottomSheetMenu({
                 style={editing ? { touchAction: 'none' } : undefined}
                 className={`flex flex-col items-center gap-2 group rounded-2xl select-none ${editing ? 'cursor-grab py-1 ring-1 ring-dashed ring-accent-300 dark:ring-accent-500/40' : ''} ${isDragged ? 'opacity-30' : ''}`}
               >
-                <MenuTile item={item} isActive={isActive} />
+                <MenuTile item={item} isActive={isActive} badge={badges[item.id] || 0} />
               </button>
             );
           })}

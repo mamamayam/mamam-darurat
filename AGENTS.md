@@ -71,12 +71,12 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
 
 **Pengeluaran**: kolom Kategori adalah dropdown; kategori baru ditambah lewat ikon gerigi (Kelola Kategori).
 
-**Staf** tidak boleh melihat/membuka **Riwayat** dan **Laporan** (owner-only).
+**Staf** tidak boleh melihat/membuka **Laporan** (owner-only). **Riwayat** terbuka untuk staf, tapi staf TIDAK bisa menghapus langsung: hanya **mengajukan hapus** per transaksi (lihat Persetujuan di bawah).
 
 **Gaji** mengikuti aturan hitung mamam-kasir (B): `docs/payroll-rules.md`. Jangan diubah diam-diam.
 
 **Catat Cepat (Beranda)** (`src/features/home/`): menggantikan daftar "Riwayat Pesanan Hari Ini". Tile **Pengeluaran** (toko, di atas), lalu **Tambah** dan **Potongan** (karyawan), dua kartu ringkasan
-(**Pengeluaran Karyawan** dan **Pengeluaran Toko**), pengajuan menunggu (owner), dan catatan hari ini.
+(**Pengeluaran Karyawan** dan **Pengeluaran Toko**), banner "Menunggu persetujuan" (owner; membuka sheet Persetujuan), dan catatan hari ini.
 - Form-nya **komponen yang sama** dengan modul asli: Pengeluaran = `ExpenseFormSheet` (juga dipakai layar Pengeluaran); Tambah/Potongan = `AdjustmentFields` (juga dipakai Penggajian).
   Jangan menduplikasi form; ubah komponen bersama.
 - **Persetujuan owner HANYA untuk Tambah** dari staf (`payroll_additions.status`: `menunggu`/`disetujui`/`ditolak`, izin `tambahan.setujui`). Tambah yang belum disetujui **tidak dihitung gaji**
@@ -96,6 +96,15 @@ Rincian: `docs/versioning.md`. Versi tampil di menu Lainnya dan layar login (`sr
   Tambah diubah lewat `useQuickEntries.updateAddition` (`additionUpdateRow`, status/persetujuan tidak berubah). Potongan lewat RPC `ubah_potongan` (`src/hook/deductionEdit.js`).
   **Pengeluaran karyawan (expenses.employee_id) tidak pernah diubah lewat form Pengeluaran biasa**, di layar mana pun: Edit di Detail Pengeluaran mencari potongan tertaut (`payroll_deductions.expense_id`) dan membuka form Potongan. Hanya pengeluaran karyawan yatim (tanpa potongan tertaut) yang jatuh ke form Pengeluaran biasa.
   Sumber dana potongan yang diubah dibaca dari pengeluarannya (`deductionPayment`), tidak ditebak; kalau ditebak 'Tunai', ubah_potongan bisa diam-diam menimpa Non-Tunai.
+
+**Persetujuan (owner)** (migrasi `016_hapus_transaksi.sql`; `src/features/approvals/`, `src/hook/useDeleteRequests.js`, `usePendingAdditions.js`, `usePendingApprovals.js`, `src/features/history/DeleteRequestSheet.jsx`):
+- Satu menu slide-up **Persetujuan** (`ApprovalSheet`, izin `persetujuan.kelola`) untuk semua yang menunggu keputusan owner, dua tab: **Hapus Transaksi** dan **Tambahan** (pengajuan Tambah gaji dari staf; kartunya DULU di Beranda, sekarang hanya di sini, Beranda cuma punya banner jumlahnya).
+  Dibuka dari tile Persetujuan di menu slide-up (tile aksi, `action: 'persetujuan'`, bukan layar) dan dari banner Beranda (`openApprovals` di `useAppContext`). Badge merah jumlah pengajuan di ikon Beranda, ikon Menu, dan tile (`usePendingApprovals` = Tambahan + hapus transaksi yang menunggu, polling 60 detik).
+- **Hapus transaksi**: staf (tanpa izin `laporan.hapusTransaksi`) membuka Detail di Riwayat > **Ajukan Hapus** (alasan + "Diajukan oleh" wajib) -> RPC `ajukan_hapus_transaksi`. Satu transaksi maksimal satu pengajuan yang menunggu (index unik). Transaksi TIDAK dihapus sampai owner **Setujui & Hapus** (RPC `putuskan_hapus_transaksi`: hapus permanen + item cascade dalam satu transaksi database) atau **Tolak** (transaksi tetap; alasan penolakan tampil di Detail staf, staf boleh mengajukan lagi).
+  Tabel `transaction_delete_requests` menyimpan SNAPSHOT (nomor, total, pelanggan, item), tanpa FK ke transaksi, jadi jejak siapa-minta-apa-kenapa tetap ada setelah transaksi hilang. Kalau owner menghapus langsung dari Riwayat, trigger menandai pengajuannya 'disetujui' (tidak menggantung).
+  Owner tetap menghapus langsung tanpa persetujuan. Hapus banyak (Pilih Banyak) hanya owner. Baris yang sedang diajukan diberi badge "Menunggu hapus" untuk semua peran.
+- Keputusan memanggil `notifyApprovalsChanged()` (hitung ulang badge + sinyal ke layar lain, mis. Catatan Hari Ini di Beranda). Migrasi 016 belum dijalankan: bagian hapus-transaksi diam-diam kosong, mengajukan/memutuskan memberi petunjuk menjalankan migrasinya.
+- Ini jejak audit dan pagar alur kerja, bukan keamanan data (RLS tetap longgar, PIN hardcoded).
 
 **Perangkat terdaftar** (migrasi `011_perangkat.sql`; `src/hook/deviceLogic.js`, `useDevice.js`, `useDevices.js`, `src/lib/deviceId.js`, `src/features/settings/DeviceSettings.jsx`):
 - Login hanya membawa peran, jadi "siapa yang mencatat" dilacak lewat **HP**: tiap HP punya UUID acak di localStorage (bukan ID perangkat keras; hapus data browser = HP baru). HP baru otomatis masuk tabel `devices` dengan status `menunggu` dan kode pendek (`XXXX-XXXX`); owner memberi **nama saja** di Pengaturan > Perangkat (= terdaftar). Tidak ada kolom "karyawan" atau "dipakai gantian" di sini, sengaja.

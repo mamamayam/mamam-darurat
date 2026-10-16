@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { RefreshCw, Trash2, Receipt, ShoppingBag, Utensils, Truck, Bike } from 'lucide-react';
+import { RefreshCw, Trash2, Receipt, ShoppingBag, Utensils, Truck, Bike, Send } from 'lucide-react';
 import { Card, EmptyState, DetailModal, Button, Badge, BulkSelectBar, FilterBar, SummaryPills } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -8,6 +8,8 @@ import { useBulkSelect } from '../../hook/useBulkSelect';
 import { periodRange, localDateOf } from '../reports/reportsMath';
 import { dayHeading, groupByDay, sumByDay } from '../../utils/listFilters';
 import { deviceOptionsFromRows } from '../../hook/deviceLogic';
+import { useDeleteRequestIndex } from '../../hook/useDeleteRequests';
+import DeleteRequestSheet from './DeleteRequestSheet';
 import { filterSales, paymentStats, sortSales, methodOf, isTimeSort, SORT_OPTIONS, DEFAULT_SORT } from './riwayatFilter';
 
 /**
@@ -18,7 +20,9 @@ import { filterSales, paymentStats, sortSales, methodOf, isTimeSort, SORT_OPTION
  *
  * BEDA dari A (sengaja):
  *  - Tombol "Struk" belum ada: ReceiptModal belum di-port ke C.
- *  - Hapus = permanen dan hanya Owner (izin laporan.hapusTransaksi).
+ *  - Hapus = permanen dan hanya Owner (izin laporan.hapusTransaksi). Staf yang membuka Riwayat hanya bisa
+ *    MENGAJUKAN hapus per transaksi (alasan + nama wajib); owner memutuskan di sheet Persetujuan.
+ *    Transaksi yang sedang diajukan diberi badge "Menunggu hapus"; yang ditolak menampilkan alasan penolakan di Detail.
  *  - Online-first: data dibaca langsung dari Supabase; "Perbarui" = muat ulang.
  */
 const PAGE = 100;
@@ -37,6 +41,9 @@ export default function RiwayatView() {
   const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
   const { can } = useAuth();
   const canDelete = can('laporan.hapusTransaksi');
+  const canRequest = !canDelete;   // tanpa izin hapus langsung = mengajukan hapus ke owner
+  const { index: requests, reload: reloadRequests } = useDeleteRequestIndex();
+  const [requestFor, setRequestFor] = useState(null);   // transaksi yang sedang diajukan hapus
 
   const [period, setPeriod] = useState({ mode: 'hari-ini', start: '', end: '' });
   const [typeFilter, setTypeFilter] = useState('semua');
@@ -108,6 +115,8 @@ export default function RiwayatView() {
   const dayTotals = useMemo(() => sumByDay(visible, saleDay, s => s.total), [visible]);
   const showHeads = byDay && groups.length > 1;
 
+  const detailRequest = detail ? requests.get(detail.id) : null;
+
   const renderRow = (s) => {
     const Icon = TYPE_ICON[s.order_type] || ShoppingBag;
     const isOjol = s.payment_method === 'Ojol';
@@ -129,6 +138,7 @@ export default function RiwayatView() {
           <span className="flex flex-col items-end gap-1 shrink-0 max-w-[45%]">
             <span className="font-heading font-bold text-sm text-slate-800 dark:text-slate-100 truncate max-w-full">{formatRupiah(s.total)}</span>
             <Badge variant={isOjol ? 'orange' : 'success'}>{methodOf(s)}{isOjol && s.ojol_platform ? ` (${s.ojol_platform})` : ''}</Badge>
+            {requests.get(s.id)?.status === 'menunggu' && <Badge variant="warning" dot>Menunggu hapus</Badge>}
           </span>
         </button>
       </div>
@@ -185,7 +195,7 @@ export default function RiwayatView() {
                 )}
                 <div className="flex items-center gap-0.5 shrink-0 text-xs text-slate-400 dark:text-slate-500" title="Terakhir diperbarui">
                   <span data-testid="riwayat-updated">{updatedLabel}</span>
-                  <button onClick={reload} aria-label="Perbarui" disabled={loading} className="p-1.5 rounded-full text-accent-600 dark:text-accent-400 active:scale-90 transition-all disabled:opacity-50">
+                  <button onClick={() => { reload(); reloadRequests(); }} aria-label="Perbarui" disabled={loading} className="p-1.5 rounded-full text-accent-600 dark:text-accent-400 active:scale-90 transition-all disabled:opacity-50">
                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
@@ -224,7 +234,9 @@ export default function RiwayatView() {
         title={detail && `#${detail.display_number}`}
         subtitle={detail && new Date(detail.paid_at || detail.created_at).toLocaleString('id-ID')}
         badges={detail ? [{ label: detail.payment_method === 'Ojol' ? `Ojol (${detail.ojol_platform || ''})` : detail.payment_method, variant: detail.payment_method === 'Ojol' ? 'orange' : 'success' }, { label: detail.order_type, variant: 'neutral' }] : []}
-        sections={[{ rows: [{ label: 'Pelanggan', value: detail?.customer_name || 'Umum' }, ...(detail?.ojol_order_number ? [{ label: 'No. Order Ojol', value: detail.ojol_order_number }] : []), ...(detail?.device_name ? [{ label: 'Dicatat dari', value: detail.device_name }] : [])] }]}
+        sections={[{ rows: [{ label: 'Pelanggan', value: detail?.customer_name || 'Umum' }, ...(detail?.ojol_order_number ? [{ label: 'No. Order Ojol', value: detail.ojol_order_number }] : []), ...(detail?.device_name ? [{ label: 'Dicatat dari', value: detail.device_name }] : []),
+          ...(detailRequest?.status === 'menunggu' ? [{ label: 'Pengajuan hapus', value: `Menunggu owner · diajukan ${detailRequest.requestedBy}: ${detailRequest.reason}` }] : []),
+          ...(detailRequest?.status === 'ditolak' ? [{ label: 'Pengajuan hapus ditolak', value: detailRequest.rejectReason || 'Owner menolak pengajuan hapus ini.' }] : [])] }]}
         items={detail?.items?.map(it => ({ name: it.name, note: [it.variant_name, it.note].filter(Boolean).join(' • '), qty: it.qty, price: it.price }))}
         summaryRows={[
           { label: 'Subtotal', value: detail?.subtotal, type: 'currency' },
@@ -233,8 +245,11 @@ export default function RiwayatView() {
           { label: 'Ongkir', value: detail?.delivery_fee, type: 'currency' },
         ]}
         highlight={{ label: 'Total Tagihan', value: detail?.total }}
-        actions={detail && canDelete ? [{ label: 'Hapus Transaksi', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => handleDelete(detail) }] : []}
+        actions={detail && canDelete ? [{ label: 'Hapus Transaksi', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => handleDelete(detail) }]
+          : detail && canRequest && detailRequest?.status !== 'menunggu' ? [{ label: 'Ajukan Hapus', icon: <Send className="w-4 h-4" />, variant: 'danger', onClick: () => { setRequestFor(detail); setDetail(null); } }] : []}
       />
+
+      <DeleteRequestSheet isOpen={!!requestFor} onClose={() => setRequestFor(null)} sale={requestFor} onSubmitted={reloadRequests} />
     </div>
   );
 }

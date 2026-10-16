@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Plus, Minus, ShoppingBag, Users, Check, X, Clock, Wallet, Pencil } from 'lucide-react';
-import { Badge, Button, Input, EmptyState, PillTabs } from '../../components/ui';
+import { Plus, Minus, ShoppingBag, Users, Clock, Wallet, Pencil, ChevronRight } from 'lucide-react';
+import { Badge, Button, EmptyState, PillTabs } from '../../components/ui';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../auth/AuthContext';
 import { useQuickEntries } from '../../hook/useQuickEntries';
@@ -8,7 +8,7 @@ import { useExpenseData } from '../../hook/useExpenseData';
 import ExpenseFormSheet from '../expense/ExpenseFormSheet';
 import QuickAdjustmentSheet from './QuickAdjustmentSheet';
 import { filterFeed } from './quickEntryMath';
-import { detailSubRows } from '../payroll/additionDetail';
+import { usePendingApprovals } from '../../hook/usePendingApprovals';
 
 /**
  * QuickEntrySection — "Catat Cepat" di Beranda (menggantikan daftar Riwayat Pesanan Hari Ini).
@@ -16,7 +16,8 @@ import { detailSubRows } from '../payroll/additionDetail';
  *  Operasional toko : Pengeluaran  -> form Pengeluaran yang sama dengan menu Pengeluaran
  *  Karyawan         : Tambah, Potongan -> isian yang sama dengan form di Penggajian
  *
- * Hanya Tambah dari staf yang butuh persetujuan owner. Potongan & pengeluaran langsung dicatat
+ * Hanya Tambah dari staf yang butuh persetujuan owner; keputusannya di sheet Persetujuan (features/approvals),
+ * Beranda hanya menampilkan banner jumlahnya. Potongan & pengeluaran langsung dicatat
  * (potongan otomatis jadi pengeluaran karyawan; tunai mengurangi saldo Dompet).
  * Nominal Tambah/Potongan disamarkan untuk yang tidak boleh melihat upah (izin 'karyawan.upah').
  *
@@ -40,7 +41,8 @@ const TABS = [{ value: 'semua', label: 'Semua' }, { value: 'karyawan', label: 'K
 
 export default function QuickEntrySection({ onChanged }) {
   const { can } = useAuth();
-  const { formatRupiah, triggerAlert, triggerConfirm } = useAppContext();
+  const { formatRupiah, triggerAlert, triggerConfirm, openApprovals } = useAppContext();
+  const pendingCount = usePendingApprovals();   // Tambahan + hapus transaksi yang menunggu (diputuskan di sheet Persetujuan)
   const canApprove = can('tambahan.setujui');
   const canWage = can('karyawan.upah');            // boleh melihat nominal catatan karyawan
   const canEdit = can('catatan.ubah');             // ketuk baris catatan = ubah (owner)
@@ -52,8 +54,6 @@ export default function QuickEntrySection({ onChanged }) {
   const [editExpense, setEditExpense] = useState(null);   // pengeluaran toko yang sedang diubah; null = catatan baru
   const [editAdj, setEditAdj] = useState(null);     // { item, onSave } Tambah/Potongan yang sedang diubah
   const [tab, setTab] = useState('semua');
-  const [rejectingId, setRejectingId] = useState(null);
-  const [rejectReason, setRejectReason] = useState('');
   const [busy, setBusy] = useState(false);
 
   const run = async (fn) => {
@@ -89,8 +89,6 @@ export default function QuickEntrySection({ onChanged }) {
     }
   });
 
-  const approve = (r) => run(() => quick.decide(r.id, true));
-  const reject = (r) => run(async () => { await quick.decide(r.id, false, rejectReason); setRejectingId(null); setRejectReason(''); });
   const cancel = (item) => triggerConfirm(`Batalkan pengajuan ${item.tag} untuk ${item.title}?`, () => run(() => quick.cancelRequest(item.id)));
 
   return (
@@ -138,49 +136,14 @@ export default function QuickEntrySection({ onChanged }) {
         </div>
       )}
 
-      {canApprove && quick.pending.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl p-3 mb-4" data-testid="menunggu-persetujuan">
-          <p className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400 mb-2.5">
-            <Clock className="w-4 h-4" /> Menunggu persetujuan
-            <span className="bg-amber-600 dark:bg-amber-400 text-white dark:text-slate-900 rounded-full px-2 text-xs font-bold">{quick.pending.length}</span>
-          </p>
-          <div className="space-y-2">
-            {quick.pending.map(r => (
-              <div key={r.id} className="bg-white dark:bg-slate-900 rounded-xl p-3" data-testid="pengajuan">
-                <div className="flex justify-between items-start gap-3">
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{r.employeeName} <span className="font-medium text-slate-500 dark:text-slate-400">· {r.category}</span></p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 break-words">{r.label}</p>
-                    {r.detail && (
-                      <ul className="mt-1 space-y-0.5" data-testid="pengajuan-detail">
-                        {detailSubRows(r.detail).map((d, i) => (
-                          <li key={i} className="flex justify-between gap-3 text-[11px] text-slate-400 dark:text-slate-500"><span className="min-w-0 truncate">{d.text}</span><span className="shrink-0 tabular-nums">{formatRupiah(d.amount)}</span></li>
-                        ))}
-                      </ul>
-                    )}
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Dicatat {r.requestedBy || 'staf'}{r.date !== quick.today ? ` · untuk ${r.date}` : ''}</p>
-                  </div>
-                  <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400 shrink-0">+{formatRupiah(r.amount)}</p>
-                </div>
-                <p className="text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-950 rounded-lg px-2.5 py-1.5 mt-2">Setelah disetujui, masuk hitungan gaji {r.employeeName}.</p>
-                {rejectingId === r.id ? (
-                  <div className="mt-2.5 space-y-2">
-                    <Input placeholder="Alasan penolakan (opsional)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => { setRejectingId(null); setRejectReason(''); }}>Batal</Button>
-                      <Button variant="danger" size="sm" disabled={busy} onClick={() => reject(r)} icon={<X className="w-4 h-4" />}>Kirim Penolakan</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 mt-2.5">
-                    <Button variant="secondary" size="sm" disabled={busy} onClick={() => { setRejectingId(r.id); setRejectReason(''); }} icon={<X className="w-4 h-4" />}>Tolak</Button>
-                    <Button size="sm" disabled={busy} onClick={() => approve(r)} icon={<Check className="w-4 h-4" />}>Setujui</Button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+      {canApprove && pendingCount > 0 && (
+        <button type="button" onClick={openApprovals} data-testid="menunggu-persetujuan"
+          className="w-full flex items-center gap-2 text-left bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl p-3 mb-4 active:scale-[0.99] transition-transform">
+          <Clock className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
+          <span className="flex-1 text-xs font-bold text-amber-700 dark:text-amber-400">Menunggu persetujuan</span>
+          <span className="bg-amber-600 dark:bg-amber-400 text-white dark:text-slate-900 rounded-full px-2 text-xs font-bold">{pendingCount}</span>
+          <ChevronRight className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
+        </button>
       )}
 
       <div className={`${CARD} overflow-hidden`}>

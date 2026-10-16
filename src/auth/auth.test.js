@@ -165,9 +165,15 @@ describe('izin', () => {
   it('staf DITOLAK untuk semua izin yang terdaftar (daftar default = owner-only)', () => { for (const p of OWNER_ONLY) expect(can('staff', p)).toBe(false); });
   it('izin yang tidak terdaftar ditolak untuk semua (aman secara bawaan)', () => { expect(can('owner', 'izin.ngawur')).toBe(false); expect(can('staff', 'izin.ngawur')).toBe(false); });
   it('tanpa peran / peran asing ditolak', () => { expect(can(null, 'laporan.labaKotor')).toBe(false); expect(can('admin', 'laporan.labaKotor')).toBe(false); expect(can(undefined, 'beranda.laba')).toBe(false); });
-  it('layar: Karyawan, Pengaturan, Manajemen Menu, Riwayat, Laporan owner-only; layar lain terbuka untuk semua yang login', () => {
-    for (const v of ['karyawan', 'pengaturan', 'menu', 'riwayat', 'laporan']) { expect(canOpenView('staff', v)).toBe(false); expect(canOpenView('owner', v)).toBe(true); }
-    for (const v of ['beranda', 'kasir', 'dompet', 'pelanggan', 'pengeluaran', 'absensi', 'penggajian']) { expect(canOpenView('staff', v)).toBe(true); expect(canOpenView('owner', v)).toBe(true); }
+  it('layar: Karyawan, Pengaturan, Manajemen Menu, Laporan owner-only; layar lain (termasuk Riwayat) terbuka untuk semua yang login', () => {
+    for (const v of ['karyawan', 'pengaturan', 'menu', 'laporan']) { expect(canOpenView('staff', v)).toBe(false); expect(canOpenView('owner', v)).toBe(true); }
+    for (const v of ['beranda', 'kasir', 'dompet', 'pelanggan', 'pengeluaran', 'absensi', 'penggajian', 'riwayat']) { expect(canOpenView('staff', v)).toBe(true); expect(canOpenView('owner', v)).toBe(true); }
+  });
+  it('Riwayat terbuka untuk staf, tapi hapus langsung dan sheet Persetujuan hanya owner (staf cuma mengajukan)', () => {
+    expect(canOpenView('staff', 'riwayat')).toBe(true);
+    expect(can('staff', 'laporan.hapusTransaksi')).toBe(false); expect(can('owner', 'laporan.hapusTransaksi')).toBe(true);
+    expect(can('staff', 'persetujuan.kelola')).toBe(false); expect(can('owner', 'persetujuan.kelola')).toBe(true);
+    expect(canOpenView('staff', 'persetujuan')).toBe(false); expect(canOpenView('owner', 'persetujuan')).toBe(true);
   });
   it('Penggajian terbuka untuk staf, tapi daftar gaji semua karyawan hanya owner (staf lewat PIN karyawan)', () => {
     expect(canOpenView('staff', 'penggajian')).toBe(true);

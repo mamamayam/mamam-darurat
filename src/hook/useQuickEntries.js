@@ -3,16 +3,17 @@ import { supabase } from '../lib/supabase';
 import { deviceRpcArg } from '../lib/deviceId';
 import { toLocalDateString } from '../utils/formatters';
 import {
-  newAdditionRow, additionUpdateRow, deductionRpcArgs, summarizeTodayExpenses, buildFeed, pendingRequests, startOfLocalDayISO,
+  newAdditionRow, additionUpdateRow, deductionRpcArgs, summarizeTodayExpenses, buildFeed, startOfLocalDayISO,
   mapAdditionRow, mapDeductionRow, mapExpenseRow,
 } from '../features/home/quickEntryMath';
-import { setPendingApprovals } from './usePendingApprovals';
+import { onApprovalsChanged } from './usePendingApprovals';
 import { updateDeduction as updateDeductionRpc, fetchExpensePayment } from './deductionEdit';
 
 /**
  * useQuickEntries — data "Catat Cepat" di Beranda, ONLINE-FIRST.
  *
- *  - Tambah (payroll_additions): staf mengajukan ('menunggu'), owner menyetujui/menolak.
+ *  - Tambah (payroll_additions): staf mengajukan ('menunggu'). Owner memutuskan di sheet Persetujuan
+ *    (features/approvals); di sini keputusan hanya terdengar lewat sinyal onApprovalsChanged -> muat ulang.
  *  - Potongan: RPC catat_potongan = potongan gaji + pengeluaran karyawan dalam SATU
  *    transaksi (tunai otomatis mengurangi saldo Dompet).
  *  - Pengeluaran toko: disimpan form Pengeluaran biasa (ExpenseFormSheet); di sini hanya dibaca.
@@ -35,7 +36,6 @@ const EXPENSE_COLUMNS = 'id, category, amount, transaction_date, store_or_suppli
 export function useQuickEntries({ canApprove, onChanged }) {
   const [employees, setEmployees] = useState([]);
   const [additions, setAdditions] = useState([]);
-  const [pending, setPending] = useState([]);
   const [deductions, setDeductions] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [today, setToday] = useState(toLocalDateString());
@@ -58,12 +58,11 @@ export function useQuickEntries({ canApprove, onChanged }) {
         return base(EXPENSE_COLUMNS);   // migrasi 009 belum ada: semua dianggap pengeluaran toko
       };
 
-      const [emps, adds, deds, exps, pend] = await Promise.all([
+      const [emps, adds, deds, exps] = await Promise.all([
         supabase.from('employees').select('id, name, role, status').order('name'),
         supabase.from('payroll_additions').select('*').or(inToday('date')).order('created_at', { ascending: false }),
         supabase.from('payroll_deductions').select('*').or(inToday('date')).order('created_at', { ascending: false }),
         fetchExpenses(),
-        canApprove ? supabase.from('payroll_additions').select('*').eq('status', 'menunggu').order('created_at') : Promise.resolve({ data: [], error: null }),
       ]);
       const bad = [emps, adds, deds, exps].find(r => r.error);
       if (bad) throw new Error(bad.error.message);
@@ -73,9 +72,6 @@ export function useQuickEntries({ canApprove, onChanged }) {
       setAdditions((adds.data || []).map(r => mapAdditionRow(r, nameById)));
       setDeductions((deds.data || []).map(r => mapDeductionRow(r, nameById)));
       setExpenses((exps.data || []).map(mapExpenseRow));
-      const pendingRows = pend.error ? [] : (pend.data || []).map(r => mapAdditionRow(r, nameById));   // kolom status belum ada = tidak ada pengajuan
-      setPending(pendingRows);
-      setPendingApprovals(canApprove ? pendingRows.length : 0);
       setToday(day);
       setError(null);
     } catch (e) {
@@ -83,9 +79,10 @@ export function useQuickEntries({ canApprove, onChanged }) {
     } finally {
       setLoading(false);
     }
-  }, [canApprove]);
+  }, []);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => onApprovalsChanged(reload), [reload]);   // owner memutuskan di sheet Persetujuan: daftar catatan ikut segar
 
   // Owner perlu melihat pengajuan baru tanpa refresh: muat ulang saat aplikasi dibuka kembali + tiap 60 detik.
   useEffect(() => {
@@ -112,18 +109,6 @@ export function useQuickEntries({ canApprove, onChanged }) {
     if (e) fail(e, 'Gagal menyimpan potongan');
     await reload();
     onChangedRef.current?.();   // potongan = pengeluaran karyawan: kartu di Beranda ikut berubah
-  };
-
-  /** Owner: setujui / tolak pengajuan. Menolak 'sudah diputuskan di perangkat lain' dengan jelas. */
-  const decide = async (id, approve, reason = '') => {
-    const patch = approve
-      ? { status: 'disetujui', approved_by: 'Owner', approved_at: new Date().toISOString(), reject_reason: null }
-      : { status: 'ditolak', reject_reason: reason.trim() || null, approved_by: null, approved_at: null };
-    const { data, error: e } = await supabase.from('payroll_additions').update(patch).eq('id', id).eq('status', 'menunggu').select('id');
-    if (e) fail(e, approve ? 'Gagal menyetujui' : 'Gagal menolak');
-    if (!data || data.length === 0) { await reload(); throw new Error('Pengajuan ini sudah diputuskan sebelumnya. Tampilan sudah diperbarui.'); }
-    await reload();
-    onChangedRef.current?.();
   };
 
   /** Staf membatalkan pengajuan yang masih menunggu. */
@@ -167,11 +152,10 @@ export function useQuickEntries({ canApprove, onChanged }) {
 
   const totals = useMemo(() => summarizeTodayExpenses(expenses, today), [expenses, today]);
   const feed = useMemo(() => buildFeed({ additions, deductions, expenses }), [additions, deductions, expenses]);
-  const pendingList = useMemo(() => pendingRequests(pending), [pending]);
 
   return {
-    employees, pending: pendingList, feed, totals, today, loading, error, reload,
-    submitAddition, submitDeduction, decide, cancelRequest, afterExpenseSaved, lastRequester,
+    employees, feed, totals, today, loading, error, reload,
+    submitAddition, submitDeduction, cancelRequest, afterExpenseSaved, lastRequester,
     updateAddition, updateDeduction, deductionPayment,
   };
 }
