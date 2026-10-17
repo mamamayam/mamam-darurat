@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Calculator } from 'lucide-react';
 import NominalDock from './NominalDock';
 import NominalCalculator from './NominalCalculator';
-import Button from './Button';
 import {
   appendKey, backspaceDigits, toggleSign, parseNominal, toDigits, formatNominal,
 } from './nominalMath';
@@ -12,6 +11,8 @@ import {
  * dasar layar seperti keyboard biasa (lihat NominalDock), bukan pop-up geser.
  * Layout dari "Preview: Nominal Keypad + Kalkulator Popup": layar angka +
  * ikon kalkulator, lalu 1-9 / 000 0 ⌫.
+ * Tampilan SAMA dengan NominalCalculator: palet gelap/oranye SENGAJA tetap
+ * (tidak ikut tema aplikasi), seperti kalkulator bawaan HP.
  *
  * Nilai di-commit LIVE ke pemanggil tiap tombol ditekan (seperti mengetik di
  * field biasa); tombol "Selesai" atau Back HP cuma menutup.
@@ -28,8 +29,8 @@ import {
  *                              (mis. Kembalian di PaymentModal)
  *   onClose()
  */
-const KEY = 'flex-1 h-14 short:h-11 rounded-[18px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xl short:text-lg font-bold text-slate-800 dark:text-slate-100 active:bg-slate-100 dark:active:bg-slate-800 select-none touch-manipulation';
-const ICON_BTN = 'p-2 rounded-[10px] text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800 touch-manipulation';
+const KEY = 'h-14 short:h-11 rounded-2xl text-xl short:text-lg font-medium bg-[#262626] text-[#ECECEC] active:bg-[#3A3A3C] select-none touch-manipulation';
+const ICON_BTN = 'p-2 rounded-[10px] text-[#FF9F0A] active:bg-[#3A3A3C] touch-manipulation';
 
 export default function NominalKeypadSheet({
   value, onChange, title, prefix = 'Rp', suffix = '', allowNegative = false,
@@ -79,18 +80,18 @@ export default function NominalKeypadSheet({
   return (
     <>
       <NominalDock onClose={onClose} hidden={calcOpen}>
-        <div className="bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] max-h-[100dvh] overflow-y-auto">
+        <div className="bg-black border-t border-[#1C1C1E] px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] max-h-[100dvh] overflow-y-auto">
          <div className="w-full max-w-md mx-auto">
 
           {title && (
-            <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 truncate">{title}</div>
+            <div className="text-xs font-bold text-[#8E8E93] uppercase tracking-wider mb-2 truncate">{title}</div>
           )}
 
-          <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-4 pr-2.5 py-3.5 mb-2">
+          <div className="flex items-center rounded-2xl pl-4 pr-1 py-2 mb-1">
             <div
               data-testid="nominal-display"
-              className={`flex-1 text-xl font-extrabold overflow-x-auto whitespace-nowrap hide-scrollbar ${
-                empty ? 'text-slate-300 dark:text-slate-600' : 'text-slate-900 dark:text-slate-50'
+              className={`flex-1 text-right text-3xl font-medium overflow-x-auto whitespace-nowrap hide-scrollbar ${
+                empty ? 'text-[#8E8E93]' : 'text-white'
               }`}
             >
               {formatNominal(number, { prefix, suffix })}
@@ -108,27 +109,25 @@ export default function NominalKeypadSheet({
           </div>
 
           {hint && (
-            <div className="px-1 mb-1 text-xs font-bold text-slate-500 dark:text-slate-400">{hint(number)}</div>
+            <div className="px-1 mb-1 text-xs font-bold text-[#8E8E93]">{hint(number)}</div>
           )}
 
-          <div className="mt-3 short:mt-2 space-y-2 short:space-y-1.5">
-            {[['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']].map((row) => (
-              <div key={row[0]} className="flex gap-2.5">
-                {row.map((k) => (
-                  <button key={k} type="button" className={KEY} onClick={() => press(k)}>{k}</button>
-                ))}
-              </div>
+          <div className="mt-3 short:mt-2 grid grid-cols-3 gap-2 short:gap-1.5">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((k) => (
+              <button key={k} type="button" className={KEY} onClick={() => press(k)}>{k}</button>
             ))}
-            <div className="flex gap-2.5">
-              <button type="button" className={KEY} onClick={() => press('000')}>000</button>
-              <button type="button" className={KEY} onClick={() => press('0')}>0</button>
-              <button type="button" className={KEY} aria-label="Hapus" onClick={backspace}>⌫</button>
-            </div>
+            <button type="button" className={KEY} onClick={() => press('000')}>000</button>
+            <button type="button" className={KEY} onClick={() => press('0')}>0</button>
+            <button type="button" className={KEY} aria-label="Hapus" onClick={backspace}>⌫</button>
           </div>
 
-          <Button size="full" onClick={onClose} className="mt-3 short:py-2.5 touch-manipulation">
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-3 w-full h-12 short:h-11 rounded-[14px] bg-accent-600 dark:bg-accent-500 text-white text-sm font-bold select-none touch-manipulation"
+          >
             Selesai
-          </Button>
+          </button>
          </div>
         </div>
       </NominalDock>
