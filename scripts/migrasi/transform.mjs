@@ -400,6 +400,9 @@ export function buildPlan(backup, existing = {}, { withHistory = false } = {}) {
     const salesRaw = arr(backup.salesHistory);
     read.salesHistory = salesRaw.length;
     const exTx = new Set(ex.transactions.map((t) => t.id));
+    // Transaksi lama yang pernah masuk ke C lewat cara lain bisa punya id acak (bukan turunan id lama),
+    // tapi nomor ORD-nya (display_number) tetap sama dengan id lama -> dianggap sudah ada, jangan dimasukkan lagi.
+    const exTxDisplay = new Set(ex.transactions.map((t) => t.display_number).filter(Boolean));
     const seenOrder = new Set();
     let pointDiscountOrders = 0;
     let mismatch = 0;
@@ -419,7 +422,7 @@ export function buildPlan(backup, existing = {}, { withHistory = false } = {}) {
       if (total === null || total < 0) { skip('Transaksi', aid, 'total tidak valid'); continue; }
 
       const txId = uuid5(`order:${aid}`);
-      if (exTx.has(txId)) { bump('transactions', 'sudahAda'); continue; }
+      if (exTx.has(txId) || exTxDisplay.has(aid)) { bump('transactions', 'sudahAda'); continue; }
 
       const items = arr(o.items).filter(isObj);
       const subtotal = finite(o.subtotal) ?? items.reduce((s, it) => s + int(it.price, 0) * int(it.qty, 0), 0);

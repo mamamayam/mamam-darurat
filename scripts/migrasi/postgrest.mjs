@@ -100,7 +100,7 @@ export const EXISTING_READ = {
 };
 export const EXISTING_READ_HISTORY = {
   expense_categories: ['id,name,sort_order', 'id'],
-  transactions: ['id', 'id'],
+  transactions: ['id,display_number', 'id'],
   expenses: ['id', 'id'],
   shifts: ['id,opened_at,closed_at', 'id'],
 };

@@ -168,6 +168,19 @@ describe('aman diulang dan tidak menimpa', () => {
     const skippedTx = partial.transactions[0].id;
     expect(rowsOf(p, 'transaction_items').every((i) => i.transaction_id !== skippedTx)).toBe(true);
   });
+
+  it('transaksi yang sudah ada di C dengan id ACAK tapi nomor ORD-nya sama juga dilewati (tidak dobel)', () => {
+    // meniru C: transaksi lama masuk lewat cara lain, id-nya bukan uuid5 dari id lama
+    const existing = { transactions: [{ id: 'bdcce701-67d5-4320-8263-0664076747ed', display_number: 'ORD-AAAA0001' }] };
+    const p = buildPlan(makeBackup(), existing, { withHistory: true });
+    expect(p.stats.transactions.sudahAda).toBe(1);
+    expect(rowsOf(p, 'transactions').map((t) => t.display_number)).not.toContain('ORD-AAAA0001');
+    expect(rowsOf(p, 'transactions')).toHaveLength(3);
+    // itemnya pun tidak dimasukkan lagi, jadi transaksi lama itu tidak mendapat item ganda
+    const all = buildPlan(makeBackup(), {}, { withHistory: true });
+    const orphanTx = all.inserts.find((g) => g.table === 'transactions').rows.find((t) => t.display_number === 'ORD-AAAA0001').id;
+    expect(rowsOf(p, 'transaction_items').every((i) => i.transaction_id !== orphanTx)).toBe(true);
+  });
 });
 
 describe('riwayat', () => {
