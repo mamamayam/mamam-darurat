@@ -51,6 +51,24 @@ Boleh dijalankan berulang. Yang sudah ada di C dilewati, tidak ditimpa, tidak di
 - Pemasukan lain ikut dipindah, tapi layar Pengeluaran di C hanya menampilkan pengeluaran. Angkanya tetap dipakai hitungan Dompet.
 - Lakukan migrasi riwayat **sebelum** membuka Dompet baru di C, atau pastikan backup diambil sebelum Dompet C dibuka. Kalau tidak, skrip memperingatkan.
 
+## Kalau ekspor dari HP ketinggalan: ambil langsung dari Supabase A
+
+Ekspor JSON dari satu HP bisa kurang lengkap (HP lain belum sinkron). Tabel Supabase app lama berisi
+gabungan semua perangkat, jadi bisa dipakai sebagai sumber utama. Skrip `scripts/ambil-dari-supabase-a.mjs`
+membaca tabel itu (HANYA membaca), menggabungkannya dengan file backup yang sudah ada per id (tanpa duplikat),
+lalu menulis satu file JSON untuk skrip migrasi di atas.
+
+1. Tambahkan ke `.env.local` (project **A**, kunci anon-nya saja, bukan service_role):
+   `A_SUPABASE_URL=https://xxxx.supabase.co` dan `A_SUPABASE_ANON_KEY=eyJ...`
+2. `node scripts/ambil-dari-supabase-a.mjs --gabung "C:\\path\\backup.json"` (tabel bawaan: transaksi; tambah
+   `--tabel salesHistory,expenses` bila perlu. Tabel `customers` di A hanya bisa dibaca user yang login, jadi pelanggan
+   diambil dari file gabung). Hasilnya `hasil-gabungan-<waktu>.json`.
+3. Jalankan skrip migrasi dengan file itu: simulasi dulu, baru `--riwayat --apply`.
+
+Catatan: transaksi yang hanya ada di file gabung (tidak ada di Supabase) tidak punya rincian item bila file itu
+berasal dari Excel; skrip menghitung dan memberi tahu jumlahnya. Karyawan dan pelanggan di file gabung dipakai
+untuk menyambungkan pemegang kas kurir dan pelanggan pada transaksi.
+
 ## Membatalkan
 
 Setiap penulisan dicatat di `migrasi-log-<tanggal>.json` (di folder tempat skrip dijalankan). Simpan file itu.

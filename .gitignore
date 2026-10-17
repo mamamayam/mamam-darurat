@@ -11,6 +11,10 @@ dist
 # JANGAN masuk git. Simpan di laptop saja, jangan di-commit / di-upload.
 # Backup & ekspor dari app lama (A)
 mamam-ayam-backup*.json
+# Hasil skrip ambil-dari-supabase-a & file pelengkap (berisi data transaksi/pelanggan)
+hasil-gabungan*.json
+pelengkap-dari-excel.json
+pengeluaran-gabungan.json
 backup*.json
 # Log migrasi (dipakai skrip --batalkan, cukup disimpan lokal)
 migrasi-log-*.json
